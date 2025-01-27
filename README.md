@@ -11,10 +11,16 @@ Predefined string since i
 <identifier> ::= ([a-z] | [A-Z] | "_") ([a-z] | [A-Z] | [0-9] | "_")*
 <integer> ::= [1-9] [0-9]*
 <float> ::= ("0" "." [0-9]+) | ([1-9] [0-9]* "." [0-9]+)
+<number> := <integer> | <float>
 
 <literal> ::= <integer> | <float> | <string> | <set_literal>
 
-<expression> ::= <literal> | <func_expression> | <func_call>
+<expression> ::= <func_call>
+             | <expression> "+" <factor> | <expression> "-" <factor>
+             | <factor>
+
+<atom> := <number> | "(" <expression> ")"
+<factor> := <atom> | <factor> "*" <atom>
 
 <func_name> ::= <identifier>
 
