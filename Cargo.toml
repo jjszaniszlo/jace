@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 thiserror = "2"
-mlua = { version = "0.10", features = ["luajit", "vendored"] }
+mlua = { version = "0.10", features = ["luajit52", "vendored"] }
