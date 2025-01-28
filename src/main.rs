@@ -1,3 +1,9 @@
+use lexer::Lexer;
+
+mod lexer;
+
 fn main() {
-    println!("Hello, world!");
+    let program = "1 + 1";
+
+    let lexer = Lexer::init(program.to_string());
 }

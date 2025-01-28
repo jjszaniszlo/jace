@@ -71,7 +71,7 @@ type Person ::
   name : String
   age : Integer
 
-john = {name = "John", age = 21}
+john := {name = "John", age = 21}
 
 updateAge :: Person, Integer => Person
 updateAge :: case
@@ -81,14 +81,19 @@ updateAge :: case
 -- a class essentially determins a function prototype for the operator.
 class Equal a :: 
   (==) :: a, a => Bool
+  sameAge :: a, a => Bool
+  sameName :: a, a => Bool
 
 -- an instance implements a class's prototype
+-- slightly different than function syntax, where x and y are implicitly params of the implemented functions.
 instance Person Equal x y ::
-  (==) | x.name == y.name && x.age == y.age
+  (==) => x.name == y.name && x.age == y.age
+  sameAge => x.age == y.age
+  sameName => x.name == y.name
 
 -- sets of the Person type can now be compared.
-john2 = {name = "John", age = 21}
-harry = {name = "Harry", age = 21}
+john2 := {name = "John", age = 21}
+harry := {name = "Harry", age = 21}
 
 john == john2 -- outputs: true
 john == harry -- outputs: false
@@ -113,9 +118,9 @@ addOne :: sum 1
 addOne 2 -- outputs: 3
 
 -- higher order functions
-numSet = {1, 2, 3, 4}
+numSet := {1, 2, 3, 4}
 
-addTwoToSet :: Number[] => Number[]
+addTwoToSet :: [Number] => [Number]
 addTwoToSet :: case 
   {} => {}
   s => map (a => a + 2) s
