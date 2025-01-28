@@ -173,6 +173,14 @@ fn lex_symbol(src: &str) -> Result<(Token, usize), LexerError> {
     }
 }
 
+fn lex_string_allowed_whitespace(ch: char) -> bool {
+    match ch {
+        '\t' => true,
+        ' ' => true,
+        _ => false,
+    }
+}
+
 fn lex_string(src: &str) -> Result<(Token, usize), LexerError> {
     // check if the string starts with a ".
     match src.chars().next() {
@@ -186,14 +194,14 @@ fn lex_string(src: &str) -> Result<(Token, usize), LexerError> {
 
     // TODO: handle escape sequences.
     let (string, bytes_read) = consume_while(src, |ch| {
-        if ch.is_ascii_control() {
+        if ch.is_ascii_whitespace() && !lex_string_allowed_whitespace(ch) {
             Err(LexerError::MalformedString)
         } else {
             Ok(true)
         }
     })?;
 
-    Ok((Token::Multiply, 1))
+    Ok((Token::from(string), bytes_read))
 }
 
 
@@ -223,7 +231,7 @@ macro_rules! lexer_test {
         #[test]
         fn $name() {
             let got = $func($src);
-            assert!(got.is_err(), "{:?} should error but is not!", got);
+            assert!(got.is_err(), "{:?} should error but did not!", got);
         }
     };
     ($name:ident, $func:ident, $src:expr => $should_be:expr) => {  
@@ -236,6 +244,7 @@ macro_rules! lexer_test {
     };
 }
 
+// identifier tests
 lexer_test!(lex_identifier_single_letter, lex_identifier, "F" => Token::from("F"));
 lexer_test!(lex_identifier_underscore_first, lex_identifier, "_nice" => Token::from("_nice"));
 lexer_test!(lex_identifier_underscore_throughout, lex_identifier, "_n_i_c_e" => Token::from("_n_i_c_e"));
@@ -249,6 +258,7 @@ lexer_test!(lex_if_keyword, lex_identifier, "if" => Token::IfKeyword);
 lexer_test!(lex_then_keyword, lex_identifier, "then" => Token::ThenKeyword);
 lexer_test!(lex_else_keyword, lex_identifier, "else" => Token::ElseKeyword);
 
+// number tests
 lexer_test!(lex_integer, lex_number, "123" => Token::from(123));
 lexer_test!(lex_float, lex_number, "1.23" => Token::from(1.23));
 lexer_test!(lex_float2, lex_number, "0.56" => Token::from(0.56));
@@ -261,6 +271,7 @@ lexer_test!(FAIL:lex_malformed_integer, lex_number, "0123");
 lexer_test!(FAIL:lex_malformed_integer2, lex_number, "0000123");
 lexer_test!(FAIL:lex_malformed_integer3, lex_number, "1a23");
 
+// symbol tests
 lexer_test!(lex_equals, lex_symbol, "=" => Token::Equals);
 lexer_test!(lex_infered_equals, lex_symbol, ":=" => Token::InferredEquals);
 lexer_test!(lex_equals_equals, lex_symbol, "==" => Token::EqualsEquals);
@@ -298,6 +309,7 @@ lexer_test!(lex_multi_minus, lex_symbol, "---" => Token::Minus);
 lexer_test!(lex_multi_divide, lex_symbol, "///" => Token::Divide);
 lexer_test!(lex_multi_multiply, lex_symbol, "***" => Token::Multiply);
 
+// these are not valid symbols.  Tests invalid union symbols too.
 lexer_test!(FAIL:lex_invalid, lex_symbol, "$");
 lexer_test!(FAIL:lex_invalid1, lex_symbol, "^");
 lexer_test!(FAIL:lex_invalid2, lex_symbol, "#");
@@ -308,3 +320,12 @@ lexer_test!(FAIL:lex_invalid6, lex_symbol, "%%");
 lexer_test!(FAIL:lex_invalid7, lex_symbol, ">>");
 lexer_test!(FAIL:lex_invalid8, lex_symbol, "<<");
 
+// string tests.  For now, only single line.
+lexer_test!(lex_test_string, lex_string, "\"Test\"" => Token::from("\"Test\""));
+lexer_test!(FAIL:lex_random_string, lex_string, "\"asd\n");
+lexer_test!(FAIL:lex_random_string1, lex_string, "\"fasga ashasd asd\r");
+lexer_test!(FAIL:lex_random_string2, lex_string, "\"asda asd asd \nasd asdasdasd\nasdasd as dasd\"");
+lexer_test!(lex_tab_string, lex_string, "\"tab\ttest\"" => Token::from("\"tab\ttest\""));
+lexer_test!(lex_tab_string1, lex_string, "\"Totally a valid string!\t:)\"" => Token::from("\"Totally a valid string!\t:)\""));
+lexer_test!(lex_hello_world_string, lex_string, "\"Hello World!\"" => Token::from("\"Hello World!\""));
+lexer_test!(lex_ecaped_multiline_string, lex_string, "\"Here is a multiline\\n string escaped.\"" => Token::from("\"Here is a multiline\\n string escaped.\""));
