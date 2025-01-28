@@ -2,7 +2,7 @@
 
 A Haskell inspired compiler that targets Lua.
 
-Predefined string
+Predefined:
 - \<string\>
 
 # Grammar
