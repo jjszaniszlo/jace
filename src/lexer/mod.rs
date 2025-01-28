@@ -22,6 +22,9 @@ pub enum LexerError {
     #[error("Malformed integer")]
     MalformedInteger,
 
+    #[error("Malformed integer")]
+    MalformedString,
+
     #[error("Invalid symbol")]
     InvalidSymbol,
 }
@@ -106,8 +109,39 @@ pub fn lex_number(src: &str) -> Result<(Token, usize), LexerError> {
     }
 }
 
+fn lex_symbol_valid_single_only(ch: char) -> bool {
+    match ch {
+        '(' => true,
+        ')' => true,
+        '{' => true,
+        '}' => true,
+        '[' => true,
+        ']' => true,
+        '+' => true,
+        '-' => true,
+        '/' => true,
+        '*' => true,
+        _ => false,
+    }
+}
+
 fn lex_symbol(src: &str) -> Result<(Token, usize), LexerError> {
-    let (symbol, read_bytes) = consume_while(src, |ch| Ok(ch.is_ascii_punctuation()))?;
+    let mut cont = true;
+
+    // parse single variables wihtout looking ahead, whilst continue parsing for possible symbol unions.
+    // hack way of doing this, but it works.
+    let (symbol, read_bytes) = consume_while(src, |ch| {
+        if !cont {
+            Ok(false)
+        } else {
+            if lex_symbol_valid_single_only(ch) {
+                cont = false;
+                Ok(true)
+            } else {
+                Ok(ch.is_ascii_punctuation())
+            }
+        }
+    })?;
 
     match symbol {
         "=" => Ok((Token::Equals, read_bytes)),
@@ -116,6 +150,10 @@ fn lex_symbol(src: &str) -> Result<(Token, usize), LexerError> {
         "!=" => Ok((Token::NotEquals, read_bytes)),
         "&&" => Ok((Token::And, read_bytes)),
         "||" => Ok((Token::Or, read_bytes)),
+        ">" => Ok((Token::GreaterThan, read_bytes)),
+        "<" => Ok((Token::LessThan, read_bytes)),
+        ">=" => Ok((Token::GreaterEqualThan, read_bytes)),
+        "<=" => Ok((Token::LessEqualThan, read_bytes)),
         ":" => Ok((Token::Colon, read_bytes)),
         "::" => Ok((Token::ColonColon, read_bytes)),
         "=>" => Ok((Token::FatArrow, read_bytes)),
@@ -133,6 +171,29 @@ fn lex_symbol(src: &str) -> Result<(Token, usize), LexerError> {
         "*" => Ok((Token::Multiply, read_bytes)),
         _ => Err(LexerError::InvalidSymbol),
     }
+}
+
+fn lex_string(src: &str) -> Result<(Token, usize), LexerError> {
+    // check if the string starts with a ".
+    match src.chars().next() {
+        Some(ch) if ch == '"' => {},
+        None => return Err(LexerError::UnexpectedEOF),
+        Some(_) => return Err(LexerError::InvalidSymbol),
+    };
+
+    // first char is guaranteed " at this point, so lets just grab a slice after.
+    let start = &src[1..];
+
+    // TODO: handle escape sequences.
+    let (string, bytes_read) = consume_while(src, |ch| {
+        if ch.is_ascii_control() {
+            Err(LexerError::MalformedString)
+        } else {
+            Ok(true)
+        }
+    })?;
+
+    Ok((Token::Multiply, 1))
 }
 
 
@@ -206,6 +267,10 @@ lexer_test!(lex_equals_equals, lex_symbol, "==" => Token::EqualsEquals);
 lexer_test!(lex_not_equals, lex_symbol, "!=" => Token::NotEquals);
 lexer_test!(lex_and, lex_symbol, "&&" => Token::And);
 lexer_test!(lex_or, lex_symbol, "||" => Token::Or);
+lexer_test!(lex_greater_than, lex_symbol, ">" => Token::GreaterThan);
+lexer_test!(lex_less_than, lex_symbol, "<" => Token::LessThan);
+lexer_test!(lex_greater_equal_than, lex_symbol, ">=" => Token::GreaterEqualThan);
+lexer_test!(lex_less_equal_than, lex_symbol, "<=" => Token::LessEqualThan);
 lexer_test!(lex_colon, lex_symbol, ":" => Token::Colon);
 lexer_test!(lex_colon_colon, lex_symbol, "::" => Token::ColonColon);
 lexer_test!(lex_fat_arrow, lex_symbol, "=>" => Token::FatArrow);
@@ -221,4 +286,25 @@ lexer_test!(lex_plus, lex_symbol, "+" => Token::Plus);
 lexer_test!(lex_minus, lex_symbol, "-" => Token::Minus);
 lexer_test!(lex_divide, lex_symbol, "/" => Token::Divide);
 lexer_test!(lex_multiply, lex_symbol, "*" => Token::Multiply);
+
+// these are to test that it lexes only a single one of these specific symbols.
+lexer_test!(lex_multi_left_paren, lex_symbol, "(((((" => Token::LeftParen);
+lexer_test!(lex_multi_right_paren, lex_symbol, ")))))" => Token::RightParen);
+lexer_test!(lex_multi_left_brace, lex_symbol, "{{{{" => Token::LeftBrace);
+lexer_test!(lex_multi_right_brace, lex_symbol, "}}}" => Token::RightBrace);
+lexer_test!(lex_multi_left_bracket, lex_symbol, "[[[" => Token::LeftBracket);
+lexer_test!(lex_multi_plus, lex_symbol, "+++" => Token::Plus);
+lexer_test!(lex_multi_minus, lex_symbol, "---" => Token::Minus);
+lexer_test!(lex_multi_divide, lex_symbol, "///" => Token::Divide);
+lexer_test!(lex_multi_multiply, lex_symbol, "***" => Token::Multiply);
+
+lexer_test!(FAIL:lex_invalid, lex_symbol, "$");
+lexer_test!(FAIL:lex_invalid1, lex_symbol, "^");
+lexer_test!(FAIL:lex_invalid2, lex_symbol, "#");
+lexer_test!(FAIL:lex_invalid3, lex_symbol, "===>");
+lexer_test!(FAIL:lex_invalid4, lex_symbol, "===");
+lexer_test!(FAIL:lex_invalid5, lex_symbol, "!===");
+lexer_test!(FAIL:lex_invalid6, lex_symbol, "%%");
+lexer_test!(FAIL:lex_invalid7, lex_symbol, ">>");
+lexer_test!(FAIL:lex_invalid8, lex_symbol, "<<");
 

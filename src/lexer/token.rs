@@ -16,6 +16,10 @@ pub enum Token {
     NotEquals,      // !=
     And,            // &&
     Or,             // ||
+    GreaterThan,    // >
+    LessThan,       // <
+    GreaterEqualThan, // >=
+    LessEqualThan,  // <=
     Colon,          // :
     ColonColon,     // ::
     FatArrow,       // =>
