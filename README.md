@@ -7,6 +7,8 @@ Predefined string
 
 # Grammar
 
+Still incomplete in BNF form.  Need to figure out how to represent binary expressions properly without too much recursion.
+
 ```
 <identifier> ::= ([a-z] | [A-Z] | "_") ([a-z] | [A-Z] | [0-9] | "_")*
 <integer> ::= [1-9] [0-9]*
