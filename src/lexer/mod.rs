@@ -31,6 +31,9 @@ pub fn lex_identifier(src: &str) -> Result<(Token, usize), LexerError> {
         "class" => Token::ClassKeyword,
         "instance" => Token::InstanceKeyword,
         "case" => Token::CaseKeyword,
+        "if" => Token::IfKeyword,
+        "then" => Token::ThenKeyword,
+        "else" => Token::ElseKeyword,
         _ => Token::from(consumed_string)
     };
 
@@ -83,3 +86,6 @@ lexer_test!(lex_type_keyword, lex_identifier, "type" => Token::TypeKeyword);
 lexer_test!(lex_class_keyword, lex_identifier, "class" => Token::ClassKeyword);
 lexer_test!(lex_instance_keyword, lex_identifier, "instance" => Token::InstanceKeyword);
 lexer_test!(lex_case_keyword, lex_identifier, "case" => Token::CaseKeyword);
+lexer_test!(lex_if_keyword, lex_identifier, "if" => Token::IfKeyword);
+lexer_test!(lex_then_keyword, lex_identifier, "then" => Token::ThenKeyword);
+lexer_test!(lex_else_keyword, lex_identifier, "else" => Token::ElseKeyword);

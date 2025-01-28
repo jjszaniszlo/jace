@@ -37,6 +37,9 @@ pub enum Token {
     ClassKeyword,     // class
     InstanceKeyword,  // instance
     CaseKeyword,      // case
+    IfKeyword,        // if
+    ThenKeyword,      // then
+    ElseKeyword,      // else
 
 }
 
