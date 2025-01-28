@@ -1,5 +1,6 @@
-use thiserror::Error;
+use std::fmt::Display;
 
+#[derive(Debug)]
 pub enum Token {
     // payload tokens
     Integer(isize),
@@ -39,25 +40,32 @@ pub enum Token {
 
 }
 
-#[derive(Error, Debug)]
-enum LexerError {
-    #[error("Invalid char @ {line:?}")]
-    InvalidCharAt {
-        line: usize,
-    },
-
-    #[error("Unexpected EOF")]
-    UnexpectedEOF,
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({:?})", self)
+    }
 }
 
-
-
-fn lex_identifier(data: &str) -> Result<Token, LexerError> {
-    match data.chars().next() {
-        Some(ch) if ch.is_digit(10) => return Err(LexerError::InvalidCharAt { line:0 }),
-        None => return Err(LexerError::UnexpectedEOF),
-        _ => {},
+impl From<String> for Token {
+    fn from(other: String) -> Token {
+        Token::Identifier(other)
     }
+}
 
-    Ok(Token::Or)
+impl<'a> From<&'a str> for Token {
+    fn from(other: &'a str) -> Token {
+        Token::Identifier(other.to_string())
+    }
+}
+
+impl From<isize> for Token {
+    fn from(other: isize) -> Token {
+        Token::Integer(other)
+    }
+}
+
+impl From<f64> for Token {
+    fn from(other: f64) -> Token {
+        Token::Float(other)
+    }
 }
