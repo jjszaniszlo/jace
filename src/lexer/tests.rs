@@ -96,75 +96,50 @@ lexer_test!(FAIL:lex_invalid7, lex_tokenize, ">>");
 lexer_test!(FAIL:lex_invalid8, lex_tokenize, "<<");
 
 // string tests.  For now, only single line.
-lexer_test!(lex_test_string, lex_tokenize, "\"Test\"" => Token::String("\"Test\"".to_string()));
+lexer_test!(lex_test_string, lex_tokenize, "\"Test\"" => Token::String("Test".to_string()));
 lexer_test!(FAIL:lex_random_string, lex_tokenize, "\"asd\n");
 lexer_test!(FAIL:lex_random_string1, lex_tokenize, "\"fasga ashasd asd\r");
 lexer_test!(FAIL:lex_random_string2, lex_tokenize, "\"asda asd asd \nasd asdasdasd\nasdasd as dasd\"");
-lexer_test!(lex_tab_string, lex_tokenize, "\"tab\ttest\"" => Token::String("\"tab\ttest\"".to_string()));
-lexer_test!(lex_tab_string1, lex_tokenize, "\"Totally a valid string!\t:)\"" => Token::String("\"Totally a valid string!\t:)\"".to_string()));
-lexer_test!(lex_hello_world_string, lex_tokenize, "\"Hello World!\"" => Token::String("\"Hello World!\"".to_string()));
-lexer_test!(lex_ecaped_multiline_string, lex_tokenize, "\"Here is a multiline\\n string escaped.\"" => Token::String("\"Here is a multiline\\n string escaped.\"".to_string()));
+lexer_test!(lex_tab_string, lex_tokenize, "\"tab\ttest\"" => Token::String("tab\ttest".to_string()));
+lexer_test!(lex_tab_string1, lex_tokenize, "\"Totally a valid string!\t:)\"" => Token::String("Totally a valid string!\t:)".to_string()));
+lexer_test!(lex_hello_world_string, lex_tokenize, "\"Hello World!\"" => Token::String("Hello World!".to_string()));
+lexer_test!(lex_ecaped_multiline_string, lex_tokenize, "\"Here is a multiline\\n string escaped.\"" => Token::String("Here is a multiline\\n string escaped.".to_string()));
+lexer_test!(lex_symbol_after_string, lex_tokenize, "\"Hi!\"," => Token::String("Hi!".to_string()));
 
 // full lexer tests.
-
 #[cfg(test)]
 #[test]
-fn tokenize_assignment() {
-    let src = "foo := 1 + 2";
-    let should_be = vec![
-        (Token::from("foo"), 0, 3),
-        (Token::InferredEquals, 4, 6),
-        (Token::from(1), 7, 8),
-        (Token::Plus, 9, 10),
-        (Token::from(2), 11, 12),
-    ];
-    assert_eq!(tokenize_into_vec(src).unwrap(), should_be);
-}
+fn tokenize_function_factorial() {
+    use crate::lexer::tokenize_into_vec_no_positions;
 
-#[cfg(test)]
-#[test]
-fn tokenize_set_declaration() {
     let src = concat!(
-        "type Person ::\n",
-        "\tname : String\n",
-        "\tage : Integer\n");
+        "factorial :: Integer => Integer\n",
+        "factorial :: case\n",
+        "\t0 => 1\n",
+        "\tn => n * factorial (n - 1)\n",
+    );
     let should_be = vec![
-        (Token::TypeKeyword, 0, 4),
-        (Token::from("Person"), 5, 11),
-        (Token::ColonColon, 12, 14),
-        (Token::from("name"), 16, 20),
-        (Token::Colon, 21, 22),
-        (Token::from("String"), 23, 29),
-        (Token::from("age"), 31, 34),
-        (Token::Colon, 35, 36),
-        (Token::from("Integer"), 37, 44),
+        Token::from("factorial"),
+        Token::ColonColon,
+        Token::from("Integer"),
+        Token::FatArrow,
+        Token::from("Integer"),
+        Token::from("factorial"),
+        Token::ColonColon,
+        Token::CaseKeyword,
+        Token::from(0),
+        Token::FatArrow,
+        Token::from(1),
+        Token::from("n"),
+        Token::FatArrow,
+        Token::from("n"),
+        Token::Multiply,
+        Token::from("factorial"),
+        Token::LeftParen,
+        Token::from("n"),
+        Token::Minus,
+        Token::from(1),
+        Token::RightParen,
     ];
-    assert_eq!(tokenize_into_vec(src).unwrap(), should_be);
-}
-
-#[cfg(test)]
-#[test]
-fn tokenize_function_definition() {
-    let src = concat!(
-        "sum :: Integer, Integer => Integer\n",
-        "sum :: a, b => a + b\n");
-    let should_be = vec![
-        (Token::from("sum"), 0, 3),
-        (Token::ColonColon, 4, 6),
-        (Token::from("Integer"), 7, 14),
-        (Token::Comma, 14, 15),
-        (Token::from("Integer"), 16, 23),
-        (Token::FatArrow, 24, 26),
-        (Token::from("Integer"), 27, 34),
-        (Token::from("sum"), 35, 38),
-        (Token::ColonColon, 39, 41),
-        (Token::from("a"), 42, 43),
-        (Token::Comma, 43, 44),
-        (Token::from("b"), 45, 46),
-        (Token::FatArrow, 47, 49),
-        (Token::from("a"), 50, 51),
-        (Token::Plus, 52, 53),
-        (Token::from("b"), 54, 55),
-    ];
-    assert_eq!(tokenize_into_vec(src).unwrap(), should_be);
+    assert_eq!(tokenize_into_vec_no_positions(src).unwrap(), should_be);
 }

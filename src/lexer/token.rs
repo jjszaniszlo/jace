@@ -9,6 +9,10 @@ pub enum Token {
     Identifier(String),
     WrappedOperator(String),
 
+    Indent,
+    Whitespace,
+    NextLine,
+
     // non-payload tokens
     Equals,         // =
     InferredEquals, // :=

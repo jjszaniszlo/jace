@@ -62,10 +62,10 @@ pub fn lex_number(src: &str) -> Result<(Token, usize), LexerError> {
         _ => Ok(false),
     }?;
 
-    // a float that starts with 0, must be in the form 0.nnnn where n is a number 0-9.
+    // a float that starts with 0, must be either 0 or in the form 0.nnnn where n is a number 0-9.
     if float_starts_with_0 {
         match chars.next() {
-            Some(ch) if ch == '.' => {},
+            Some(ch) if ch == '.' || ch.is_whitespace() => {},
             None => return Err(LexerError::UnexpectedEOF),
             Some(_) => return Err(LexerError::MalformedFloat),
         }
@@ -183,23 +183,24 @@ fn lex_string_allowed_whitespace(ch: char) -> bool {
 }
 
 fn lex_string(src: &str) -> Result<(Token, usize), LexerError> {
-    // check if the string starts with a ".
-    match src.chars().next() {
-        Some(ch) if ch == '"' => {},
-        None => return Err(LexerError::UnexpectedEOF),
-        Some(_) => return Err(LexerError::InvalidSymbol),
-    };
+    let mut chars = src.chars();
+    let mut string = String::new();
 
-    // TODO: handle escape sequences.
-    let (string, bytes_read) = consume_while(src, |ch| {
-        if ch.is_ascii_whitespace() && !lex_string_allowed_whitespace(ch) {
-            Err(LexerError::MalformedString)
-        } else {
-            Ok(true)
+    chars.next();
+
+    // TODO: Escape strings.
+    while let Some(ch) = chars.next() {
+        if ch.is_whitespace() && !lex_string_allowed_whitespace(ch) {
+            return Err(LexerError::MalformedString);
         }
-    })?;
+        if ch == '"' {
+            break;
+        }
+        string.push(ch);
+    }
 
-    Ok((Token::String(string.to_string()), bytes_read))
+    // add length of two '"' since we ignored it earlier.
+    Ok((Token::String(string.clone()), string.len() + '"'.len_utf8() * 2))
 }
 
 
@@ -248,13 +249,19 @@ fn lex_tokenize(src: &str) -> Result<(Token, usize), LexerError> {
 pub struct Lexer<'a> {
     pos: usize,
     src: &'a str,
+
+    line: usize,
+    col: usize,
 }
 
 impl<'a> Lexer<'a> {
     pub fn init(src: &str) -> Lexer {
         Lexer {
             pos: 0,
-            src
+            src,
+            
+            line: 0,
+            col: 0,
         }
     }
 
@@ -286,6 +293,18 @@ pub fn tokenize_into_vec(src: &str) -> Result<Vec<(Token, usize, usize)>, LexerE
     let mut tokens = Vec::new();
 
     while let Some(token) = lexer.next()? {
+        tokens.push(token)
+    }
+
+    Ok(tokens)
+}
+
+// helper function for some lexer tests
+pub fn tokenize_into_vec_no_positions(src: &str) -> Result<Vec<Token>, LexerError> {
+    let mut lexer = Lexer::init(src);
+    let mut tokens = Vec::new();
+
+    while let Some((token,_,_)) = lexer.next()? {
         tokens.push(token)
     }
 
