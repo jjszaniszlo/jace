@@ -35,10 +35,14 @@ lexer_test!(lex_else_keyword, lex_tokenize, "else" => Token::ElseKeyword);
 
 // number tests
 lexer_test!(lex_integer, lex_tokenize, "123" => Token::from(123));
+lexer_test!(lex_integer_operator_after, lex_tokenize, "123+2" => Token::from(123));
+lexer_test!(lex_integer_operator_after1, lex_tokenize, "123," => Token::from(123));
 lexer_test!(lex_float, lex_tokenize, "1.23" => Token::from(1.23));
 lexer_test!(lex_float2, lex_tokenize, "0.56" => Token::from(0.56));
 lexer_test!(lex_float3, lex_tokenize, "1000.35" => Token::from(1000.35));
 lexer_test!(lex_float4, lex_tokenize, "1432.356161" => Token::from(1432.356161));
+lexer_test!(lex_float_operator_after, lex_tokenize, "62.5+2" => Token::from(62.5));
+lexer_test!(lex_float_operator_after1, lex_tokenize, "0.31," => Token::from(0.31));
 lexer_test!(FAIL:lex_malformed_float, lex_tokenize, "001.23");
 lexer_test!(FAIL:lex_malformed_float2, lex_tokenize, "1000.a");
 lexer_test!(FAIL:lex_malformed_float3, lex_tokenize, "5.a44f");
@@ -73,6 +77,19 @@ lexer_test!(lex_minus, lex_tokenize, "-" => Token::Minus);
 lexer_test!(lex_divide, lex_tokenize, "/" => Token::Divide);
 lexer_test!(lex_multiply, lex_tokenize, "*" => Token::Multiply);
 
+lexer_test!(lex_wrapped_equals_equals, lex_tokenize, "(==)" => Token::WrappedEqualsEquals);
+lexer_test!(lex_wrapped_not_equals, lex_tokenize, "(!=)" => Token::WrappedNotEquals);
+lexer_test!(lex_wrapped_greater_than, lex_tokenize, "(>)" => Token::WrappedGreater);
+lexer_test!(lex_wrapped_less_than, lex_tokenize, "(<)" => Token::WrappedLess);
+lexer_test!(lex_wrapped_greater_equal_than, lex_tokenize, "(>=)" => Token::WrappedGreaterEquals);
+lexer_test!(lex_wrapped_less_equal_than, lex_tokenize, "(<=)" => Token::WrappedLessEquals);
+lexer_test!(lex_wrapped_plus, lex_tokenize, "(+)" => Token::WrappedPlus);
+lexer_test!(lex_wrapped_minus, lex_tokenize, "(-)" => Token::WrappedMinus);
+lexer_test!(lex_wrapped_divide, lex_tokenize, "(/)" => Token::WrappedDivide);
+lexer_test!(lex_wrapped_multiply, lex_tokenize, "(*)" => Token::WrappedMultiply);
+
+lexer_test!(lex_paren_then_wrapped, lex_tokenize, "((*))" => Token::LeftParen);
+
 // these are to test that it lexes only a single one of these specific symbols.
 lexer_test!(lex_multi_left_paren, lex_tokenize, "(((((" => Token::LeftParen);
 lexer_test!(lex_multi_right_paren, lex_tokenize, ")))))" => Token::RightParen);
@@ -97,14 +114,17 @@ lexer_test!(FAIL:lex_invalid8, lex_tokenize, "<<");
 
 // string tests.  For now, only single line.
 lexer_test!(lex_test_string, lex_tokenize, "\"Test\"" => Token::String("Test".to_string()));
-lexer_test!(FAIL:lex_random_string, lex_tokenize, "\"asd\n");
-lexer_test!(FAIL:lex_random_string1, lex_tokenize, "\"fasga ashasd asd\r");
-lexer_test!(FAIL:lex_random_string2, lex_tokenize, "\"asda asd asd \nasd asdasdasd\nasdasd as dasd\"");
+lexer_test!(FAIL:lex_unterminated_string, lex_tokenize, "\"asd\n");
+lexer_test!(FAIL:lex_unterminated_string1, lex_tokenize, "\"fasga ashasd asd\r");
+lexer_test!(FAIL:lex_next_line_literal, lex_tokenize, "\"asda asd asd \nasd asdasdasd\nasdasd as dasd\"");
+lexer_test!(FAIL:lex_invalid_escape, lex_tokenize, "\"This is an invalid escape: \\x\"");
+lexer_test!(lex_valid_escape, lex_tokenize, "\"This is an valid escape: \\t\"" => Token::String("This is an valid escape: \\t".to_string()));
 lexer_test!(lex_tab_string, lex_tokenize, "\"tab\ttest\"" => Token::String("tab\ttest".to_string()));
-lexer_test!(lex_tab_string1, lex_tokenize, "\"Totally a valid string!\t:)\"" => Token::String("Totally a valid string!\t:)".to_string()));
 lexer_test!(lex_hello_world_string, lex_tokenize, "\"Hello World!\"" => Token::String("Hello World!".to_string()));
 lexer_test!(lex_ecaped_multiline_string, lex_tokenize, "\"Here is a multiline\\n string escaped.\"" => Token::String("Here is a multiline\\n string escaped.".to_string()));
 lexer_test!(lex_symbol_after_string, lex_tokenize, "\"Hi!\"," => Token::String("Hi!".to_string()));
+lexer_test!(lex_symbol_after_string1, lex_tokenize, "\"seconds!\"=>" => Token::String("seconds!".to_string()));
+lexer_test!(lex_space_after_string, lex_tokenize, "\"space...\" " => Token::String("space...".to_string()));
 
 // full lexer tests.
 #[cfg(test)]
@@ -141,5 +161,6 @@ fn tokenize_function_factorial() {
         Token::from(1),
         Token::RightParen,
     ];
+
     assert_eq!(tokenize_into_vec_no_positions(src).unwrap(), should_be);
 }

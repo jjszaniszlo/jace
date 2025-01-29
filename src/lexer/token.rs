@@ -8,10 +8,6 @@ pub enum Token {
     String(String),
     Identifier(String),
 
-    Indent,
-    Whitespace,
-    NextLine,
-
     // binary operators
     EqualsEquals,       // ==
     NotEquals,          // !=

@@ -241,6 +241,7 @@ fn lex_string_literal(src: &str, line: usize, col: usize) -> TokenResult {
                 escaped = true;
                 string_literal.push(ch);
             }
+            // valid escape codes.
             ch @ ('a' |'b' | 'f' | 'n' |'r' |'t' | 'v' | '\''
                 | '?' |'0') => {
                 if escaped {
@@ -307,6 +308,7 @@ impl<'a> Lexer<'a> {
             // pass in line and col to tokenizer for nice-ish tokenization errors.
             let (token, line, col, byte_size) = lex_tokenize(self.src, self.line, self.col)?;
             self.consume(byte_size);
+            self.col += byte_size;
             Ok(Some((token, line, col, byte_size)))
         }
     }
@@ -315,16 +317,16 @@ impl<'a> Lexer<'a> {
         let mut chars = self.src.chars();
         let mut bytes_read = 0;
 
-        while let Some(ch) = chars.next() {
-            match ch {
+        while let Some(next_char) = chars.next() {
+            match next_char {
                 c if !c.is_whitespace() => break,
                 c if c == '\n' => {
                     self.col = 0;
-                    self.line += c.len_utf8();
+                    self.line += 1;
                 },
-                _ => {},
+                c => self.col += c.len_utf8(),
             }
-            bytes_read += ch.len_utf8();
+            bytes_read += next_char.len_utf8();
         }
 
         self.consume(bytes_read);
@@ -332,7 +334,6 @@ impl<'a> Lexer<'a> {
 
     pub fn consume (&mut self, bytes: usize) {
         self.src = &self.src[bytes..];
-        self.col += bytes;
     }
 }
 
