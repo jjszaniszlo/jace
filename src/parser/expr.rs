@@ -1,32 +1,36 @@
 use super::*;
 
-
 impl Expr {
     fn expr_to_atom(expr: Expr) -> Self {
         Expr::Atom(Box::new(Atom::from(expr)))
     }
 }
 
-impl From<usize> for Expr {
-    fn from(value: usize) -> Self {
-        return Expr::Atom(Box::new(Atom::from(value)));
-    }
+// evil macros
+macro_rules! impl_from_for_expr_box_wrapper {
+    ($($T:ident),+ $(,)?) => {
+        $(
+            impl From<$T> for Expr {
+                fn from(value: $T) -> Self {
+                    Expr::$T(Box::new(value))
+                }
+            }
+        )+
+    };
 }
 
-impl From<f64> for Expr {
-    fn from(value: f64) -> Self {
-        return Expr::Atom(Box::new(Atom::from(value)));
-    }
+impl_from_for_expr_box_wrapper!(BinOpExpr, LetInExpr);
+
+macro_rules! impl_from_for_expr_atom_box_wrapper {
+    ($($T:ident),+ $(,)?) => {
+        $(
+            impl From<$T> for Expr {
+                fn from(value: $T) -> Self {
+                    Expr::Atom(Box::new(Atom::from(value)))
+                }
+            }
+        )+
+    };
 }
 
-impl From<String> for Expr {
-    fn from(value: String) -> Self {
-        return Expr::Atom(Box::new(Atom::from(value)));
-    }
-}
-
-impl From<bool> for Expr {
-    fn from(value: bool) -> Self {
-        return Expr::Atom(Box::new(Atom::from(value)));
-    }
-}
+impl_from_for_expr_atom_box_wrapper!(usize, f64, String, bool);
