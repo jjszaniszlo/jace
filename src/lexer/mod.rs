@@ -81,6 +81,8 @@ fn lex_identifer(src: &str, line: usize, col: usize) -> TokenResult {
         "type" => Ok((Token::TypeKeyword, line, col, identifier.len())),
         "class" => Ok((Token::ClassKeyword, line, col, identifier.len())),
         "instance" => Ok((Token::InstanceKeyword, line, col, identifier.len())),
+        "true" => Ok((Token::Bool(true), line, col, identifier.len())),
+        "false" => Ok((Token::Bool(false), line, col, identifier.len())),
         "case" => Ok((Token::CaseKeyword, line, col, identifier.len())),
         "let" => Ok((Token::LetKeyword, line, col, identifier.len())),
         "in" => Ok((Token::InKeyword, line, col, identifier.len())),
