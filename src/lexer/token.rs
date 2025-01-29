@@ -7,6 +7,7 @@ pub enum Token {
     Float(f64),
     String(String),
     Identifier(String),
+    Bool(bool),
 
     // binary operators
     EqualsEquals,       // ==
