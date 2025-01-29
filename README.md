@@ -66,14 +66,49 @@ Still incomplete in BNF form.  Need to figure out how to represent binary expres
 <def_instance> := "instance" <type_name> <class_name> <instance_args> "::\n" <instance_fn_defs>
 
 ```
+
+## Structure
+
+A jace file always will follow the following structure
+
+1) All Definitions
+2) A single expression
+
+
+```Haskell
+
+MyModule :: mod mymodule
+
+-- all definitions which can be remembered by the :: syntax
+type Foo ::
+    ...
+
+class Bar _ ::
+    ...
+
+instance Foo Bar _ ::
+    ...
+
+fooFunc :: Foo => Foo
+fooFunc :: {} => {}
+
+-- then a single expression as an entry point to the program or module.
+-- for example this:
+fooFunc {}
+
+-- or this
+let
+    x : Foo = {} 
+in fooFunc x
+
+```
+
 A snippet of what all that looks like.
 
 ```Haskell
 type Person ::
   name : String
   age : Integer
-
-john := {name = "John", age = 21}
 
 updateAge :: Person, Integer => Person
 updateAge :: case
@@ -93,13 +128,6 @@ instance Person Equal x y ::
   sameAge => x.age == y.age
   sameName => x.name == y.name
 
--- sets of the Person type can now be compared.
-john2 := {name = "John", age = 21}
-harry := {name = "Harry", age = 21}
-
-john == john2 -- outputs: true
-john == harry -- outputs: false
-
 -- the classes act as a means for ad-hoc polymorphism, for both operators and functions.
 type Foo ::
   bar : String
@@ -117,15 +145,10 @@ sum :: a, b =>  c + d
 -- addOne is a curried function of sum
 addOne :: sum 1
 
-addOne 2 -- outputs: 3
-
--- higher order functions
-numSet := {1, 2, 3, 4}
-
 addTwoToSet :: [Number] => [Number]
 addTwoToSet :: case 
   {} => {}
-  s => map (a => a + 2) s
+  s => map (a => a + 2) s 
 ```
 
 Here's what the lua output could look like.
