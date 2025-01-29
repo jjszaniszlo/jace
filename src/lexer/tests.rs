@@ -5,7 +5,7 @@ macro_rules! lexer_test {
         #[cfg(test)]
         #[test]
         fn $name() {
-            let got = $func($src);
+            let got = $func($src, 0, 0);
             assert!(got.is_err(), "{:?} should error but did not!", got);
         }
     };
@@ -13,8 +13,8 @@ macro_rules! lexer_test {
         #[cfg(test)]
         #[test]
         fn $name() {
-            let (got, _bytes_read) = $func($src).unwrap();
-            assert_eq!(got, $should_be, "Got {:?} but should be {:?}", $src, $should_be);
+            let (got, _line, _col, _bytes_read) = $func($src, 0, 0).unwrap();
+            assert_eq!(got, $should_be, "Got {:?} but should be {:?}", got, $should_be);
         }
     };
 }
@@ -53,10 +53,10 @@ lexer_test!(lex_equals_equals, lex_tokenize, "==" => Token::EqualsEquals);
 lexer_test!(lex_not_equals, lex_tokenize, "!=" => Token::NotEquals);
 lexer_test!(lex_and, lex_tokenize, "&&" => Token::And);
 lexer_test!(lex_or, lex_tokenize, "||" => Token::Or);
-lexer_test!(lex_greater_than, lex_tokenize, ">" => Token::GreaterThan);
-lexer_test!(lex_less_than, lex_tokenize, "<" => Token::LessThan);
-lexer_test!(lex_greater_equal_than, lex_tokenize, ">=" => Token::GreaterEqualThan);
-lexer_test!(lex_less_equal_than, lex_tokenize, "<=" => Token::LessEqualThan);
+lexer_test!(lex_greater_than, lex_tokenize, ">" => Token::Greater);
+lexer_test!(lex_less_than, lex_tokenize, "<" => Token::Less);
+lexer_test!(lex_greater_equal_than, lex_tokenize, ">=" => Token::GreaterEquals);
+lexer_test!(lex_less_equal_than, lex_tokenize, "<=" => Token::LessEquals);
 lexer_test!(lex_colon, lex_tokenize, ":" => Token::Colon);
 lexer_test!(lex_colon_colon, lex_tokenize, "::" => Token::ColonColon);
 lexer_test!(lex_fat_arrow, lex_tokenize, "=>" => Token::FatArrow);
@@ -79,10 +79,10 @@ lexer_test!(lex_multi_right_paren, lex_tokenize, ")))))" => Token::RightParen);
 lexer_test!(lex_multi_left_brace, lex_tokenize, "{{{{" => Token::LeftBrace);
 lexer_test!(lex_multi_right_brace, lex_tokenize, "}}}" => Token::RightBrace);
 lexer_test!(lex_multi_left_bracket, lex_tokenize, "[[[" => Token::LeftBracket);
-lexer_test!(lex_multi_plus, lex_tokenize, "+++" => Token::Plus);
-lexer_test!(lex_multi_minus, lex_tokenize, "---" => Token::Minus);
-lexer_test!(lex_multi_divide, lex_tokenize, "///" => Token::Divide);
-lexer_test!(lex_multi_multiply, lex_tokenize, "***" => Token::Multiply);
+lexer_test!(FAIL: lex_multi_plus, lex_tokenize, "+++");
+lexer_test!(FAIL: lex_multi_minus, lex_tokenize, "---");
+lexer_test!(FAIL: lex_multi_divide, lex_tokenize, "///");
+lexer_test!(FAIL: lex_multi_multiply, lex_tokenize, "***");
 
 // these are not valid symbols.  Tests invalid union symbols too.
 lexer_test!(FAIL:lex_invalid, lex_tokenize, "$");

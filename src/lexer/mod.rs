@@ -6,250 +6,285 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum LexerError {
-    #[error("Invalid char {}", ch)]
+    #[error("Invalid char {} @ {}:{}", ch, line, col)]
     InvalidChar {
         ch: char,
+        line: usize,
+        col: usize,
     },
 
-    #[error("Unexpected EOF")]
+    #[error("UnexpectedEOF")]
     UnexpectedEOF,
 
-    #[error("Match error in consume_while")]
-    MatchError,
+    #[error("Invalid char when parsing float {} @ {}:{}", ch, line, col)]
+    InvalidCharFloat {
+        ch: char,
+        line: usize,
+        col: usize,
+    },
 
-    #[error("Malformed float")]
-    MalformedFloat,
+    #[error("Malformed float when tokenizing {}:{}", line, col)]
+    MalformedFloat {
+        line: usize,
+        col : usize,
+    },
 
-    #[error("Malformed integer")]
-    MalformedInteger,
+    #[error("Malformed integer when tokenizing {}:{}", line, col)]
+    MalformedInteger {
+        line: usize,
+        col : usize,
+    },
 
-    #[error("Malformed integer")]
-    MalformedString,
+    #[error("Malformed operator when tokenizing {}:{}", line, col)]
+    MalformedOperator {
+        line: usize,
+        col : usize,
+    },
 
-    #[error("Invalid symbol")]
-    InvalidSymbol,
+    #[error("Invalid string escape sequence when tokenizing {}:{}", line, col)]
+    InvalidStringEscapeSequence {
+        line: usize,
+        col : usize,
+    },
+
+    #[error("Invalid char when parsing string {} @ {}:{}", ch, line, col)]
+    InvalidCharString {
+        ch: char,
+        line: usize,
+        col: usize,
+    },
+
+    #[error("Unterminated string! @ {}:{}", line, col)]
+    UnterminatedString {
+        line: usize,
+        col: usize,
+    },
 }
 
-pub fn lex_identifier(src: &str) -> Result<(Token, usize), LexerError> {
-    match src.chars().next() {
-        Some(ch) if ch.is_digit(10) => return Err(LexerError::InvalidChar {ch}),
-        None => return Err(LexerError::UnexpectedEOF),
-        _ => {},
+type Line = usize;
+type ColStart = usize;
+
+type TokenResult = Result<(Token, Line, ColStart, usize), LexerError>;
+
+fn lex_identifer(src: &str, line: usize, col: usize) -> TokenResult {
+    let mut chars = src.chars();
+    let mut identifier = String::new();
+
+    while let Some(next_char) = chars.next() {
+        match next_char {
+            ch if ch.is_alphanumeric() || ch == '_' => identifier.push(ch),
+            _ => break,
+        };
     }
 
-    let (consumed_string, read_bytes) = consume_while(src, |ch| Ok(ch == '_' || ch.is_alphanumeric()))?;
+    match identifier.as_str() {
+        "type" => Ok((Token::TypeKeyword, line, col, identifier.len())),
+        "class" => Ok((Token::ClassKeyword, line, col, identifier.len())),
+        "instance" => Ok((Token::InstanceKeyword, line, col, identifier.len())),
+        "case" => Ok((Token::CaseKeyword, line, col, identifier.len())),
+        "let" => Ok((Token::LetKeyword, line, col, identifier.len())),
+        "in" => Ok((Token::InKeyword, line, col, identifier.len())),
+        "if" => Ok((Token::IfKeyword, line, col, identifier.len())),
+        "then" => Ok((Token::ThenKeyword, line, col, identifier.len())),
+        "else" => Ok((Token::ElseKeyword, line, col, identifier.len())),
+        _ => Ok((Token::from(identifier.clone()), line, col, identifier.len()))
+    }
+}
 
-    let tok = match consumed_string {
-        "type" => Token::TypeKeyword,
-        "class" => Token::ClassKeyword,
-        "instance" => Token::InstanceKeyword,
-        "case" => Token::CaseKeyword,
-        "if" => Token::IfKeyword,
-        "then" => Token::ThenKeyword,
-        "else" => Token::ElseKeyword,
-        _ => Token::from(consumed_string)
+fn lex_number(src: &str, line: usize, col: usize) -> TokenResult {
+    let mut chars = src.chars();
+    let mut number = String::new();
+    
+    let mut is_float = match chars.next() {
+        Some(c @ '0'..'9') => {
+            number.push(c);
+            c == '0'
+        },
+        _ => false,
     };
 
-    Ok((tok, read_bytes))
-}
-
-pub fn lex_number(src: &str) -> Result<(Token, usize), LexerError> {
-    // early float validity checks.
-    let mut chars = src.chars();
-    let float_starts_with_0 = match chars.next() {
-        Some(ch) if ch == '0' => Ok(true),
-        None => Err(LexerError::UnexpectedEOF),
-        _ => Ok(false),
-    }?;
-
-    // a float that starts with 0, must be either 0 or in the form 0.nnnn where n is a number 0-9.
-    if float_starts_with_0 {
+    if is_float {
         match chars.next() {
-            Some(ch) if ch == '.' || ch.is_whitespace() => {},
+            Some(ch @ '.') => number.push(ch),
+            Some(ch) if ch.is_ascii_punctuation() || ch.is_whitespace() => is_float = false,
+            Some(ch @ _) => return Err(LexerError::InvalidCharFloat { ch , line, col }),
             None => return Err(LexerError::UnexpectedEOF),
-            Some(_) => return Err(LexerError::MalformedFloat),
-        }
+        };
     }
 
-    let mut found_dot = false;
+    while let Some(next_char) = chars.next() {
+        match next_char {
+            ch if ch.is_numeric() => number.push(ch),
+            ch if ch.is_alphabetic()  => return Err(LexerError::InvalidCharFloat { ch , line, col }),
+            ch @ '.' => {
+                if is_float {
+                    return Err(LexerError::InvalidCharFloat { ch , line, col })
+                } else {
+                    number.push(ch);
+                    is_float = true;
+                }
+            },
+            _ => break,
+        };
+    }
 
-    // a little bit ugly but should match all valid floats and integers.
-    let (number, read_bytes) = consume_while(src, |ch| {
-        if ch.is_digit(10) {
-            Ok(true)
-        } else if ch == '.' {
-            if found_dot {
-                Err(LexerError::MalformedFloat)
-            } else {
-                found_dot = true;
-                Ok(true)
-            }
-        // don't let it absorb symbols or whitespace and fail.
-        } else if ch.is_ascii_punctuation() || ch.is_whitespace() {
-            Ok(false)
-        // let everything else be aborbed for error cases.
-        // (stuff like 123a or 123bar, should fail.)
-        } else {
-            Ok(true)
+    if is_float {
+        match number.parse::<f64>() {
+            Ok(f) => Ok((Token::from(f), line, col, number.len())),
+            Err(_) => Err(LexerError::MalformedFloat { line, col }),
         }
-    })?;
-
-    // allowing it to absorb alphabetic chars in the last step allows for easy fail cases here.
-    if found_dot {
-        let float  = match number.parse::<f64>() {
-            Ok(f) => Ok(f),
-            Err(_) => Err(LexerError::MalformedFloat),
-        }?;
-        Ok((Token::from(float), read_bytes))
     } else {
-        let integer  = match number.parse::<isize>() {
-            Ok(i) => Ok(i),
-            Err(_) => Err(LexerError::MalformedInteger),
-        }?;
-        Ok((Token::from(integer), read_bytes))
-    }
-}
-
-fn lex_symbol_valid_single_only(ch: char) -> bool {
-    match ch {
-        '(' => true,
-        ')' => true,
-        '{' => true,
-        '}' => true,
-        '[' => true,
-        ']' => true,
-        '+' => true,
-        '-' => true,
-        '/' => true,
-        '*' => true,
-        _ => false,
-    }
-}
-
-fn lex_symbol(src: &str) -> Result<(Token, usize), LexerError> {
-    let mut cont = true;
-
-    // parse single variables wihtout looking ahead, whilst continue parsing for possible symbol unions.
-    // hack way of doing this, but it works.
-    let (symbol, read_bytes) = consume_while(src, |ch| {
-        if !cont {
-            Ok(false)
-        } else {
-            if lex_symbol_valid_single_only(ch) {
-                cont = false;
-                Ok(true)
-            } else {
-                Ok(ch.is_ascii_punctuation())
-            }
+        match number.parse::<usize>() {
+            Ok(f) => Ok((Token::from(f), line, col, number.len())),
+            Err(_) => Err(LexerError::MalformedInteger { line, col }),
         }
-    })?;
-
-    match symbol {
-        "=" => Ok((Token::Equals, read_bytes)),
-        ":=" => Ok((Token::InferredEquals, read_bytes)),
-        "==" => Ok((Token::EqualsEquals, read_bytes)),
-        "!=" => Ok((Token::NotEquals, read_bytes)),
-        "&&" => Ok((Token::And, read_bytes)),
-        "||" => Ok((Token::Or, read_bytes)),
-        ">" => Ok((Token::GreaterThan, read_bytes)),
-        "<" => Ok((Token::LessThan, read_bytes)),
-        ">=" => Ok((Token::GreaterEqualThan, read_bytes)),
-        "<=" => Ok((Token::LessEqualThan, read_bytes)),
-        ":" => Ok((Token::Colon, read_bytes)),
-        "::" => Ok((Token::ColonColon, read_bytes)),
-        "=>" => Ok((Token::FatArrow, read_bytes)),
-        "," => Ok((Token::Comma, read_bytes)),
-        "(" => Ok((Token::LeftParen, read_bytes)),
-        ")" => Ok((Token::RightParen, read_bytes)),
-        "{" => Ok((Token::LeftBrace, read_bytes)),
-        "}" => Ok((Token::RightBrace, read_bytes)),
-        "[" => Ok((Token::LeftBracket, read_bytes)),
-        "]" => Ok((Token::RightBracket, read_bytes)),
-        "|" => Ok((Token::Union, read_bytes)),
-        "+" => Ok((Token::Plus, read_bytes)),
-        "-" => Ok((Token::Minus, read_bytes)),
-        "/" => Ok((Token::Divide, read_bytes)),
-        "*" => Ok((Token::Multiply, read_bytes)),
-        _ => Err(LexerError::InvalidSymbol),
     }
 }
 
-fn lex_string_allowed_whitespace(ch: char) -> bool {
-    match ch {
-        '\t' => true,
-        ' ' => true,
-        _ => false,
-    }
-}
-
-fn lex_string(src: &str) -> Result<(Token, usize), LexerError> {
+fn lex_operator(src: &str, line: usize, col: usize) -> TokenResult {
     let mut chars = src.chars();
-    let mut string = String::new();
+    let mut operator = String::new();
 
-    chars.next();
+    let mut could_be_wrapped_op = false;
 
-    // TODO: Escape strings.
-    while let Some(ch) = chars.next() {
-        if ch.is_whitespace() && !lex_string_allowed_whitespace(ch) {
-            return Err(LexerError::MalformedString);
+    while let Some(next_char) = chars.next() {
+        match next_char {
+            // these are symbols which can only be lexed as singles or terminates the wrapped
+            // operator.
+            ch @ ('{' | '}' | '[' | ']' | ')' | ',') => {
+                operator.push(ch);
+                break;
+            },
+
+            // these are symbols which can begin or continue longer symbols.
+            ch @ ('=' | ':' | '&' | '|' | '>' | '<' | '!'
+                      | '+' | '-' | '/' | '*') => operator.push(ch),
+
+            // wrapped operator logic. breaks if another (( instead of another symbol.
+            ch @ '(' => {
+                if could_be_wrapped_op {
+                    break;
+                }
+                could_be_wrapped_op = true;
+                operator.push(ch);
+            }
+
+            _ => break,
         }
-        if ch == '"' {
-            break;
-        }
-        string.push(ch);
     }
 
-    // add length of two '"' since we ignored it earlier.
-    Ok((Token::String(string.clone()), string.len() + '"'.len_utf8() * 2))
+    match operator.as_str() {
+        "==" => Ok((Token::EqualsEquals, line, col, operator.len())),
+        "!=" => Ok((Token::NotEquals, line, col, operator.len())),
+        "&&" => Ok((Token::And, line, col, operator.len())),
+        "||" => Ok((Token::Or, line, col, operator.len())),
+        ">=" => Ok((Token::GreaterEquals, line, col, operator.len())),
+        "<=" => Ok((Token::LessEquals, line, col, operator.len())),
+        ">" => Ok((Token::Greater, line, col, operator.len())),
+        "<" => Ok((Token::Less, line, col, operator.len())),
+        "+" => Ok((Token::Plus, line, col, operator.len())),
+        "-" => Ok((Token::Minus, line, col, operator.len())),
+        "/" => Ok((Token::Divide, line, col, operator.len())),
+        "*" => Ok((Token::Multiply, line, col, operator.len())),
+
+        "(==)" => Ok((Token::WrappedEqualsEquals, line, col, operator.len())),
+        "(!=)" => Ok((Token::WrappedNotEquals, line, col, operator.len())),
+        "(>=)" => Ok((Token::WrappedGreaterEquals, line, col, operator.len())),
+        "(<=)" => Ok((Token::WrappedLessEquals, line, col, operator.len())),
+        "(>)" => Ok((Token::WrappedGreater, line, col, operator.len())),
+        "(<)" => Ok((Token::WrappedLess, line, col, operator.len())),
+        "(+)" => Ok((Token::WrappedPlus, line, col, operator.len())),
+        "(-)" => Ok((Token::WrappedMinus, line, col, operator.len())),
+        "(/)" => Ok((Token::WrappedDivide, line, col, operator.len())),
+        "(*)" => Ok((Token::WrappedMultiply, line, col, operator.len())),
+
+        "=" => Ok((Token::Equals, line, col, operator.len())),
+        ":=" => Ok((Token::InferredEquals, line, col, operator.len())),
+        ":" => Ok((Token::Colon, line, col, operator.len())),
+        "::" => Ok((Token::ColonColon, line, col, operator.len())),
+        "|" => Ok((Token::Union, line, col, operator.len())),
+        "=>" => Ok((Token::FatArrow, line, col, operator.len())),
+        "," => Ok((Token::Comma, line, col, operator.len())),
+        "(" => Ok((Token::LeftParen, line, col, operator.len())),
+        ")" => Ok((Token::RightParen, line, col, operator.len())),
+        "{" => Ok((Token::LeftBrace, line, col, operator.len())),
+        "}" => Ok((Token::RightBrace, line, col, operator.len())),
+        "[" => Ok((Token::LeftBracket, line, col, operator.len())),
+        "]" => Ok((Token::RightBracket, line, col, operator.len())),
+        _ => Err(LexerError::MalformedOperator {line, col})
+    }
 }
 
+fn lex_string_literal(src: &str, line: usize, col: usize) -> TokenResult {
+    let mut chars = src.chars();
+    let mut string_literal = String::new();
 
-fn consume_while<F>(src: &str, mut pred: F) -> Result<(&str, usize), LexerError>
-    where F: FnMut(char) -> Result<bool, LexerError> {
-    let mut pos = 0;
+    // add first "
+    match chars.next() {
+        Some('"') => string_literal.push('"'),
+        Some(ch) => return Err(LexerError::InvalidCharString {ch, line, col}),
+        None => return Err(LexerError::UnexpectedEOF),
+    }
 
-    for ch in src.chars() {
-        match pred(ch) {
-            Ok(b) if !b => break,
-            Err(err) => return Err(err),
-            Ok(_) => {},
+    let mut escaped = false;
+    let mut terminated = false;
+    while let Some(next_char) = chars.next() {
+        match next_char {
+            ch @ '"' => {
+                string_literal.push(ch);
+                if !escaped {
+                    terminated = true;
+                    break;
+                }
+            }
+            ch @ '\\' => {
+                escaped = true;
+                string_literal.push(ch);
+            }
+            ch @ ('a' |'b' | 'f' | 'n' |'r' |'t' | 'v' | '\''
+                | '?' |'0') => {
+                if escaped {
+                    escaped = false;
+                }
+                string_literal.push(ch);
+            },
+            ch if ch.is_ascii_control() && ch != '\t' => return Err(LexerError::InvalidCharString {ch, line, col}),
+            ch => {
+                if escaped {
+                    return Err(LexerError::InvalidStringEscapeSequence {line, col});
+                }
+                string_literal.push(ch);
+            }
         }
-        pos += ch.len_utf8()
     }
 
-    if pos == 0 {
-        Err(LexerError::MatchError)
-    } else {
-        Ok((&src[..pos], pos))
+    if !terminated {
+        return Err(LexerError::UnterminatedString{line, col});
     }
+
+    // this shouldn't mutate the original string's length, but just in case, lets cache it.
+    // this just removes the first and last quotes of the string.
+    let bytes_read = string_literal.len();
+    let mut str_chars = string_literal.chars();
+    str_chars.next();
+    str_chars.next_back();
+
+    Ok((Token::String(str_chars.collect()), line, col, bytes_read))
 }
 
-fn skip_whitespace(src: &str) -> usize {
-    match consume_while(src, |ch| Ok(ch.is_whitespace())) {
-        Ok((_, bytes_read)) => bytes_read,
-        _ => 0,
-    }
-}
-
-fn lex_tokenize(src: &str) -> Result<(Token, usize), LexerError> {
-    let ch = match src.chars().next() {
-        Some(ch) => Ok(ch),
+fn lex_tokenize(src: &str, line: usize, col: usize) -> TokenResult {
+    match src.chars().next() {
+        Some('"') => lex_string_literal(src, line, col),
+        Some('0'..'9') => lex_number(src, line, col),
+        Some(c) if c != '_' && c.is_ascii_punctuation() => lex_operator(src, line, col),
+        Some(c) if c == '_' || c.is_alphabetic() => lex_identifer(src, line, col),
+        Some(ch) => Err(LexerError::InvalidChar {ch, line, col}),
         None => Err(LexerError::UnexpectedEOF),
-    }?;
-
-    match ch {
-        '"' => lex_string(src),
-        '0'..='9' => lex_number(src),
-        c if c != '_' && c.is_ascii_punctuation() => lex_symbol(src),
-        c if c == '_' || c.is_alphabetic() => lex_identifier(src),
-        invalid_char => Err(LexerError::InvalidChar {ch: invalid_char}),
     }
 }
 
 pub struct Lexer<'a> {
-    pos: usize,
     src: &'a str,
-
     line: usize,
     col: usize,
 }
@@ -257,38 +292,51 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     pub fn init(src: &str) -> Lexer {
         Lexer {
-            pos: 0,
-            src,
-            
+            src, 
             line: 0,
             col: 0,
         }
     }
 
-    pub fn next(&mut self) -> Result<Option<(Token, usize, usize)>, LexerError> {
+    pub fn next(&mut self) -> Result<Option<(Token, Line, ColStart, usize)>, LexerError> {
         self.skip_whitespace();
 
         if self.src.is_empty() {
             Ok(None)
         } else {
-            let start = self.pos;
-            let (token, read_bytes) = lex_tokenize(self.src)?;
-            self.consume(read_bytes);
-            Ok(Some((token, start, self.pos)))
+            // pass in line and col to tokenizer for nice-ish tokenization errors.
+            let (token, line, col, byte_size) = lex_tokenize(self.src, self.line, self.col)?;
+            self.consume(byte_size);
+            Ok(Some((token, line, col, byte_size)))
         }
     }
 
     pub fn skip_whitespace(&mut self) {
-        self.consume(skip_whitespace(self.src));
+        let mut chars = self.src.chars();
+        let mut bytes_read = 0;
+
+        while let Some(ch) = chars.next() {
+            match ch {
+                c if !c.is_whitespace() => break,
+                c if c == '\n' => {
+                    self.col = 0;
+                    self.line += c.len_utf8();
+                },
+                _ => {},
+            }
+            bytes_read += ch.len_utf8();
+        }
+
+        self.consume(bytes_read);
     }
 
     pub fn consume (&mut self, bytes: usize) {
         self.src = &self.src[bytes..];
-        self.pos += bytes;
+        self.col += bytes;
     }
 }
 
-pub fn tokenize_into_vec(src: &str) -> Result<Vec<(Token, usize, usize)>, LexerError> {
+pub fn tokenize_into_vec(src: &str) -> Result<Vec<(Token, usize, usize, usize)>, LexerError> {
     let mut lexer = Lexer::init(src);
     let mut tokens = Vec::new();
 
@@ -304,7 +352,7 @@ pub fn tokenize_into_vec_no_positions(src: &str) -> Result<Vec<Token>, LexerErro
     let mut lexer = Lexer::init(src);
     let mut tokens = Vec::new();
 
-    while let Some((token,_,_)) = lexer.next()? {
+    while let Some((token,_,_,_)) = lexer.next()? {
         tokens.push(token)
     }
 

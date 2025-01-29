@@ -3,52 +3,66 @@ use std::fmt::Display;
 #[derive(Debug, PartialEq)]
 pub enum Token {
     // payload tokens
-    Integer(isize),
+    Integer(usize),
     Float(f64),
     String(String),
     Identifier(String),
-    WrappedOperator(String),
 
     Indent,
     Whitespace,
     NextLine,
 
-    // non-payload tokens
-    Equals,         // =
-    InferredEquals, // :=
-    EqualsEquals,   // ==
-    NotEquals,      // !=
-    And,            // &&
-    Or,             // ||
-    GreaterThan,    // >
-    LessThan,       // <
-    GreaterEqualThan, // >=
-    LessEqualThan,  // <=
-    Colon,          // :
-    ColonColon,     // ::
-    FatArrow,       // =>
-    Comma,          // ,
-    LeftParen,      // (
-    RightParen,     // )
-    LeftBrace,      // {
-    RightBrace,     // }
-    LeftBracket,    // [
-    RightBracket,   // ]
-    Union,          // |
-    Plus,           // +
-    Minus,          // -
-    Divide,         // /
-    Multiply,       // *
-    
-    // reserved words
-    TypeKeyword,      // type
-    ClassKeyword,     // class
-    InstanceKeyword,  // instance
-    CaseKeyword,      // case
-    IfKeyword,        // if
-    ThenKeyword,      // then
-    ElseKeyword,      // else
+    // binary operators
+    EqualsEquals,       // ==
+    NotEquals,          // !=
+    And,                // &&
+    Or,                 // ||
+    GreaterEquals,      // >=
+    LessEquals,         // <=
+    Greater,            // >
+    Less,               // <
+    Plus,               // +
+    Minus,              // -
+    Divide,             // /
+    Multiply,           // *
 
+    // wrapped operators.
+    WrappedEqualsEquals,    // (==)
+    WrappedNotEquals,       // (!=)
+    WrappedLessEquals,      // (<=)
+    WrappedGreaterEquals,   // (>=)
+    WrappedGreater,         // (>)
+    WrappedLess,            // (<)
+    WrappedPlus,            // (+)
+    WrappedMinus,           // (-)
+    WrappedDivide,          // (/)
+    WrappedMultiply,        // (*)
+
+    // other operators 
+    Equals,             // =
+    InferredEquals,     // :=
+    Colon,              // :
+    ColonColon,         // ::
+    Union,              // |
+    FatArrow,           // =>
+    Comma,              // ,
+    LeftParen,          // (
+    RightParen,         // )
+    LeftBrace,          // {
+    RightBrace,         // }
+    LeftBracket,        // [
+    RightBracket,       // ]
+ 
+    // reserved words
+    TypeKeyword,    // type
+    ClassKeyword,   // class
+    InstanceKeyword,// instance
+    CaseKeyword,    // case
+    LetKeyword,     // let
+    InKeyword,      // in
+    IfKeyword,      // if
+    ThenKeyword,    // then
+    ElseKeyword,    // else
 }
 
 impl Display for Token {
@@ -69,8 +83,8 @@ impl<'a> From<&'a str> for Token {
     }
 }
 
-impl From<isize> for Token {
-    fn from(other: isize) -> Token {
+impl From<usize> for Token {
+    fn from(other: usize) -> Token {
         Token::Integer(other)
     }
 }
