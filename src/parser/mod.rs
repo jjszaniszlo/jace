@@ -1,7 +1,7 @@
-mod atom;
 mod expr;
 mod binop;
 mod stmt;
+mod def;
 
 type Identifier = String;
 type TypeName = Identifier;
@@ -65,8 +65,19 @@ struct CaseExpr {
 
 #[derive(Clone, Debug)]
 struct LetInExpr {
-    stmts : Vec<Stmt>,
+    stmts : LetInBlock,
     expr : Expr,
+}
+
+#[derive(Clone, Debug)]
+struct Set {
+    set_members : Vec<SetMember>,
+}
+
+#[derive(Clone, Debug)]
+struct SetMember {
+    field : Identifier,
+    value : Expr,
 }
 
 #[derive(Clone, Debug)]
@@ -75,6 +86,7 @@ enum Literal {
     Float(f64),
     String(String),
     Bool(bool),
+    Set(Set),
 }
 
 type LetInBlock = Vec<Stmt>;
@@ -98,7 +110,7 @@ enum Def {
     TypeDef(TypeDef),
     ClassDef(ClassDef),
     InstanceDef(InstanceDef),
-    ModuleDef(ModuleImportDef),
+    ModuleDef(ModuleDef),
 }
 
 // <func_name> :: <type_name>, <type_name>?.. => <type_name>
@@ -114,7 +126,7 @@ struct FnDef {
 #[derive(Clone, Debug)]
 struct TypeDef {
     identifier: Identifier,
-    fields: Vec<VarDef>,
+    fields: Vec<FieldDef>,
 }
 
 #[derive(Clone, Debug)]
@@ -184,14 +196,14 @@ struct MethodImplNamed {
 }
 
 #[derive(Clone, Debug)]
-struct ModuleImportDef {
+struct ModuleDef {
     module: String,
 }
 
 // just <identifier> : <type_name>
 // Where both identifier and type_name are Identifiers at this point.
 #[derive(Clone, Debug)]
-struct VarDef {
+struct FieldDef {
     identifier: Identifier,
     type_name: TypeName,
 }
@@ -221,6 +233,28 @@ pub fn test_ast() {
         }),
     });
 
-    let ast = 
+    println!("{:#?}", ast);
+}
+
+pub fn test_ast2() {
+    let ast = Module {
+        definitions: vec![
+            Def::from(TypeDef {
+                identifier: String::from("Person"),
+                fields: vec![
+                    FieldDef {
+                        identifier: String::from("name"),
+                        type_name: String::from("String"),
+                    },
+                    FieldDef {
+                        identifier: String::from("age"),
+                        type_name: String::from("Integer"),
+                    },
+                ],
+            }),
+        ],
+        expression: Expr::from(10),
+    };
+
     println!("{:#?}", ast);
 }
