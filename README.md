@@ -76,7 +76,6 @@ A jace file always will follow the following structure
 
 
 ```Haskell
-
 MyModule :: mod mymodule
 
 -- all definitions which can be remembered by the :: syntax
@@ -94,13 +93,12 @@ fooFunc :: {} => {}
 
 -- then a single expression as an entry point to the program or module.
 -- for example this:
-fooFunc {}
+-- fooFunc {}
 
 -- or this
 let
     x : Foo = {} 
 in fooFunc x
-
 ```
 
 A snippet of what all that looks like.
@@ -110,93 +108,51 @@ type Person ::
   name : String
   age : Integer
 
-updateAge :: Person, Integer => Person
-updateAge :: case
-  {name, age}, n => {name=name, age=age+n}
-  {name, age}, 1 => {name=name, age=age+1}
+class Equal a ::
+    (==) :: a, a => Bool
 
--- a class essentially determins a function prototype for the operator.
-class Equal a :: 
-  (==) :: a, a => Bool
-  sameAge :: a, a => Bool
-  sameName :: a, a => Bool
-
--- an instance implements a class's prototype
--- slightly different than function syntax, where x and y are implicitly params of the implemented functions.
 instance Person Equal x y ::
-  (==) => x.name == y.name && x.age == y.age
-  sameAge => x.age == y.age
-  sameName => x.name == y.name
+    (==) => x.name == y.name && x.age == y.age
 
--- the classes act as a means for ad-hoc polymorphism, for both operators and functions.
-type Foo ::
-  bar : String
-
-instance Foo Equal x y ::
-  (==) => strEqual x.bar y.bar
-
--- type unions
-type Number :: Integer | Float | Double
-
--- function currying
-sum :: Number, Number => Number
-sum :: a, b =>  c + d
-
--- addOne is a curried function of sum
-addOne :: sum 1
-
-addTwoToSet :: [Number] => [Number]
-addTwoToSet :: case 
-  {} => {}
-  s => map (a => a + 2) s 
+-- bill will infer the type of Person, since it has two members which match the names and types of the type "Person"
+let
+    bill := {name = "bill", age = 34}
+in { person_of_interest = bill }
+-- the final expression is a set with a member, which is a set of type "Person"
 ```
 
-Here's what the lua output could look like.
+Importing this module is as simple as adding it to the definitions.
+
+Importing a module means importing all of its definitions, under the namespace of the module name.
+
+```Haskell
+mod Person
+
+let 
+    joe := {name = "joe", age = 23}
+in joe == Person.person_of_interest
+-- this will finally return false since the two sets aren't comparable
+```
+
+```Haskell
+
+-- map implementation example.
+-- any function as a type, must be surrounded by parenthesis.
+-- additionally, any lower case types are implied to be "generic" and inferred later.
+map :: (a => b), {a} => {b}
+map :: case
+    _, {} => {}                                   -- _ matches any and discards, whereas {} matches empty sets only.
+    func, {t:ts} => func t : (map func ts)        -- : is the set union syntax.
+
+```
 
 ```Lua
-local Person = {
-    _type = "_Person"
-}
-Person.__index = Person
-Person.init = function(name, age)
-    return setmetatable({
-        name = name,
-        age = age
-    }, Person)
+
+function map(func, set)
+    if set == {} then
+        return {}
+    else
+        return table.insert(table.insert({}, func(table.remove(set, 1))), map(func, set))
+    end
 end
-
-john = Person.init("John", 21)
-
-local updateAge = {
-    _caseSignature1 = function(person, n)
-        return {
-            name = person.name,
-            age = age + n,
-        }
-    end,
-    _caseSignature2 = function(person)
-        return {
-            name = person.name,
-            age = age + 1
-        }
-    end,
-}
-updateAge = setmetatable(updateAge, {
-    __call = function(...) 
-        if pcall(function()
-            local args = {...}
-            if updateAge[__GetFunctionSignature(args)] ~= nil then
-                return updateAge[__GetFunctionSignature(args)](...)
-            end
-        end) == false then
-            error("Unknown case in case expression!")
-        end
-    end,
-})
-
-Person.__eq = function(a_1, a_2)
-    return a_1.name == a_2.name && a_1.age == a_2.age
-end
-
-
 ```
