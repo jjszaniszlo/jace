@@ -133,26 +133,3 @@ let
 in joe == Person.person_of_interest
 -- this will finally return false since the two sets aren't comparable
 ```
-
-```Haskell
-
--- map implementation example.
--- any function as a type, must be surrounded by parenthesis.
--- additionally, any lower case types are implied to be "generic" and inferred later.
-map :: (a => b), {a} => {b}
-map :: case
-    _, {} => {}                                   -- _ matches any and discards, whereas {} matches empty sets only.
-    func, {t:ts} => func t : (map func ts)        -- : is the set union syntax.
-
-```
-
-```Lua
-
-function map(func, set)
-    if set == {} then
-        return {}
-    else
-        return table.insert(table.insert({}, func(table.remove(set, 1))), map(func, set))
-    end
-end
-```
