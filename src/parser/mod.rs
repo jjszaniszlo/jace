@@ -1,6 +1,7 @@
 mod atom;
 mod expr;
 mod binop;
+mod stmt;
 
 type Identifier = String;
 type TypeName = Identifier;
@@ -16,24 +17,17 @@ struct Module {
 //***************Expressions*****************
 #[derive(Clone, Debug)]
 enum Expr {
-    Atom(Box<Atom>),
     BinOpExpr(Box<BinOpExpr>),
     LetInExpr(Box<LetInExpr>),
-}
-
-// a literal or '(' <expression> ')' or '(' <func_expr> ')'
-#[derive(Clone, Debug)]
-enum Atom {
-    Expr(Expr),
+    FnExpr(Box<FnExpr>),
     Literal(Literal),
-    FnExpr(FnExpr),
 }
 
 #[derive(Clone, Debug)]
 struct BinOpExpr {
     operator: BinOperator,
-    lhs: Atom,
-    rhs: Atom,
+    lhs: Expr,
+    rhs: Expr,
 }
 
 #[derive(Clone, Debug)]
@@ -203,13 +197,30 @@ struct VarDef {
 }
 
 pub fn test_ast() {
-    let ast = Stmt::Asmt(Asmt {
-        expression: Expr::from(BinOpExpr {
+    let ast = Expr::from(LetInExpr {
+        stmts: vec![
+            Stmt::from(Asmt {
+                expression: Expr::from(10),
+                identifier: String::from("x"),
+                type_name: Some(String::from("Integer"))
+            }),
+            Stmt::from(Asmt {
+                expression: Expr::from(2),
+                identifier: String::from("y"),
+                type_name: Some(String::from("Integer"))
+            }),
+        ],
+        expr: Expr::from(BinOpExpr {
             operator: BinOperator::Plus,
-            lhs: Atom::from(10),
-            rhs: Atom::from(2)}),
-        identifier: String::from("x"),
-        type_name: Some(String::from("Integer"))});
+            lhs: Expr::from(BinOpExpr {
+                operator: BinOperator::Multiply,
+                lhs: Expr::from("x"),
+                rhs: Expr::from("x"),
+            }),
+            rhs: Expr::from("y")
+        }),
+    });
 
+    let ast = 
     println!("{:#?}", ast);
 }

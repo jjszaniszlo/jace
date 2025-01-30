@@ -1,8 +1,26 @@
 use super::*;
 
-impl Expr {
-    fn expr_to_atom(expr: Expr) -> Self {
-        Expr::Atom(Box::new(Atom::from(expr)))
+impl From<&str> for Expr {
+    fn from(value: &str) -> Self {
+        Expr::Literal(Literal::String(value.to_string()))
+    }
+}
+
+impl From<usize> for Expr {
+    fn from(value: usize) -> Self {
+        Expr::Literal(Literal::Integer(value))
+    }
+}
+
+impl From<f64> for Expr {
+    fn from(value: f64) -> Self {
+        Expr::Literal(Literal::Float(value))
+    }
+}
+
+impl From<bool> for Expr {
+    fn from(value: bool) -> Self {
+        Expr::Literal(Literal::Bool(value))
     }
 }
 
@@ -19,18 +37,4 @@ macro_rules! impl_from_for_expr_box_wrapper {
     };
 }
 
-impl_from_for_expr_box_wrapper!(BinOpExpr, LetInExpr);
-
-macro_rules! impl_from_for_expr_atom_box_wrapper {
-    ($($T:ident),+ $(,)?) => {
-        $(
-            impl From<$T> for Expr {
-                fn from(value: $T) -> Self {
-                    Expr::Atom(Box::new(Atom::from(value)))
-                }
-            }
-        )+
-    };
-}
-
-impl_from_for_expr_atom_box_wrapper!(usize, f64, String, bool);
+impl_from_for_expr_box_wrapper!(BinOpExpr, LetInExpr, FnExpr);
