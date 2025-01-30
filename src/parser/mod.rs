@@ -118,9 +118,21 @@ enum Def {
 #[derive(Clone, Debug)]
 struct FnDef {
     identifier: Identifier,
-    param_types: Vec<TypeName>,
+    param_types: Vec<FnParam>,
     return_type: TypeName,
     fn_expr: FnExpr,
+}
+
+#[derive(Clone, Debug)]
+enum FnParam {
+    Identifier(Identifier),
+    SetSelector(SetSelector),
+}
+
+#[derive(Clone, Debug)]
+struct SetSelector {
+    first: Identifier,
+    rest: Identifier,
 }
 
 #[derive(Clone, Debug)]
