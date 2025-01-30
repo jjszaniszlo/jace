@@ -13,3 +13,15 @@ macro_rules! impl_from_for_def {
 }
 
 impl_from_for_def!(FnDef, TypeDef, ClassDef, InstanceDef, ModuleDef);
+
+impl From<OperatorMethodDef> for MethodDef {
+    fn from(value: OperatorMethodDef) -> Self {
+        MethodDef::Operator(value)
+    }
+}
+
+impl From<NamedMethodDef> for MethodDef {
+    fn from(value: NamedMethodDef) -> Self {
+        MethodDef::Named(value)
+    }
+}

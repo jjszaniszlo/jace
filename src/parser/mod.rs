@@ -132,6 +132,7 @@ struct TypeDef {
 #[derive(Clone, Debug)]
 struct ClassDef {
     identifier: Identifier,
+    type_generic: GenericType,
     methods : Vec<MethodDef>
 }
 
@@ -250,6 +251,20 @@ pub fn test_ast2() {
                         identifier: String::from("age"),
                         type_name: String::from("Integer"),
                     },
+                ],
+            }),
+            Def::from(ClassDef {
+                identifier: String::from("Equal"),
+                type_generic: String::from("a"),
+                methods: vec![
+                    MethodDef::from(OperatorMethodDef {
+                        operator: MethodOperator::EqualsEquals,
+                        type_params: vec![
+                            String::from("a"),
+                            String::from("a"),
+                        ],
+                        return_type: String::from("Bool"),
+                    }),
                 ],
             }),
         ],
