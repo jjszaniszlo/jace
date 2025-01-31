@@ -48,7 +48,7 @@ enum BinOperator {
 
 #[derive(Clone, Debug)]
 struct FnExpr {
-    params: Vec<Identifier>,
+    params: Vec<FnParam>,
     body: FnBodyExpr,
 }
 
@@ -60,7 +60,7 @@ enum FnBodyExpr {
 
 #[derive(Clone, Debug)]
 struct CaseExpr {
-    fn_exprs: Vec<FnBodyExpr>,
+    fn_exprs: Vec<FnExpr>,
 }
 
 #[derive(Clone, Debug)]
@@ -101,7 +101,7 @@ enum Stmt {
 struct Asmt {
     identifier: Identifier,
     type_name: Option<TypeName>,
-    expression: Expr,
+    init: Expr,
 }
 //***************Definitions*****************
 #[derive(Clone, Debug)]
@@ -118,7 +118,7 @@ enum Def {
 #[derive(Clone, Debug)]
 struct FnDef {
     identifier: Identifier,
-    param_types: Vec<FnParam>,
+    param_types: Vec<TypeName>,
     return_type: TypeName,
     fn_expr: FnExpr,
 }
@@ -126,7 +126,13 @@ struct FnDef {
 #[derive(Clone, Debug)]
 enum FnParam {
     Identifier(Identifier),
+    SetDeconstruct(SetDeconstruct),
     SetSelector(SetSelector),
+}
+
+#[derive(Clone, Debug)]
+struct SetDeconstruct {
+    fields: Vec<Identifier>
 }
 
 #[derive(Clone, Debug)]
@@ -225,12 +231,12 @@ pub fn test_ast() {
     let ast = Expr::from(LetInExpr {
         stmts: vec![
             Stmt::from(Asmt {
-                expression: Expr::from(10),
+                init: Expr::from(10),
                 identifier: String::from("x"),
                 type_name: Some(String::from("Integer"))
             }),
             Stmt::from(Asmt {
-                expression: Expr::from(2),
+                init: Expr::from(2),
                 identifier: String::from("y"),
                 type_name: Some(String::from("Integer"))
             }),

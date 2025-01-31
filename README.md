@@ -71,14 +71,17 @@ Still incomplete in BNF form.  Need to figure out how to represent binary expres
 
 A jace file always will follow the following structure
 
-1) All Definitions
-2) A single expression
+1) Zero or more modules
+2) All Definitions
+3) A single expression
 
 
 ```Haskell
-MyModule :: mod mymodule
+
+mod mymodule
 
 -- all definitions which can be remembered by the :: syntax
+
 type Foo ::
     ...
 
