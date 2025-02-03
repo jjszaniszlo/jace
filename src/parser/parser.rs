@@ -188,7 +188,9 @@ where
 fn parse_expression<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
     or(
         match_literal.map(|l| ast::Expr::Literal(l)),
-        match_identifier.map(|i| ast::Expr::Identifier(i)))
+        or(
+            match_identifier.map(|i| ast::Expr::Identifier(i)),
+            parse_set_literal.map(|s| ast::Expr::Literal(s))))
     .parse(input)
 }
 
@@ -201,8 +203,8 @@ fn parse_type_assignment<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Stmt> {
                 match_identifier)),
         right(
             match_token(Token::Equals),
-            match_literal))
-    .map(|((i, t), l)| ast::Stmt::Asmt(i, Some(ast::TypeName(t)), ast::Expr::Literal(l)))
+            parse_expression))
+    .map(|((i, t), e)| ast::Stmt::Asmt(i, Some(ast::TypeName(t)), e))
     .parse(input)
 }
 
@@ -211,8 +213,8 @@ fn parse_inferred_assignment<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Stm
         match_identifier,
         right(
             match_token(Token::InferredEquals),
-            match_literal))
-    .map(|(id, lit)| ast::Stmt::Asmt(id, None, Expr::Literal(lit)))
+            parse_expression))
+    .map(|(id, e)| ast::Stmt::Asmt(id, None, e))
     .parse(input)
 }
 
@@ -235,17 +237,56 @@ fn parse_type_definition<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Def> {
     .parse(input) 
 }
 
-//fn parse_set_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
-//
-//}
+fn parse_set_literal_field<'a>(input: &'a [Token]) -> ParseResult<'a, (ast::Identifier, ast::Expr)> {
+    pair(
+        left(
+            match_identifier,
+            match_token(Token::Equals)),
+        parse_expression)
+    .parse(input)
+}
+
+fn parse_set_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
+    right(
+        match_token(Token::LeftBrace),
+        left(
+            zero_or_more(parse_set_literal_field),
+            match_token(Token::RightBrace)))
+    .map(|v| ast::Literal::Set(v))
+    .parse(input)
+}
 
 fn parse_statement<'a>() -> impl Parser<'a, ast::Stmt> {
     or(parse_inferred_assignment,parse_type_assignment)
 }
 
-pub fn parse<'a>(input: &'a [Token]) -> ast::Stmt {
-    let (_, result) = parse_statement().parse(input).unwrap();
+pub fn parse<'a>(input: &'a [Token]) -> ast::Expr {
+    let (_, result) = parse_expression(input).unwrap();
     result
+}
+
+
+#[test]
+fn parse_set_definition_test() {
+    let toks= vec![
+        Token::LeftBrace,
+        Token::from("name"),
+        Token::Equals,
+        Token::String("John".to_string()),
+        Token::from("age"),
+        Token::Equals,
+        Token::Integer(21),
+        Token::RightBrace,
+    ];
+
+    let (_, result) = parse_set_literal(&toks).unwrap();
+
+    assert_eq!(
+        ast::Literal::Set(vec![
+            (ast::Identifier::from("name"), ast::Expr::Literal(ast::Literal::String("John".to_string()))),
+            (ast::Identifier::from("age"), ast::Expr::Literal(ast::Literal::from(21))),
+        ]),
+        result);
 }
 
 #[test]
