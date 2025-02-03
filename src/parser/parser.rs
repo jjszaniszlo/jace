@@ -1,19 +1,17 @@
-use std::{collections::VecDeque, sync::Arc};
 
-use crate::lexer::{token::Token, LexerError};
+use crate::{lexer::token::Token, parser::{ast, combinator::*}};
 
-use crate::parser::ast::*;
-use super::*;
+use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq)]
-enum ParserError {
+#[derive(Error, Debug, Clone, PartialEq)]
+pub enum ParserError {
+    #[error("Could not match token")]
     CouldNotMatchToken,
-    CouldNotMatchTokenOneOrMore,
 }
 
-type ParseResult<'a, O> = Result<(&'a [Token], O), ParserError>;
+pub type ParseResult<'a, O> = Result<(&'a [Token], O), ParserError>;
 
-trait Parser<'a, O> {
+pub trait Parser<'a, O> {
     fn parse(&self, input: &'a [Token]) -> ParseResult<'a, O>;
 
     fn map<F, N>(self, map_fn: F) -> BoxedParser<'a, N>
@@ -36,7 +34,7 @@ where
     }
 }
 
-struct BoxedParser<'a, Output> {
+pub struct BoxedParser<'a, Output> {
     parser: Box<dyn Parser<'a, Output> + 'a>,
 }
 
@@ -57,14 +55,14 @@ impl<'a, Output> Parser<'a, Output> for BoxedParser<'a, Output> {
     }
 }
 
-fn match_token<'a>(expected: Token) -> impl Parser<'a, ()> {
+pub fn match_token<'a>(expected: Token) -> impl Parser<'a, ()> {
     move |toks: &'a [Token]| match toks.get(0) {
         Some(tok) if *tok == expected => Ok((&toks[1..], ())),
         _ => Err(ParserError::CouldNotMatchToken),
     }
 }
 
-fn match_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
+pub fn match_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
     match input.get(0) {
         Some(t) => match t {
             Token::Bool(b) => Ok((&input[1..], ast::Literal::from(*b))),
@@ -77,7 +75,7 @@ fn match_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
     }
 }
 
-fn match_identifier<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Identifier> {
+pub fn match_identifier<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Identifier> {
     match input.get(0) {
         Some(t) => match t { 
             Token::Identifier(i) => Ok((&input[1..], ast::Identifier(i.clone()))),
@@ -87,105 +85,7 @@ fn match_identifier<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Identifier> 
     }
 }
 
-fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
-where
-    P1: Parser<'a, R1>,
-    P2: Parser<'a, R2>,
-{
-    move |input| {
-        p1.parse(input).and_then(|(next, r1)| {
-            p2.parse(next).map(|(last, r2)| (last, (r1, r2)))
-        })
-    }
-}
-
-fn map<'a, P, F, A, B>(parser: P, map_fn: F) -> impl Parser<'a, B>
-where
-    P: Parser<'a, A>,
-    F: Fn(A) -> B,
-{
-    move |input| parser.parse(input).map(|(next, result)| (next, map_fn(result)))
-}
-
-fn left<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R1>
-where
-    P1: Parser<'a, R1>,
-    P2: Parser<'a, R2>,
-{
-    map(pair(p1, p2), |(l, _)| l)
-}
-
-fn right<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R2>
-where
-    P1: Parser<'a, R1>,
-    P2: Parser<'a, R2>,
-{
-    map(pair(p1, p2), |(_, r)| r)
-}
-
-fn or<'a, P1, P2, R>(p1: P1, p2: P2) -> impl Parser<'a, R>
-where
-    P1: Parser<'a, R>,
-    P2: Parser<'a, R>,
-{
-    move |input| {
-        p1.parse(input).or_else(|_| p2.parse(input))
-    }
-}
-
-fn or_n<'a, P, R>(ps: Vec<P>) -> impl Parser<'a, R>
-where
-    P: Parser<'a, R>
-{
-    move |input| {
-        ps.iter().fold(
-            Err(ParserError::CouldNotMatchToken),
-            |prev, curr| prev.or_else(|_| curr.parse(input))
-        )
-    }
-}
-
-fn zero_or_more<'a, P, A>(p: P) -> impl Parser<'a, Vec<A>>
-where
-    P: Parser<'a, A>
-{
-    move |mut input| {
-        let result: Vec<A> = std::iter::from_fn(|| {
-            match p.parse(input) {
-                Ok((next, result)) => {
-                    input = next;
-                    Some(result)
-                },
-                Err(_) => None,
-            }
-        })
-        .collect();
-
-        Ok((input, result))
-    }
-}
-
-fn one_or_more<'a, P, A>(p: P) -> impl Parser<'a, Vec<A>>
-where
-    P: Parser<'a, A>,
-{
-    move |mut input| {
-        let result: Vec<A> = std::iter::from_fn(|| {
-            match p.parse(input) {
-                Ok((next, result)) => {
-                    input = next;
-                    Some(result)
-                },
-                Err(_) => None,
-            }
-        })
-        .collect();
-
-        Ok((input, result))
-    }
-}
-
-fn parse_expression<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
+pub fn parse_expression<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
     or(
         match_literal.map(|l| ast::Expr::Literal(l)),
         or(
@@ -194,7 +94,7 @@ fn parse_expression<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
     .parse(input)
 }
 
-fn parse_type_assignment<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Stmt> {
+pub fn parse_type_assignment<'a>() -> impl Parser<'a, ast::Stmt> {
     pair(
         pair(
             match_identifier,
@@ -205,20 +105,18 @@ fn parse_type_assignment<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Stmt> {
             match_token(Token::Equals),
             parse_expression))
     .map(|((i, t), e)| ast::Stmt::Asmt(i, Some(ast::TypeName(t)), e))
-    .parse(input)
 }
 
-fn parse_inferred_assignment<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Stmt> {
+pub fn parse_inferred_assignment<'a>() -> impl Parser<'a, ast::Stmt> {
     pair(
         match_identifier,
         right(
             match_token(Token::InferredEquals),
             parse_expression))
     .map(|(id, e)| ast::Stmt::Asmt(id, None, e))
-    .parse(input)
 }
 
-fn parse_type_definition<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Def> {
+pub fn parse_type_definition<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Def> {
     pair(
         right(
             match_token(Token::TypeKeyword),
@@ -237,239 +135,43 @@ fn parse_type_definition<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Def> {
     .parse(input) 
 }
 
-fn parse_set_literal_field<'a>(input: &'a [Token]) -> ParseResult<'a, (ast::Identifier, ast::Expr)> {
+pub fn parse_set_literal_field<'a>() -> impl Parser<'a, (ast::Identifier, ast::Expr)> {
     pair(
         left(
             match_identifier,
             match_token(Token::Equals)),
         parse_expression)
-    .parse(input)
 }
 
-fn parse_set_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
+pub fn parse_set_comma_seperated_fields<'a>() -> impl Parser<'a, Vec<(ast::Identifier, ast::Expr)>> {
+    pair(
+        parse_set_literal_field(),
+        zero_or_more(
+            right(
+                match_token(Token::Comma),
+                parse_set_literal_field())))
+    .map(|(first, rest)| {
+        let mut fields = vec![first];
+        fields.extend(rest);
+        fields
+    }) 
+}
+
+pub fn parse_set_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
     right(
         match_token(Token::LeftBrace),
         left(
-            zero_or_more(parse_set_literal_field),
+            zero_or_one(parse_set_comma_seperated_fields()),
             match_token(Token::RightBrace)))
-    .map(|v| ast::Literal::Set(v))
+    .map(|v| ast::Literal::Set(v.unwrap_or_default()))
     .parse(input)
 }
 
-fn parse_statement<'a>() -> impl Parser<'a, ast::Stmt> {
-    or(parse_inferred_assignment,parse_type_assignment)
+pub fn parse_statement<'a>() -> impl Parser<'a, ast::Stmt> {
+    or(parse_inferred_assignment(),parse_type_assignment())
 }
 
 pub fn parse<'a>(input: &'a [Token]) -> ast::Expr {
     let (_, result) = parse_expression(input).unwrap();
     result
 }
-
-
-#[test]
-fn parse_set_definition_test() {
-    let toks= vec![
-        Token::LeftBrace,
-        Token::from("name"),
-        Token::Equals,
-        Token::String("John".to_string()),
-        Token::from("age"),
-        Token::Equals,
-        Token::Integer(21),
-        Token::RightBrace,
-    ];
-
-    let (_, result) = parse_set_literal(&toks).unwrap();
-
-    assert_eq!(
-        ast::Literal::Set(vec![
-            (ast::Identifier::from("name"), ast::Expr::Literal(ast::Literal::String("John".to_string()))),
-            (ast::Identifier::from("age"), ast::Expr::Literal(ast::Literal::from(21))),
-        ]),
-        result);
-}
-
-#[test]
-fn parse_type_definition_test() {
-    let toks= vec![
-        Token::TypeKeyword,
-        Token::from("Person"),
-        Token::ColonColon,
-        Token::from("name"),
-        Token::Colon,
-        Token::from("String"),
-        Token::from("age"),
-        Token::Colon,
-        Token::from("Integer"),
-    ];
-
-    let (_, result) = parse_type_definition(&toks).unwrap();
-
-    assert_eq!(
-        ast::Def::TypeDef(
-            ast::TypeName::from("Person"),
-            vec![
-                (ast::Identifier::from("name"), ast::TypeName::from("String")),
-                (ast::Identifier::from("age"), ast::TypeName::from("Integer")),
-            ]),
-        result);
-}
-
-#[test]
-fn parse_assignment_test() {
-    let toks = vec![
-        Token::from("num"),
-        Token::InferredEquals,
-        Token::from(10)
-    ];
-
-    let toks2 = vec![
-        Token::from("num"),
-        Token::Colon,
-        Token::from("Integer"),
-        Token::Equals,
-        Token::from(10)
-    ];
-
-    let (_, result) = parse_statement().parse(&toks).unwrap();
-    let (_, result2) = parse_statement().parse(&toks2).unwrap();
-
-    assert_eq!(
-        ast::Stmt::Asmt(ast::Identifier::from("num"), None, ast::Expr::Literal(ast::Literal::from(10))),
-        result
-    );
-
-    assert_eq!(
-        ast::Stmt::Asmt(ast::Identifier::from("num"), Some(ast::TypeName::from("Integer")), ast::Expr::Literal(ast::Literal::from(10))),
-        result2
-    );
-}
-
-//#[test]
-//fn left_combinator() {
-//    let toks = vec![
-//        Token::from("num"),
-//        Token::InferredEquals,
-//        Token::Integer(2),
-//    ];
-//
-//    let assign = left(match_payload, match_token(Token::InferredEquals));
-//
-//    assert_eq!(
-//        Ok((&[Token::Integer(2)] as &[Token], &Token::from("num"))),
-//        assign.parse(&toks)
-//    );
-//}
-//
-//#[test]
-//fn right_combinator() {
-//    let toks = vec![
-//        Token::from("num"),
-//        Token::InferredEquals,
-//        Token::Integer(2),
-//    ];
-//
-//    let assign = right(match_payload, match_token(Token::InferredEquals));
-//
-//    assert_eq!(
-//        Ok((&[Token::Integer(2)] as &[Token], ())),
-//        assign.parse(&toks)
-//    );
-//}
-//
-//#[test]
-//fn or_combinator() {
-//    let toks1= vec![
-//        Token::TypeKeyword,
-//    ];
-//
-//    let toks2= vec![
-//        Token::ClassKeyword,
-//    ];
-//
-//    let class_or_type = or(
-//        match_token(Token::TypeKeyword),
-//        match_token(Token::ClassKeyword)
-//    );
-//
-//    assert_eq!(
-//        Ok((&[] as &[Token], ())),
-//        class_or_type.parse(&toks1)
-//    );
-//
-//    assert_eq!(
-//        Ok((&[] as &[Token], ())),
-//        class_or_type.parse(&toks2)
-//    );
-//}
-//
-//#[test]
-//fn parse_assignment() {
-//    let toks= vec![
-//        Token::from("num"),
-//        Token::InferredEquals,
-//        Token::from(10),
-//    ];
-//
-//    let assignment =
-//        pair(
-//            match_payload,
-//            right(
-//                match_token(Token::InferredEquals),
-//                match_payload));
-//
-//    assert_eq!(
-//        Ok((&[] as &[Token], (&Token::from("num"), &Token::from(10)))),
-//        assignment.parse(&toks));
-//}
-//
-//#[test]
-//fn parse_type() {
-//    let toks= vec![
-//        Token::TypeKeyword,
-//        Token::from("Person"),
-//        Token::ColonColon,
-//        Token::from("name"),
-//        Token::Colon,
-//        Token::from("String"),
-//        Token::from("age"),
-//        Token::Colon,
-//        Token::from("Integer"),
-//    ];
-//
-//    let type_def = 
-//        pair(
-//            right(
-//                match_token(Token::TypeKeyword),
-//                left(
-//                        match_payload,
-//                        match_token(Token::ColonColon))),
-//            one_or_more(
-//                pair(
-//                    match_payload,
-//                    right(
-//                        match_token(Token::Colon),
-//                        match_payload))));
-//
-//    let result = type_def.parse(&toks);
-//
-//    let (_, (class_name, members)) = result.clone().unwrap();
-//
-//    assert_eq!(
-//        *class_name,
-//        Token::from("Person")
-//    );
-//
-//    assert_eq!(
-//        *members,
-//        vec![
-//            (&Token::from("name"), &Token::from("String")),
-//            (&Token::from("age"), &Token::from("Integer")),
-//        ]
-//    );
-//
-//    assert_eq!(
-//        Ok((&[] as &[Token], (&Token::from("Person"), vec![(&Token::from("name"), &Token::from("String")), (&Token::from("age"), &Token::from("Integer"))]))),
-//        result
-//    );
-//}
