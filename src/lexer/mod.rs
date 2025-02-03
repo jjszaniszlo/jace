@@ -1,5 +1,5 @@
 mod tests;
-mod token;
+pub mod token;
 
 use crate::lexer::token::Token;
 use thiserror::Error;
