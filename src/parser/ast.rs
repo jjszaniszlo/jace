@@ -1,26 +1,38 @@
 use super::ptr::*;
 
-#[derive(Clone, Debug)]
-pub struct Identifier(String);
+#[derive(Clone, Debug, PartialEq)]
+pub struct Identifier(pub String);
 
-#[derive(Clone, Debug)]
-pub struct TypeName(Identifier);
+impl<'a> From<&'a str> for Identifier {
+    fn from(value: &'a str) -> Self {
+        Self(value.to_string())
+    }
+}
 
-#[derive(Clone, Debug)]
-pub struct GenericTypeParam(Identifier);
+#[derive(Clone, Debug, PartialEq)]
+pub struct TypeName(pub Identifier);
 
-#[derive(Clone, Debug)]
-pub struct ClassName(Identifier);
+impl<'a> From<&'a str> for TypeName {
+    fn from(value: &'a str) -> Self {
+        Self(Identifier(value.to_string()))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct GenericTypeParam(pub Identifier);
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClassName(pub Identifier);
 
 //***************Module*********************
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Module {
     definitions: Vec<Def>,
     expression: Expr,
 }
 
 //***************Definitions*****************
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Def {
     FnDef(Identifier, Vec<TypeName>, TypeName, FnExpr),
     TypeDef(TypeName, Vec<(Identifier, TypeName)>),
@@ -29,7 +41,7 @@ pub enum Def {
     ModuleDef(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum FnParam {
     Literal(Literal),                   // only really for case
     Identifier(Identifier),
@@ -37,13 +49,13 @@ pub enum FnParam {
     SetSelector(Identifier, Identifier),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MethodDef {
     Operator(MethodOperator, Vec<GenericTypeParam>, TypeName),
     Named(Identifier, Vec<GenericTypeParam>, TypeName),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MethodOperator {
     Plus,
     Minus,
@@ -57,22 +69,23 @@ pub enum MethodOperator {
     NotEquals,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MethodImpl {
     Operator(MethodOperator, Expr),
     Named(Identifier, Expr),
 }
 
 //***************Expressions*****************
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
+    Identifier(Identifier),
     Literal(Literal),
     BinOpExpr(BinOperator, P<Expr>, P<Expr>),
     LetInExpr(Vec<Stmt>, P<Expr>),
     FnExpr(P<FnExpr>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
     Integer(usize),
     Float(f64),
@@ -81,7 +94,22 @@ pub enum Literal {
     Set(Vec<(Identifier, Expr)>),
 }
 
-#[derive(Clone, Debug)]
+macro_rules! impl_from_x_for_literal {
+    ($T:ty, $I:ident) => {
+        impl From<$T> for Literal {        
+            fn from(other: $T) -> Self {
+                Self::$I(other)
+            }
+        }
+    };
+}
+
+impl_from_x_for_literal!(usize, Integer);
+impl_from_x_for_literal!(f64, Float);
+impl_from_x_for_literal!(String, String);
+impl_from_x_for_literal!(bool, Bool);
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum BinOperator {
     Plus,
     Minus,
@@ -97,7 +125,7 @@ pub enum BinOperator {
     NotEquals,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum FnExpr {
     Single(Vec<FnParam>, Expr),
     Case(Vec<FnExpr>),
@@ -106,7 +134,7 @@ pub enum FnExpr {
 //***************Statements*****************
 // There is only one place these go.  Within LetIn blocks.
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     Asmt(Identifier, Option<TypeName>, Expr),
     MultiAsmt(Vec<Identifier>, Vec<TypeName>, Vec<Expr>),

@@ -3,11 +3,11 @@ use std::fmt::Display;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     // payload tokens
+    Bool(bool),
     Integer(usize),
     Float(f64),
     String(String),
     Identifier(String),
-    Bool(bool),
 
     // binary operators
     EqualsEquals,       // ==
