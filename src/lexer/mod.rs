@@ -63,8 +63,9 @@ pub enum LexerError {
 
 type Line = usize;
 type ColStart = usize;
+type TokByteSize = usize;
 
-type TokenResult = Result<(Token, Line, ColStart, usize), LexerError>;
+type TokenResult = Result<(Token, Line, ColStart, TokByteSize), LexerError>;
 
 fn lex_identifer(src: &str, line: usize, col: usize) -> TokenResult {
     let mut chars = src.chars();
