@@ -6,7 +6,7 @@ use std::fmt::{self, Debug, Display};
 use std::ops::{Deref, DerefMut};
 use std::{slice, vec};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub struct P<T: ?Sized> {
     ptr: Box<T>,
 }

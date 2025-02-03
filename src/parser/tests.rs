@@ -1,4 +1,4 @@
-use super::{ast, combinator::*, parser::*};
+use crate::parser::{ast, combinator::*, ptr::*, parser::*};
 use crate::lexer::token::Token;
 
 #[test]
@@ -299,3 +299,121 @@ fn test_parse_statement_type_assignment() {
     );
 }
 
+#[test]
+fn test_parse_let_in_expression_with_statements() {
+    let toks = vec![
+        Token::LetKeyword,
+        Token::from("x"),
+        Token::InferredEquals,
+        Token::from(10),
+        Token::from("y"),
+        Token::InferredEquals,
+        Token::from(20),
+        Token::InKeyword,
+        Token::from("x"),
+    ];
+
+    // Should parse a `let` with two statements and an expression after `in`
+    let (_, result) = parse_let_in_expression().parse(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::LetInExpr(
+            vec![
+                ast::Stmt::Asmt(
+                    ast::Identifier::from("x"),
+                    None,
+                    ast::Expr::Literal(ast::Literal::from(10))
+                ),
+                ast::Stmt::Asmt(
+                    ast::Identifier::from("y"),
+                    None,
+                    ast::Expr::Literal(ast::Literal::from(20))
+                )
+            ],
+            P(ast::Expr::Identifier(ast::Identifier::from("x")))
+        )
+    );
+}
+
+#[test]
+fn test_parse_let_in_expression_no_statements() {
+    let toks = vec![
+        Token::LetKeyword,
+        Token::InKeyword,
+        Token::from("result"),
+    ];
+
+    // Should handle the case with no statements before `in`
+    let (_, result) = parse_let_in_expression().parse(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::LetInExpr(
+            vec![],
+            P(ast::Expr::Identifier(ast::Identifier::from("result")))
+        )
+    );
+}
+
+#[test]
+fn test_parse_let_in_expression_single_statement() {
+    let toks = vec![
+        Token::LetKeyword,
+        Token::from("a"),
+        Token::Colon,
+        Token::from("Integer"),
+        Token::Equals,
+        Token::Integer(100),
+        Token::InKeyword,
+        Token::from("a"),
+    ];
+
+    // Should parse a single statement and the expression after `in`
+    let (_, result) = parse_let_in_expression().parse(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::LetInExpr(
+            vec![
+                ast::Stmt::Asmt(
+                    ast::Identifier::from("a"),
+                    Some(ast::TypeName::from("Integer")),
+                    ast::Expr::Literal(ast::Literal::from(100))
+                )
+            ],
+            P(ast::Expr::Identifier(ast::Identifier::from("a")))
+        )
+    );
+}
+
+#[test]
+fn test_parse_let_in_expression_fail_no_let() {
+    let toks = vec![
+        Token::from("x"),
+        Token::InferredEquals,
+        Token::from(10),
+        Token::InKeyword,
+        Token::from("x"),
+    ];
+
+    // Should fail because there is no `let` keyword at the beginning
+    assert!(parse_let_in_expression().parse(&toks).is_err());
+}
+
+#[test]
+fn test_parse_let_in_expression_fail_no_in_keyword() {
+    let toks = vec![
+        Token::LetKeyword,
+        Token::from("x"),
+        Token::InferredEquals,
+        Token::from(10),
+        Token::from("y"),
+        Token::InferredEquals,
+        Token::from(20),
+        Token::from("x"), // Missing the `in` keyword
+    ];
+
+    // Should fail because there is no `in` keyword after the statements
+    assert!(parse_let_in_expression().parse(&toks).is_err());
+}

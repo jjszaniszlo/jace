@@ -1,5 +1,5 @@
 
-use crate::{lexer::token::Token, parser::{ast, combinator::*}};
+use crate::{lexer::token::Token, parser::{ast, combinator::*, ptr::*}};
 
 use thiserror::Error;
 
@@ -62,6 +62,16 @@ pub fn match_token<'a>(expected: Token) -> impl Parser<'a, ()> {
     }
 }
 
+pub fn match_identifier<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Identifier> {
+    match input.get(0) {
+        Some(t) => match t { 
+            Token::Identifier(i) => Ok((&input[1..], ast::Identifier(i.clone()))),
+            _ => Err(ParserError::CouldNotMatchToken),
+        },
+        None => Err(ParserError::CouldNotMatchToken),
+    }
+}
+
 pub fn match_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
     match input.get(0) {
         Some(t) => match t {
@@ -75,23 +85,74 @@ pub fn match_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
     }
 }
 
-pub fn match_identifier<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Identifier> {
-    match input.get(0) {
-        Some(t) => match t { 
-            Token::Identifier(i) => Ok((&input[1..], ast::Identifier(i.clone()))),
-            _ => Err(ParserError::CouldNotMatchToken),
-        },
-        None => Err(ParserError::CouldNotMatchToken),
-    }
+pub fn parse_set_literal_field<'a>() -> impl Parser<'a, (ast::Identifier, ast::Expr)> {
+    pair(
+        left(
+            match_identifier,
+            match_token(Token::Equals)),
+        parse_expression)
+}
+
+pub fn parse_set_literal_comma_seperated_fields<'a>() -> impl Parser<'a, Vec<(ast::Identifier, ast::Expr)>> {
+    pair(
+        parse_set_literal_field(),
+        zero_or_more(
+            right(
+                match_token(Token::Comma),
+                parse_set_literal_field())))
+    .map(|(first, rest)| {
+        let mut fields = vec![first];
+        fields.extend(rest);
+        fields
+    }) 
+}
+
+pub fn parse_set_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
+    right(
+        match_token(Token::LeftBrace),
+        left(
+            zero_or_one(parse_set_literal_comma_seperated_fields()),
+            match_token(Token::RightBrace)))
+    .map(|v| ast::Literal::Set(v.unwrap_or_default()))
+    .parse(input)
+}
+
+pub fn parse_type_definition<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Def> {
+    pair(
+        right(
+            match_token(Token::TypeKeyword),
+            left(
+                match_identifier,
+                match_token(Token::ColonColon))),
+        one_or_more(
+            pair(
+                match_identifier,
+                right(
+                    match_token(Token::Colon),
+                    match_identifier))))
+    .map(|(i, v)| ast::Def::TypeDef(
+            ast::TypeName(i), 
+            v.into_iter().map(|(i, t)| (i, ast::TypeName(t))).collect()))
+    .parse(input) 
 }
 
 pub fn parse_expression<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
-    or(
+    or_n(vec![
+        match_identifier.map(|i| ast::Expr::Identifier(i)),
         match_literal.map(|l| ast::Expr::Literal(l)),
-        or(
-            match_identifier.map(|i| ast::Expr::Identifier(i)),
-            parse_set_literal.map(|s| ast::Expr::Literal(s))))
+        parse_set_literal.map(|s| ast::Expr::Literal(s))])
     .parse(input)
+}
+
+pub fn parse_let_in_expression<'a>() -> impl Parser<'a, ast::Expr> {
+    right(
+        match_token(Token::LetKeyword),
+        pair(
+            left(
+                zero_or_more(parse_statement()),
+                match_token(Token::InKeyword)),
+            parse_expression))
+    .map(|(v, e)| ast::Expr::LetInExpr(v, P(e)))
 }
 
 pub fn parse_type_assignment<'a>() -> impl Parser<'a, ast::Stmt> {
@@ -114,57 +175,6 @@ pub fn parse_inferred_assignment<'a>() -> impl Parser<'a, ast::Stmt> {
             match_token(Token::InferredEquals),
             parse_expression))
     .map(|(id, e)| ast::Stmt::Asmt(id, None, e))
-}
-
-pub fn parse_type_definition<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Def> {
-    pair(
-        right(
-            match_token(Token::TypeKeyword),
-            left(
-                match_identifier,
-                match_token(Token::ColonColon))),
-        one_or_more(
-            pair(
-                match_identifier,
-                right(
-                    match_token(Token::Colon),
-                    match_identifier))))
-    .map(|(i, v)| ast::Def::TypeDef(
-            ast::TypeName(i), 
-            v.into_iter().map(|(i, t)| (i, ast::TypeName(t))).collect()))
-    .parse(input) 
-}
-
-pub fn parse_set_literal_field<'a>() -> impl Parser<'a, (ast::Identifier, ast::Expr)> {
-    pair(
-        left(
-            match_identifier,
-            match_token(Token::Equals)),
-        parse_expression)
-}
-
-pub fn parse_set_comma_seperated_fields<'a>() -> impl Parser<'a, Vec<(ast::Identifier, ast::Expr)>> {
-    pair(
-        parse_set_literal_field(),
-        zero_or_more(
-            right(
-                match_token(Token::Comma),
-                parse_set_literal_field())))
-    .map(|(first, rest)| {
-        let mut fields = vec![first];
-        fields.extend(rest);
-        fields
-    }) 
-}
-
-pub fn parse_set_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
-    right(
-        match_token(Token::LeftBrace),
-        left(
-            zero_or_one(parse_set_comma_seperated_fields()),
-            match_token(Token::RightBrace)))
-    .map(|v| ast::Literal::Set(v.unwrap_or_default()))
-    .parse(input)
 }
 
 pub fn parse_statement<'a>() -> impl Parser<'a, ast::Stmt> {

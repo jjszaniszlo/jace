@@ -60,6 +60,7 @@ pub enum Token {
     IfKeyword,      // if
     ThenKeyword,    // then
     ElseKeyword,    // else
+    ElseIfKeyword,  // elseif
 }
 
 impl Display for Token {
