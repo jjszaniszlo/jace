@@ -417,3 +417,185 @@ fn test_parse_let_in_expression_fail_no_in_keyword() {
     // Should fail because there is no `in` keyword after the statements
     assert!(parse_let_in_expression().parse(&toks).is_err());
 }
+
+#[test]
+fn test_parse_additive_expr() {
+    let toks = vec![
+        Token::Integer(5),
+        Token::Plus,
+        Token::Integer(10),
+        Token::Minus,
+        Token::Integer(3),
+    ];
+
+    let (_, result) = parse_additive_expr().parse(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::BinOpExpr(
+            ast::BinOperator::Minus,
+            P(ast::Expr::BinOpExpr(
+                ast::BinOperator::Plus,
+                P(ast::Expr::LitExpr(ast::Literal::from(5))),
+                P(ast::Expr::LitExpr(ast::Literal::from(10))),
+            )),
+            P(ast::Expr::LitExpr(ast::Literal::from(3))),
+        )
+    );
+}
+
+#[test]
+fn test_parse_multiplicative_expr() {
+    let toks = vec![
+        Token::Integer(2),
+        Token::Multiply,
+        Token::Integer(4),
+        Token::Divide,
+        Token::Integer(8),
+    ];
+
+    let (_, result) = parse_multiplicative_expr().parse(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::BinOpExpr(
+            ast::BinOperator::Divide,
+            P(ast::Expr::BinOpExpr(
+                ast::BinOperator::Multiply,
+                P(ast::Expr::LitExpr(ast::Literal::from(2))),
+                P(ast::Expr::LitExpr(ast::Literal::from(4))),
+            )),
+            P(ast::Expr::LitExpr(ast::Literal::from(8))),
+        )
+    );
+}
+
+#[test]
+fn test_parse_equality_expr() {
+    let toks = vec![
+        Token::Integer(5),
+        Token::EqualsEquals,
+        Token::Integer(5),
+    ];
+
+    let (_, result) = parse_equality_expr().parse(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::BinOpExpr(
+            ast::BinOperator::EqualsEquals,
+            P(ast::Expr::LitExpr(ast::Literal::from(5))),
+            P(ast::Expr::LitExpr(ast::Literal::from(5))),
+        )
+    );
+}
+
+#[test]
+fn test_parse_equality_expr_with_precedence() {
+    let toks = vec![
+        Token::Integer(5),
+        Token::Plus,
+        Token::Integer(10),
+        Token::EqualsEquals,
+        Token::Integer(15),
+    ];
+
+    let (_, result) = parse_equality_expr().parse(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::BinOpExpr(
+            ast::BinOperator::EqualsEquals,
+            P(ast::Expr::BinOpExpr(
+                ast::BinOperator::Plus,
+                P(ast::Expr::LitExpr(ast::Literal::from(5))),
+                P(ast::Expr::LitExpr(ast::Literal::from(10))),
+            )),
+            P(ast::Expr::LitExpr(ast::Literal::from(15))),
+        )
+    );
+}
+
+#[test]
+fn test_parse_nested_binary_exprs() {
+    let toks = vec![
+        Token::Integer(2),
+        Token::Multiply,
+        Token::Integer(3),
+        Token::Plus,
+        Token::Integer(4),
+        Token::Multiply,
+        Token::Integer(5),
+    ];
+
+    let (_, result) = parse_additive_expr().parse(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::BinOpExpr(
+            ast::BinOperator::Plus,
+            P(ast::Expr::BinOpExpr(
+                ast::BinOperator::Multiply,
+                P(ast::Expr::LitExpr(ast::Literal::from(2))),
+                P(ast::Expr::LitExpr(ast::Literal::from(3))),
+            )),
+            P(ast::Expr::BinOpExpr(
+                ast::BinOperator::Multiply,
+                P(ast::Expr::LitExpr(ast::Literal::from(4))),
+                P(ast::Expr::LitExpr(ast::Literal::from(5))),
+            )),
+        )
+    );
+}
+
+#[test]
+fn test_parse_unary_minus() {
+    let toks = vec![Token::Minus, Token::Integer(10)];
+
+    let (_, result) = parse_primary(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::BinOpExpr(
+            ast::BinOperator::Minus,
+            P(ast::Expr::LitExpr(ast::Literal::from(0))), // Simulating unary minus as 0 - value
+            P(ast::Expr::LitExpr(ast::Literal::from(10))),
+        )
+    );
+}
+
+#[test]
+fn test_parse_complex_expression() {
+    let toks = vec![
+        Token::LeftParen,
+        Token::Integer(1),
+        Token::Plus,
+        Token::Integer(2),
+        Token::RightParen,
+        Token::Multiply,
+        Token::LeftParen,
+        Token::Integer(3),
+        Token::Minus,
+        Token::Integer(4),
+        Token::RightParen,
+    ];
+
+    let (_, result) = parse_multiplicative_expr().parse(&toks).unwrap();
+
+    assert_eq!(
+        result,
+        ast::Expr::BinOpExpr(
+            ast::BinOperator::Multiply,
+            P(ast::Expr::BinOpExpr(
+                ast::BinOperator::Plus,
+                P(ast::Expr::LitExpr(ast::Literal::from(1))),
+                P(ast::Expr::LitExpr(ast::Literal::from(2))),
+            )),
+            P(ast::Expr::BinOpExpr(
+                ast::BinOperator::Minus,
+                P(ast::Expr::LitExpr(ast::Literal::from(3))),
+                P(ast::Expr::LitExpr(ast::Literal::from(4))),
+            )),
+        )
+    );
+}
