@@ -243,7 +243,7 @@ fn test_parse_type_definition() {
         Token::from("Integer"),
     ];
 
-    let (_, result) = parse_type_definition().parse(&toks).unwrap();
+    let (_, result) = parse_type_def().parse(&toks).unwrap();
 
     assert_eq!(
         result,

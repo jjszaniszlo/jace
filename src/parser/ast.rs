@@ -33,7 +33,7 @@ pub struct Module(pub Vec<Def>, pub Expr);
 pub enum Def {
     FnDef(Identifier, Vec<TypeName>, TypeName, FnExpr),
     TypeDef(TypeName, Vec<(Identifier, TypeName)>),
-    ClassDef(ClassName, GenericTypeParam, Vec<MethodDef>),
+    ClassDef(ClassName, Vec<GenericTypeParam>, Vec<MethodDef>),
     InstanceDef(TypeName, ClassName, Vec<FnParam>, Vec<MethodImpl>),
     ModuleDef(String),
 }
