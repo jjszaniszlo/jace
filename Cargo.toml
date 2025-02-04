@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 thiserror = "2"
 mlua = { version = "0.10", features = ["luajit52", "vendored"] }
+backtrace-on-stack-overflow = "0.3.0"

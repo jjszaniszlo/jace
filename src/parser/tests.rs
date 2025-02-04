@@ -15,7 +15,7 @@ fn test_parse_set_literal_with_valid_commas() {
         Token::RightBrace,
     ];
 
-    let (_, result) = parse_set_literal(&toks).unwrap();
+    let (_, result) = parse_set_literal().parse(&toks).unwrap();
 
     assert_eq!(
         ast::Literal::Set(vec![
@@ -40,7 +40,7 @@ fn test_parse_set_literal_with_no_trailing_comma() {
         Token::RightBrace,
     ];
 
-    let (_, result) = parse_set_literal(&toks).unwrap();
+    let (_, result) = parse_set_literal().parse(&toks).unwrap();
     assert_eq!(
         ast::Literal::Set(vec![
             (ast::Identifier::from("name"), ast::Expr::Literal(ast::Literal::String("Bob".to_string()))),
@@ -61,7 +61,7 @@ fn test_parse_set_literal_rejects_trailing_comma() {
         Token::RightBrace, // Trailing comma should cause a failure
     ];
 
-    assert!(parse_set_literal(&toks).is_err());
+    assert!(parse_set_literal().parse(&toks).is_err());
 }
 
 #[test]
@@ -218,7 +218,7 @@ fn test_parse_set_literal() {
         Token::RightBrace,
     ];
 
-    let (_, result) = parse_set_literal(&toks).unwrap();
+    let (_, result) = parse_set_literal().parse(&toks).unwrap();
 
     assert_eq!(
         result,
@@ -243,7 +243,7 @@ fn test_parse_type_definition() {
         Token::from("Integer"),
     ];
 
-    let (_, result) = parse_type_definition(&toks).unwrap();
+    let (_, result) = parse_type_definition().parse(&toks).unwrap();
 
     assert_eq!(
         result,
