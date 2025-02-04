@@ -107,7 +107,7 @@ pub fn match_number<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
 pub fn parse_module<'a>() -> impl Parser<'a, ast::Module> {
     pair(
         zero_or_more(parse_definition()),
-        parse_expression)
+        parse_expression())
     .map(|(defs, expr)| ast::Module(defs, expr))
 }
 
@@ -274,16 +274,14 @@ pub fn parse_class_method_def_named<'a>() -> impl Parser<'a, ast::MethodDef> {
         ast::MethodDef::Named(ident, params, ast::TypeName(ret)))
 }
 
-pub fn parse_expression<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
-    or_n(vec![
-        BoxedParser::new(parse_fn_call()),
-        BoxedParser::new(parse_equality_expr()),
-        BoxedParser::new(parse_fn_expression()),
-        BoxedParser::new(parse_if_then_else()),
-        BoxedParser::new(parse_set_literal()),
-        BoxedParser::new(parse_let_in_expression()),
-    ])
-    .parse(input)
+pub fn parse_expression<'a>() -> impl Parser<'a, ast::Expr> {
+    or(
+        parse_fn_call(),
+        or(parse_equality_expr(),
+            or(parse_fn_expression(),
+                or(parse_if_then_else(),
+                    or(parse_set_literal(),
+                            parse_let_in_expression())))))
 }
 
 pub fn parse_set_literal<'a>() -> impl Parser<'a, ast::Expr> {
@@ -321,14 +319,14 @@ pub fn parse_set_literal_field<'a>() -> impl Parser<'a, (ast::Identifier, ast::E
         left(
             match_identifier,
             match_token(Token::Equals)),
-        parse_expression)
+        parse_expression())
 }
 
 pub fn parse_parenthesized_expression<'a>() -> impl Parser<'a, ast::Expr> {
     right(
         match_token(Token::LeftParen),
         left(
-            parse_expression,
+            parse_expression(),
             match_token(Token::RightParen)))
 }
 
@@ -424,7 +422,7 @@ pub fn parse_let_in_expression<'a>() -> impl Parser<'a, ast::Expr> {
             left(
                 zero_or_more(parse_statement()),
                 match_token(Token::InKeyword)),
-            parse_expression))
+            parse_expression()))
     .map(|(v, e)| ast::Expr::LetInExpr(v, P(e)))
 }
 
@@ -515,7 +513,7 @@ pub fn parse_fn_expression_single<'a>() -> impl Parser<'a, ast::FnExpr> {
         left(
             parse_fn_params(),
             match_token(Token::FatArrow)),
-        parse_expression)
+        parse_expression())
     .map(|(params, expr)| ast::FnExpr::Single(params, expr))
 }
 
@@ -534,7 +532,7 @@ pub fn parse_fn_expression_case_single<'a>() -> impl Parser<'a, ast::FnExpr> {
         left(
             parse_fn_case_params(),
             match_token(Token::FatArrow)),
-        parse_expression)
+        parse_expression())
     .map(|(params, expr)| ast::FnExpr::Single(params, expr))
 }
 
@@ -549,8 +547,8 @@ pub fn parse_fn_call<'a>() -> impl Parser<'a, ast::Expr> {
     pair(
         match_identifier,
         pair(
-            parse_expression,
-            zero_or_more(parse_expression)))
+            parse_expression(),
+            zero_or_more(parse_expression())))
     .map(|(func_name, (first_param, params))| {
         let mut final_params = vec![first_param];
         final_params.extend(params);
@@ -563,15 +561,15 @@ pub fn parse_if_then_else<'a>() -> impl Parser<'a, ast::Expr> {
     right(
         match_token(Token::IfKeyword),
         left(
-            parse_expression,
+            parse_expression(),
             match_token(Token::ThenKeyword))),
     pair(
         pair(
-                parse_expression,
+                parse_expression(),
                 zero_or_more(parse_elseif_p_then_e())),
         right(
             match_token(Token::ElseKeyword),
-            parse_expression)))
+            parse_expression())))
     .map(|(pred, ((expr, elseifs), else_expr))| {
         let mut final_result = vec![(pred, expr)];
         final_result.extend(elseifs);
@@ -585,9 +583,9 @@ pub fn parse_elseif_p_then_e<'a>() -> impl Parser<'a, (ast::Expr, ast::Expr)> {
         right(
             match_token(Token::ElseIfKeyword),
             left(
-                parse_expression,
+                parse_expression(),
                 match_token(Token::ThenKeyword))),
-        parse_expression)
+        parse_expression())
 }
 
 pub fn parse_type_assignment<'a>() -> impl Parser<'a, ast::Stmt> {
@@ -599,7 +597,7 @@ pub fn parse_type_assignment<'a>() -> impl Parser<'a, ast::Stmt> {
                 match_identifier)),
         right(
             match_token(Token::Equals),
-            parse_expression))
+            parse_expression()))
     .map(|((i, t), e)| ast::Stmt::Asmt(i, Some(ast::TypeName(t)), e))
 }
 
@@ -608,7 +606,7 @@ pub fn parse_inferred_assignment<'a>() -> impl Parser<'a, ast::Stmt> {
         match_identifier,
         right(
             match_token(Token::InferredEquals),
-            parse_expression))
+            parse_expression()))
     .map(|(id, e)| ast::Stmt::Asmt(id, None, e))
 }
 
