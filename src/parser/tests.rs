@@ -18,9 +18,9 @@ fn test_parse_set_literal_with_valid_commas() {
     let (_, result) = parse_set_literal().parse(&toks).unwrap();
 
     assert_eq!(
-        ast::Literal::Set(vec![
-            (ast::Identifier::from("name"), ast::Expr::Literal(ast::Literal::String("Alice".to_string()))),
-            (ast::Identifier::from("age"), ast::Expr::Literal(ast::Literal::from(30))),
+        ast::Expr::SetExpr(vec![
+            (ast::Identifier::from("name"), ast::Expr::LitExpr(ast::Literal::String("Alice".to_string()))),
+            (ast::Identifier::from("age"), ast::Expr::LitExpr(ast::Literal::from(30))),
         ]),
         result
     );
@@ -42,9 +42,9 @@ fn test_parse_set_literal_with_no_trailing_comma() {
 
     let (_, result) = parse_set_literal().parse(&toks).unwrap();
     assert_eq!(
-        ast::Literal::Set(vec![
-            (ast::Identifier::from("name"), ast::Expr::Literal(ast::Literal::String("Bob".to_string()))),
-            (ast::Identifier::from("age"), ast::Expr::Literal(ast::Literal::from(40))),
+        ast::Expr::SetExpr(vec![
+            (ast::Identifier::from("name"), ast::Expr::LitExpr(ast::Literal::String("Bob".to_string()))),
+            (ast::Identifier::from("age"), ast::Expr::LitExpr(ast::Literal::from(40))),
         ]),
         result
     );
@@ -137,17 +137,17 @@ fn test_or_parser() {
     let toks2 = vec![Token::Identifier("x".to_string())];
 
     let parser = or(
-        match_literal.map(|l| ast::Expr::Literal(l)),
-        match_identifier.map(|i| ast::Expr::Identifier(i)),
+        match_literal.map(|l| ast::Expr::LitExpr(l)),
+        match_identifier.map(|i| ast::Expr::IdentExpr(i)),
     );
 
     // Should match the literal in toks1
     let (_, result1) = parser.parse(&toks1).unwrap();
-    assert_eq!(result1, ast::Expr::Literal(ast::Literal::from(42)));
+    assert_eq!(result1, ast::Expr::LitExpr(ast::Literal::from(42)));
 
     // Should match the identifier in toks2
     let (_, result2) = parser.parse(&toks2).unwrap();
-    assert_eq!(result2, ast::Expr::Identifier(ast::Identifier::from("x")));
+    assert_eq!(result2, ast::Expr::IdentExpr(ast::Identifier::from("x")));
 }
 
 #[test]
@@ -222,9 +222,9 @@ fn test_parse_set_literal() {
 
     assert_eq!(
         result,
-        ast::Literal::Set(vec![
-            (ast::Identifier::from("name"), ast::Expr::Literal(ast::Literal::String("Alice".to_string()))),
-            (ast::Identifier::from("age"), ast::Expr::Literal(ast::Literal::from(30))),
+        ast::Expr::SetExpr(vec![
+            (ast::Identifier::from("name"), ast::Expr::LitExpr(ast::Literal::String("Alice".to_string()))),
+            (ast::Identifier::from("age"), ast::Expr::LitExpr(ast::Literal::from(30))),
         ])
     );
 }
@@ -272,7 +272,7 @@ fn test_parse_statement_inferred_assignment() {
         ast::Stmt::Asmt(
             ast::Identifier::from("num"),
             None,
-            ast::Expr::Literal(ast::Literal::from(10))
+            ast::Expr::LitExpr(ast::Literal::from(10))
         )
     );
 }
@@ -294,7 +294,7 @@ fn test_parse_statement_type_assignment() {
         ast::Stmt::Asmt(
             ast::Identifier::from("num"),
             Some(ast::TypeName::from("Integer")),
-            ast::Expr::Literal(ast::Literal::from(10))
+            ast::Expr::LitExpr(ast::Literal::from(10))
         )
     );
 }
@@ -323,15 +323,15 @@ fn test_parse_let_in_expression_with_statements() {
                 ast::Stmt::Asmt(
                     ast::Identifier::from("x"),
                     None,
-                    ast::Expr::Literal(ast::Literal::from(10))
+                    ast::Expr::LitExpr(ast::Literal::from(10))
                 ),
                 ast::Stmt::Asmt(
                     ast::Identifier::from("y"),
                     None,
-                    ast::Expr::Literal(ast::Literal::from(20))
+                    ast::Expr::LitExpr(ast::Literal::from(20))
                 )
             ],
-            P(ast::Expr::Identifier(ast::Identifier::from("x")))
+            P(ast::Expr::IdentExpr(ast::Identifier::from("x")))
         )
     );
 }
@@ -351,7 +351,7 @@ fn test_parse_let_in_expression_no_statements() {
         result,
         ast::Expr::LetInExpr(
             vec![],
-            P(ast::Expr::Identifier(ast::Identifier::from("result")))
+            P(ast::Expr::IdentExpr(ast::Identifier::from("result")))
         )
     );
 }
@@ -379,10 +379,10 @@ fn test_parse_let_in_expression_single_statement() {
                 ast::Stmt::Asmt(
                     ast::Identifier::from("a"),
                     Some(ast::TypeName::from("Integer")),
-                    ast::Expr::Literal(ast::Literal::from(100))
+                    ast::Expr::LitExpr(ast::Literal::from(100))
                 )
             ],
-            P(ast::Expr::Identifier(ast::Identifier::from("a")))
+            P(ast::Expr::IdentExpr(ast::Identifier::from("a")))
         )
     );
 }

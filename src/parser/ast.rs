@@ -5,7 +5,7 @@ pub struct Identifier(pub String);
 
 impl<'a> From<&'a str> for Identifier {
     fn from(value: &'a str) -> Self {
-        Self(value.to_string())
+        Identifier(value.to_string())
     }
 }
 
@@ -26,10 +26,7 @@ pub struct ClassName(pub Identifier);
 
 //***************Module*********************
 #[derive(Clone, Debug, PartialEq)]
-pub struct Module {
-    definitions: Vec<Def>,
-    expression: Expr,
-}
+pub struct Module(pub Vec<Def>, pub Expr);
 
 //***************Definitions*****************
 #[derive(Clone, Debug, PartialEq)]
@@ -78,8 +75,9 @@ pub enum MethodImpl {
 //***************Expressions*****************
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
-    Identifier(Identifier),
-    Literal(Literal),
+    IdentExpr(Identifier),
+    LitExpr(Literal),
+    SetExpr(Vec<(Identifier, Expr)>),
     BinOpExpr(BinOperator, P<Expr>, P<Expr>),
     LetInExpr(Vec<Stmt>, P<Expr>),
     FnExpr(P<FnExpr>),
@@ -98,7 +96,6 @@ pub enum Literal {
     Float(f64),
     String(String),
     Bool(bool),
-    Set(Vec<(Identifier, Expr)>),
 }
 
 macro_rules! impl_from_x_for_literal {
