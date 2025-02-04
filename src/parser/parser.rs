@@ -330,6 +330,15 @@ pub fn parse_let_in_expression<'a>() -> impl Parser<'a, ast::Expr> {
     .map(|(v, e)| ast::Expr::LetInExpr(v, P(e)))
 }
 
+pub fn parse_fn_param<'a>(input: &'a [Token]) -> ParseResult<'a, ast::FnParam> {
+    or_n(vec![
+        match_identifier.map(|i| ast::FnParam::Identifier(i)),
+        BoxedParser::new(parse_fn_param_set_deconstruct()),
+        BoxedParser::new(parse_fn_param_set_selector()),
+    ])
+    .parse(input)
+}
+
 pub fn parse_fn_param_set_deconstruct<'a>() -> impl Parser<'a, ast::FnParam> {
     right(
         match_token(Token::LeftBrace),
@@ -355,12 +364,17 @@ pub fn parse_fn_param_set_deconstruct<'a>() -> impl Parser<'a, ast::FnParam> {
     })
 }
 
-pub fn parse_fn_param<'a>(input: &'a [Token]) -> ParseResult<'a, ast::FnParam> {
-    or_n(vec![
-        match_identifier.map(|i| ast::FnParam::Identifier(i)),
-        BoxedParser::new(parse_fn_param_set_deconstruct()),
-    ])
-    .parse(input)
+pub fn parse_fn_param_set_selector<'a>() -> impl Parser<'a, ast::FnParam> {
+    pair(
+        right(
+            match_token(Token::LeftBrace),
+            match_identifier),
+        right(
+            match_token(Token::Colon),
+                left(
+                    match_identifier,
+                    match_token(Token::RightParen))))
+    .map(|(first, rest)| ast::FnParam::SetSelector(first, rest))                
 }
 
 pub fn parse_fn_case_param<'a>(input: &'a [Token]) -> ParseResult<'a, ast::FnParam> {
@@ -430,6 +444,42 @@ pub fn parse_fn_expression<'a>(input: &'a [Token]) -> ParseResult<'a, ast::FnExp
         parse_fn_expression_single(),
         parse_fn_expression_case())
     .parse(input)
+}
+
+pub fn parse_if_then_else<'a>() -> impl Parser<'a, ast::Expr> {
+    pair(
+    right(
+        match_token(Token::IfKeyword),
+        left(
+            parse_predicate_expr(),
+            match_token(Token::ThenKeyword))),
+    pair(
+        pair(
+                parse_expression,
+                zero_or_more(parse_elseif_p_then_e())),
+        right(
+            match_token(Token::ElseKeyword),
+            parse_expression)))
+    .map(|(pred, ((expr, elseifs), else_expr))| {
+        let mut final_result = vec![(pred, expr)];
+        final_result.extend(elseifs);
+
+        ast::Expr::IfThenElseIfExpr(final_result, P(else_expr))
+    })
+}
+
+pub fn parse_elseif_p_then_e<'a>() -> impl Parser<'a, (ast::PredicateExpr, ast::Expr)> {
+    pair(
+        right(
+            match_token(Token::ElseIfKeyword),
+            left(
+                parse_predicate_expr(),
+                match_token(Token::ThenKeyword))),
+        parse_expression)
+}
+
+pub fn parse_predicate_expr<'a>() -> impl Parser<'a, ast::PredicateExpr> {
+    
 }
 
 pub fn parse_type_assignment<'a>() -> impl Parser<'a, ast::Stmt> {

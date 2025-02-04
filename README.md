@@ -7,6 +7,8 @@ Predefined:
 
 # Grammar
 
+if p1 then e1 elseif p2 then e2 else e3 
+
 Still incomplete in BNF form.  Need to figure out how to represent binary expressions properly without too much recursion.
 
 ```

@@ -81,11 +81,12 @@ pub enum Expr {
     BinOpExpr(BinOperator, P<Expr>, P<Expr>),
     LetInExpr(Vec<Stmt>, P<Expr>),
     FnExpr(P<FnExpr>),
-    IfThenElseIfExpr(Vec<ConditionalExpr>, Vec<Expr>),
+    // predicates followed by their expressions, and lastly an else expression
+    IfThenElseIfExpr(Vec<(PredicateExpr, Expr)>, P<Expr>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ConditionalExpr {
+pub enum PredicateExpr {
     BinOpExpr(BinOperator, P<Expr>, P<Expr>),
     Identifier(Identifier),
 }
