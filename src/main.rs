@@ -18,12 +18,17 @@ fn main() {
             sameAge => age == age2
             sameName => name == name2
 
+        map :: {c}, {a} => {b}
+        map :: case
+            _, {} => {}
+
         let
-            john := {name = "john", age = 21}
-            harry := {name = "harry", age = 21}
-        in sameAge (a,b => a+b) (harry)
+            john : Person = {name = "john", age = 21}
+            harry : Person = {name = "harry", age = 21}
+        in sameAge john.age
         "#
     ).unwrap();
+
     //let toks = lexer::tokenize_into_vec_no_positions(concat!(\n
     //    "{john = \"John\", age = 21, init = age, name => {age = age, name = name}}",
     //)).unwrap();

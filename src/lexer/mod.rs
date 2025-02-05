@@ -1,8 +1,12 @@
 mod tests;
 pub mod token;
 
+use std::sync::LazyLock;
+
 use crate::lexer::token::Token;
 use thiserror::Error;
+
+use regex::Regex;
 
 #[derive(Error, Debug)]
 pub enum LexerError {
@@ -144,6 +148,11 @@ fn lex_number(src: &str, line: usize, col: usize) -> TokenResult {
         }
     }
 }
+
+
+// Regex for potential custom operator creation within classes.
+static RE_WRAPPED_OP: LazyLock<Regex> = LazyLock::new(|| Regex::new(
+    r#"^\(([!@#$%^&*\-\+=<>?/~`|\\]*)\)$"#).unwrap());
 
 fn lex_operator(src: &str, line: usize, col: usize) -> TokenResult {
     let mut chars = src.chars();

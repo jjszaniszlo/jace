@@ -36,6 +36,7 @@ pub enum Token {
     WrappedDivide,          // (/)
     WrappedMultiply,        // (*)
     WrappedExp,             // (^)
+    WrappedOperator(String),// (custom_operator)
 
     // other operators 
     Equals,             // =

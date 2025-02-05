@@ -4,8 +4,6 @@ use thiserror::Error;
 
 use std::fmt::Debug;
 
-use super::ast::MemberExpr;
-
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum ParserError {
     #[error("Could not match token")]
@@ -89,9 +87,9 @@ where
     }
 }
 
-pub fn seq<'a, Out>(parsers: Vec<BoxedParser<'a, Out>>) -> impl Parser<'a, Vec<Out>> 
+pub fn seq<'a, P, R>(parsers: Vec<P>) -> impl Parser<'a, Vec<R>> 
 where
-    Out: 'a,
+    P : Parser<'a, R>,
 {
     move |input| {
         parsers.iter().fold(Ok((input, Vec::new())), |prev_results, parser| {
@@ -308,29 +306,41 @@ pub fn parse_fn_def_header<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Ident
     .parse(input)
 }
 
-pub fn parse_fn_def_types<'a>() -> impl Parser<'a, (Vec<ast::TypeName>, ast::TypeName)> {
+pub fn parse_fn_def_types<'a>() -> impl Parser<'a, (Vec<ast::TypeParam>, ast::TypeParam)> {
     pair(
         parse_fn_type_params(),
         right(
             match_token(Token::FatArrow),
-            parse_identifier))
-    .map(|(type_params, return_type)| (type_params, ast::TypeName(return_type)))
+            parse_fn_type_param()))
+    .map(|(type_params, return_type)| (type_params, return_type))
 }
 
-pub fn parse_fn_type_params<'a>() -> impl Parser<'a, Vec<ast::TypeName>> {
+pub fn parse_fn_type_params<'a>() -> impl Parser<'a, Vec<ast::TypeParam>> {
     pair(
-        parse_identifier,
+        parse_fn_type_param(),
         zero_or_more(
             right(
                 match_token(Token::Comma),
-                parse_identifier)))
+                parse_fn_type_param())))
     .map(|(first_type, types)| {
-        let mut final_types = vec![ast::TypeName(first_type)];
-        final_types.extend(
-            types.iter()
-                .map(|i| ast::TypeName(i.clone())));
+        let mut final_types = vec![first_type];
+        final_types.extend(types);
         final_types
     })
+}
+
+pub fn parse_fn_type_param<'a>() -> impl Parser<'a, ast::TypeParam> {
+    or(
+        parse_identifier.map(|i| ast::TypeParam::Single(i)),
+        parse_array_type_param())
+}
+
+pub fn parse_array_type_param<'a>() -> impl Parser<'a, ast::TypeParam> {
+    right(
+        match_token(Token::LeftBrace),
+        left(parse_identifier,
+            match_token(Token::RightBrace)))
+    .map(|i| ast::TypeParam::ArrayType(i))
 }
 
 pub fn parse_type_def<'a>() -> impl Parser<'a, ast::Def> {
@@ -609,13 +619,6 @@ pub fn parse_member_expr<'a>() -> impl Parser<'a, ast::Expr> {
 }
 
 pub fn parse_primary<'a>() -> impl Parser<'a, ast::Expr> {
-    //or(
-    //    parse_parenthesized_expression(),
-    //    or(
-    //        parse_unary_minus(),
-    //        or(
-    //            parse_literal.map(|l| ast::Expr::LitExpr(l)),
-    //            parse_identifier.map(|i| ast::Expr::IdentExpr(i)))))
     or_n(vec![
         BoxedParser::new(parse_parenthesized_expression()),
         BoxedParser::new(parse_unary_minus()),
@@ -877,7 +880,7 @@ pub fn parse_elseif_p_then_e<'a>(input: &'a [Token]) -> ParseResult<'a, (ast::Ex
 pub fn parse_fn_call<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
     pair(
         parse_identifier,
-        one_or_more(parse_expression()))
+        one_or_more(parse_primary()))
     .map(|(func_name, params)| {
         ast::Expr::FnCall(func_name, params)
     })

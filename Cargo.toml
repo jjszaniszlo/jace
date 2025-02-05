@@ -7,3 +7,4 @@ edition = "2021"
 thiserror = "2"
 mlua = { version = "0.10", features = ["luajit52", "vendored"] }
 backtrace-on-stack-overflow = "0.3.0"
+regex = "1.11.1"
