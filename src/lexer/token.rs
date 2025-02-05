@@ -22,6 +22,7 @@ pub enum Token {
     Minus,              // -
     Divide,             // /
     Multiply,           // *
+    Exp,                // ^
 
     // wrapped operators.
     WrappedEqualsEquals,    // (==)
@@ -34,6 +35,7 @@ pub enum Token {
     WrappedMinus,           // (-)
     WrappedDivide,          // (/)
     WrappedMultiply,        // (*)
+    WrappedExp,             // (^)
 
     // other operators 
     Equals,             // =
@@ -43,6 +45,7 @@ pub enum Token {
     Union,              // |
     FatArrow,           // =>
     Comma,              // ,
+    Dot,                // .
     LeftParen,          // (
     RightParen,         // )
     LeftBrace,          // {
@@ -61,6 +64,37 @@ pub enum Token {
     ThenKeyword,    // then
     ElseKeyword,    // else
     ElseIfKeyword,  // elseif
+}
+
+impl Token {
+    pub fn bool(self) -> bool {
+        if let Token::Bool(b) = self {
+            b
+        } else {
+            panic!("Not an identifier!")
+        }
+    }
+    pub fn integer(self) -> usize {
+        if let Token::Integer(i) = self {
+            i
+        } else {
+            panic!("Not an identifier!")
+        }
+    }
+    pub fn float(self) -> f64 {
+        if let Token::Float(f) = self {
+            f
+        } else {
+            panic!("Not an identifier!")
+        }
+    }
+    pub fn identifier(self) -> String {
+        if let Token::Identifier(s) = self {
+            s
+        } else {
+            panic!("Not an identifier!")
+        }
+    }
 }
 
 impl Display for Token {

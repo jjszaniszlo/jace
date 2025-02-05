@@ -98,26 +98,26 @@ fn lex_number(src: &str, line: usize, col: usize) -> TokenResult {
     let mut chars = src.chars();
     let mut number = String::new();
     
-    let mut is_float = match chars.next() {
-        Some(c @ '0'..'9') => {
+    // this looks weird, but since the caller of lex_number guarantees this char to be between '0'
+    // and '9', this basically pushes any number, but does something special if its '0'.
+    let starts_with_zero = match chars.next() {
+        Some(c @ '0'..='9') => {
             number.push(c);
             c == '0'
         },
         _ => false,
     };
 
-    if is_float {
-        match chars.next() {
-            Some(ch @ '.') => number.push(ch),
-            Some(ch) if ch.is_ascii_punctuation() || ch.is_whitespace() => is_float = false,
-            Some(ch @ _) => return Err(LexerError::InvalidCharFloat { ch , line, col }),
-            None => return Err(LexerError::UnexpectedEOF),
-        };
-    }
+    let mut is_float = false;
 
     while let Some(next_char) = chars.next() {
         match next_char {
-            ch if ch.is_numeric() => number.push(ch),
+            ch if ch.is_numeric() => 
+                if starts_with_zero && !is_float {
+                    return Err(LexerError::InvalidCharFloat { ch , line, col });
+                } else {
+                    number.push(ch)
+                },
             ch if ch.is_alphabetic()  => return Err(LexerError::InvalidCharFloat { ch , line, col }),
             ch @ '.' => {
                 if is_float {
@@ -154,14 +154,14 @@ fn lex_operator(src: &str, line: usize, col: usize) -> TokenResult {
         match next_char {
             // these are symbols which can only be lexed as singles or terminates the wrapped
             // operator.
-            ch @ ('{' | '}' | '[' | ']' | ')' | ',') => {
+            ch @ ('{' | '}' | '[' | ']' | ')' | ',' | '.') => {
                 operator.push(ch);
                 break;
             },
 
             // these are symbols which can begin or continue longer symbols.
             ch @ ('=' | ':' | '&' | '|' | '>' | '<' | '!'
-                      | '+' | '-' | '/' | '*') => operator.push(ch),
+                      | '+' | '-' | '/' | '*' | '^') => operator.push(ch),
 
             // wrapped operator logic. breaks if another (( instead of another symbol.
             ch @ '(' => {
@@ -189,6 +189,7 @@ fn lex_operator(src: &str, line: usize, col: usize) -> TokenResult {
         "-" => Ok((Token::Minus, line, col, operator.len())),
         "/" => Ok((Token::Divide, line, col, operator.len())),
         "*" => Ok((Token::Multiply, line, col, operator.len())),
+        "^" => Ok((Token::Exp, line, col, operator.len())),
 
         "(==)" => Ok((Token::WrappedEqualsEquals, line, col, operator.len())),
         "(!=)" => Ok((Token::WrappedNotEquals, line, col, operator.len())),
@@ -200,6 +201,7 @@ fn lex_operator(src: &str, line: usize, col: usize) -> TokenResult {
         "(-)" => Ok((Token::WrappedMinus, line, col, operator.len())),
         "(/)" => Ok((Token::WrappedDivide, line, col, operator.len())),
         "(*)" => Ok((Token::WrappedMultiply, line, col, operator.len())),
+        "(^)" => Ok((Token::WrappedExp, line, col, operator.len())),
 
         "=" => Ok((Token::Equals, line, col, operator.len())),
         ":=" => Ok((Token::InferredEquals, line, col, operator.len())),
@@ -208,6 +210,7 @@ fn lex_operator(src: &str, line: usize, col: usize) -> TokenResult {
         "|" => Ok((Token::Union, line, col, operator.len())),
         "=>" => Ok((Token::FatArrow, line, col, operator.len())),
         "," => Ok((Token::Comma, line, col, operator.len())),
+        "." => Ok((Token::Dot, line, col, operator.len())),
         "(" => Ok((Token::LeftParen, line, col, operator.len())),
         ")" => Ok((Token::RightParen, line, col, operator.len())),
         "{" => Ok((Token::LeftBrace, line, col, operator.len())),
@@ -279,7 +282,7 @@ fn lex_string_literal(src: &str, line: usize, col: usize) -> TokenResult {
 fn lex_tokenize(src: &str, line: usize, col: usize) -> TokenResult {
     match src.chars().next() {
         Some('"') => lex_string_literal(src, line, col),
-        Some('0'..'9') => lex_number(src, line, col),
+        Some('0'..='9') => lex_number(src, line, col),
         Some(c) if c != '_' && c.is_ascii_punctuation() => lex_operator(src, line, col),
         Some(c) if c == '_' || c.is_alphabetic() => lex_identifer(src, line, col),
         Some(ch) => Err(LexerError::InvalidChar {ch, line, col}),

@@ -103,7 +103,6 @@ lexer_test!(FAIL: lex_multi_multiply, lex_tokenize, "***");
 
 // these are not valid symbols.  Tests invalid union symbols too.
 lexer_test!(FAIL:lex_invalid, lex_tokenize, "$");
-lexer_test!(FAIL:lex_invalid1, lex_tokenize, "^");
 lexer_test!(FAIL:lex_invalid2, lex_tokenize, "#");
 lexer_test!(FAIL:lex_invalid3, lex_tokenize, "===>");
 lexer_test!(FAIL:lex_invalid4, lex_tokenize, "===");
