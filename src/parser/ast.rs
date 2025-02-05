@@ -1,5 +1,4 @@
 use super::ptr::*;
-use crate::lexer::token::Token;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String);
@@ -59,6 +58,7 @@ pub enum MethodOperator {
     Minus,
     Divide,
     Multiply,
+    Exp,
     Greater,
     Less,
     GreaterEquals,
