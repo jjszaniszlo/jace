@@ -3,7 +3,7 @@ mod parser;
 
 fn main() {
     let toks = lexer::tokenize_into_vec_no_positions(concat!(
-        "(a, b => a + b)",
+        "2 + 2 * -5",
     )).unwrap();
     //let toks = lexer::tokenize_into_vec_no_positions(concat!(\n
     //    "{john = \"John\", age = 21, init = age, name => {age = age, name = name}}",

@@ -4,6 +4,8 @@ use thiserror::Error;
 
 use super::ast::GenericTypeParam;
 
+use std::fmt::Debug;
+
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum ParserError {
     #[error("Could not match token")]
@@ -54,6 +56,170 @@ impl<'a, Output> Parser<'a, Output> for BoxedParser<'a, Output> {
     fn parse(&self, input: &'a [Token]) -> ParseResult<'a, Output> {
         self.parser.parse(input)
     }
+}
+
+pub fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
+where
+    P1: Parser<'a, R1> + 'a,
+    P2: Parser<'a, R2> + 'a,
+{
+    BoxedParser::new(move |input| {
+        p1.parse(input).and_then(|(next, r1)| {
+            p2.parse(next).map(|(last, r2)| (last, (r1, r2)))
+        })
+    })
+}
+
+pub fn map<'a, P, F, A, B>(parser: P, map_fn: F) -> impl Parser<'a, B>
+where
+    P: Parser<'a, A>,
+    F: Fn(A) -> B,
+{
+    move |input| parser.parse(input).map(|(next, result)| (next, map_fn(result)))
+}
+
+pub fn left<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R1>
+where
+    P1: Parser<'a, R1> + 'a,
+    P2: Parser<'a, R2> + 'a,
+{
+    map(pair(p1, p2), |(l, _)| l)
+}
+
+pub fn right<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R2>
+where
+    P1: Parser<'a, R1> + 'a,
+    P2: Parser<'a, R2> + 'a,
+{
+    map(pair(p1, p2), |(_, r)| r)
+}
+
+pub fn or<'a, P1, P2, R>(p1: P1, p2: P2) -> impl Parser<'a, R>
+where
+    P1: Parser<'a, R> + 'a,
+    P2: Parser<'a, R> + 'a,
+{
+    BoxedParser::new(move |input| {
+        match p1.parse(input) {
+            Ok(result) => Ok(result),
+            Err(_) => p2.parse(input),
+        }
+    })
+}
+
+pub fn or_n<'a, P, R>(ps: Vec<P>) -> impl Parser<'a, R>
+where
+    P: Parser<'a, R> + 'a
+{
+    //BoxedParser::new(move |input| {
+    //    ps.iter().fold(
+    //        Err(ParserError::CouldNotMatchToken),
+    //        |prev, curr| {
+    //            match prev {
+    //                Ok(result) => Ok(result),
+    //                Err(_) => curr.parse(input),
+    //            }
+    //        })
+    //})
+    BoxedParser::new(move |input| {
+        let current_input = input;
+        for parser in &ps {
+            if let Ok((next_input, result)) = parser.parse(current_input) {
+                if next_input != current_input {
+                    return Ok((next_input, result));
+                }
+            }
+        }
+        Err(ParserError::CouldNotMatchToken)
+    })
+}
+
+pub fn zero_or_more<'a, P, A>(p: P) -> impl Parser<'a, Vec<A>>
+where
+    P: Parser<'a, A> + 'a
+{
+    //BoxedParser::new(move |mut input| {
+    //    let result: Vec<A> = std::iter::from_fn(|| {
+    //        match p.parse(input) {
+    //            Ok((next, result)) => {
+    //                input = next;
+    //                Some(result)
+    //            },
+    //            Err(_) => None,
+    //        }
+    //    })
+    //    .collect();
+    //
+    //    Ok((input, result))
+    //})
+     BoxedParser::new(move |mut input| {
+        let mut results = vec![];
+        while let Ok((next_input, result)) = p.parse(input) {
+            if next_input == input {
+                break; // Prevent infinite loop if parser doesn't consume input.
+            }
+            results.push(result);
+            input = next_input;
+        }
+        Ok((input, results))
+    })
+}
+
+pub fn one_or_more<'a, P, A>(p: P) -> impl Parser<'a, Vec<A>>
+where
+    P: Parser<'a, A> + 'a,
+{
+    BoxedParser::new(move |mut input| {
+        let mut result = Vec::new();
+
+        if let Ok((next_input, first_item)) = p.parse(input) {
+            input = next_input;
+            result.push(first_item);
+        } else {
+            return Err(ParserError::CouldNotMatchToken);
+        }
+
+        while let Ok((next_input, next_item)) = p.parse(input) {
+            input = next_input;
+            result.push(next_item);
+        }
+
+        Ok((input, result))
+    })
+}
+
+pub fn zero_or_one<'a, P, A>(p: P) -> impl Parser<'a, Option<A>> 
+where
+    P: Parser<'a, A> + 'a
+{
+    BoxedParser::new(move |input| {
+        match p.parse(input) {
+            Ok((next, result)) => Ok((next, Some(result))),
+            Err(_) => Ok((input, None)),
+        }
+    })
+}
+
+pub fn debug_parser<'a, O>(
+    name: &'a str,
+    parser: impl Parser<'a, O> + 'a,
+) -> BoxedParser<'a, O>
+where
+    O: Debug + 'a,
+{
+    BoxedParser::new(move |input| {
+        println!("Attempting parser: {} with input {:?}", name, input);
+        let result = parser.parse(input);
+        match &result {
+            Ok((remaining, output)) => {
+                println!("Success: {} produced {:?}, remaining input: {:?}", name, output, remaining);
+            }
+            Err(err) => {
+                println!("Failure: {} encountered error {:?}", name, err);
+            }
+        }
+        result
+    })
 }
 
 pub fn match_token<'a>(expected: Token) -> impl Parser<'a, ()> {
@@ -112,12 +278,11 @@ pub fn parse_module<'a>() -> impl Parser<'a, ast::Module> {
 }
 
 pub fn parse_definition<'a>() -> impl Parser<'a, ast::Def> {
-    BoxedParser::new(
+    or(
+        parse_type_def(),
         or(
-            parse_type_def(),
-            or(
-                parse_fn_def(),
-                    parse_class_def())))
+            parse_fn_def(),
+                parse_class_def()))
 }
 
 pub fn parse_fn_def_header<'a>() -> impl Parser<'a, ast::Identifier> {
@@ -276,12 +441,12 @@ pub fn parse_class_method_def_named<'a>() -> impl Parser<'a, ast::MethodDef> {
 
 pub fn parse_expression<'a>() -> impl Parser<'a, ast::Expr> {
     or(
-        parse_fn_call(),
+        parse_let_in_expression(),
         or(parse_equality_expr(),
             or(parse_fn_expression(),
                 or(parse_if_then_else(),
                     or(parse_set_literal(),
-                            parse_let_in_expression())))))
+                            parse_fn_call())))))
 }
 
 pub fn parse_set_literal<'a>() -> impl Parser<'a, ast::Expr> {
@@ -360,22 +525,40 @@ pub fn parse_equality_expr<'a>() -> impl Parser<'a, ast::Expr> {
 }
 
 pub fn parse_additive_expr<'a>() -> impl Parser<'a, ast::Expr> { 
-    pair(
-        parse_multiplicative_expr(),
-        zero_or_more(
-            pair(
-                or(match_token_fetch(Token::Plus), match_token_fetch(Token::Minus)),
-                parse_multiplicative_expr())))
-    .map(|(initial, rest)| {
-        rest.into_iter().fold(initial, |acc, (op, next)| {
+    //pair(
+    //    parse_multiplicative_expr(),
+    //    zero_or_more(
+    //        pair(
+    //            or(match_token_fetch(Token::Plus), match_token_fetch(Token::Minus)),
+    //            parse_multiplicative_expr())))
+    //.map(|(initial, rest)| {
+    //    rest.into_iter().fold(initial, |acc, (op, next)| {
+    //        let operator = match op {
+    //            Token::Plus => ast::BinOperator::Plus,
+    //            Token::Minus => ast::BinOperator::Minus,
+    //            _ => unreachable!(),
+    //        };
+    //        ast::Expr::BinOpExpr(operator, P(acc), P(next))
+    //    })
+    //})
+    move |input: &'a [Token]| {
+        let (mut remaining, mut acc) = parse_multiplicative_expr().parse(input)?;
+
+        while let Ok((next_input, (op, next_expr))) = pair(
+            or(match_token_fetch(Token::Plus), match_token_fetch(Token::Minus)),
+            parse_multiplicative_expr(),
+        ).parse(remaining) {
             let operator = match op {
                 Token::Plus => ast::BinOperator::Plus,
                 Token::Minus => ast::BinOperator::Minus,
                 _ => unreachable!(),
             };
-            ast::Expr::BinOpExpr(operator, P(acc), P(next))
-        })
-    })
+            acc = ast::Expr::BinOpExpr(operator, P(acc), P(next_expr));
+            remaining = next_input;
+        }
+
+        Ok((remaining, acc))
+    }
 }
 
 pub fn parse_multiplicative_expr<'a>() -> impl Parser<'a, ast::Expr> {
@@ -546,13 +729,9 @@ pub fn parse_fn_expression_case<'a>() -> impl Parser<'a, ast::FnExpr> {
 pub fn parse_fn_call<'a>() -> impl Parser<'a, ast::Expr> {
     pair(
         match_identifier,
-        pair(
-            parse_expression(),
-            zero_or_more(parse_expression())))
-    .map(|(func_name, (first_param, params))| {
-        let mut final_params = vec![first_param];
-        final_params.extend(params);
-            ast::Expr::FnCall(func_name, final_params)
+        one_or_more(parse_expression()))
+    .map(|(func_name, params)| {
+        ast::Expr::FnCall(func_name, params)
     })
 }
 

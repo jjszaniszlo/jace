@@ -7,66 +7,55 @@ Predefined:
 
 # Grammar
 
-if p1 then e1 elseif p2 then e2 else e3 
-
-Still incomplete in BNF form.  Need to figure out how to represent binary expressions properly without too much recursion.
+## Some notes about the EBNF.
+The EBNF grammar doesn't take into account operator precedence because the parser uses pratt parsing for operators, so its not inherently needed to be a part of the grammar.
 
 ```
-<identifier> ::= ([a-z] | [A-Z] | "_") ([a-z] | [A-Z] | [0-9] | "_")*
+<ident> ::= ([a-z] | [A-Z] | "_") ([a-z] | [A-Z] | [0-9] | "_")*
 <integer> ::= [1-9] [0-9]*
 <float> ::= ("0" "." [0-9]+) | ([1-9] [0-9]* "." [0-9]+)
-<number> := <integer> | <float>
+<number> ::= <integer> | <float>
+<bool> ::= "true" | "false"
 
-<literal> ::= <integer> | <float> | <string> | <set_literal>
+<bin_op> ::= "==" | "!=" | ">" | ">=" | "<" | "<=" | "+" | "-" | "*" | "/" | "&&" | "||" 
+<bin_expr> ::= <primary> (<bin_op> <primary>)*
+<primary> ::= "(" <expr> ")" | <number> | <ident> | <bool> | "-" <primary> | <set_access>
 
-<expression> ::= <func_call>
-             | <expression> "+" <factor> | <expression> "-" <factor>
-             | <factor>
+<pred_expr> ::= <bin_expr> | <bool> | <fn_call>
 
-<atom> := <number> | "(" <expression> ")"
-<factor> := <atom> | <factor> "*" <atom>
+<fn_call> ::= ( <ident> | <set_access> ) ( <primary> | <bool> )+
+<fn_param> ::= <ident>
+             | <set_selector>
+             | <set_destructure>
 
-<func_name> ::= <identifier>
+<case_expr> ::= <case> (<fn_param> ("," <fn_param>")* => <expr>)+
 
-<func_input_types> ::= <type_name> ("," <type_name>)*
-<func_type_sig> ::= <func_name> "::" <func_input_types> "=>" <type_name>
+<set_destructure> ::= "{" <ident> ("," <ident>)* "}"
+<set_selector> ::= "{" <ident> ":" <ident> "}
+<set_access> ::= <ident> "." <ident> ("." <ident>)*
 
-<def_func> ::= <func_name> "::" (<func_expression> | <func_case_expression>)
-<func_case> ::= <func_expression>
-<func_case_expression> := "case\n" <func_case> ("\n" <func_case")*
-<func_expression> ::= (<func_params> "=>" <expression>)
-<func_params> ::= <identifier> ("," <identifier>)*
+<expr> ::= <bin_expr>
+         | "if" <pred_expr> "then" <expr> ("elseif" <pred_expr> "then" <expr>)* "else" <expr>
+         | "let" <stmt>* "in" <expr>
+         | <fn_call>
+         | <fn_param> ("," <fn_param>")* "=>" ( <expr> | <case_expr> )
+         | "{" (<ident> "=" <expr>)+ ("," <ident> "=" <expr>)* "}"
 
-<func_argument> ::= <identifier> | <literal>
-<func_arguments> ::= <func_argument> (" " <func_argument>)*
-<func_call> ::= <func_name> " " <func_arguments>
+<stmt> ::= <ident> ":=" <expr>
+         | <ident> ("," <ident>)* := <set_destructure>
+         | <set_destructure> = <expr> ("," <expr>)*
+         | <ident> "=" <expr>
+         | <set_access> "=" <expr>
 
-<def_variable> ::= <identifier> ":" <type_name>? "=" (<identifer> | <literal>)
+<def> ::= "type" <ident> "::" <ident> ":" <ident> (<ident> ":" <ident>)*
+        | "class" <ident> <ident>+ "::" ( <ident> "::" ( <ident> ( "," <ident> )* "=>" <ident> )+ )+
+        | "class" <ident> <ident>+ "::" ( "(" <bin_op> ")" "::" ( <ident> "," <ident> "=>" <ident> )+ )+
+        | "instance" <ident> <ident> <ident>* "::" <ident> "=>" ( <expr> | <case_expr> )
+        | "module" "::" <ident>
 
-<type_name> := <identifier>
-
-<set_prototype> := ("\t" <set_prototype_entry>)+
-<set_prototype_entry> := <identifier> ":" <type_name>
-<def_type> := "type" <type_name> "::" "\n" <set_prototype>
-<type_union> := "type" <type_name> "::" <type> "|" <type> ("|" <type>)*
-
-<set_literal> := "{" (<set_entry> ("," <set_entry>)*)? "}"
-<set_entry> := <identifier> "=" (<identifier> | <literal>)
-
-<class_name> := <identifier>
-<class_var> := <identifier>
-<class_vars> := <class_var> ("," <class_var>)*
-<class_fn_id> := <identifier> | ("(" <operator> "))
-<class_fn_sig> := <class_fn_id> "::" <class_vars> "=>" <type>
-<class_fn_sigs> := <class_fn_sig> ("\n" <class_fn_sig>)*
-<def_class> := "class" <class_name> <class_var> "::\n" <class_fn_signature>
-
-<instance_arg> := <identifier>
-<instance_args> := <instance_arg> ("," <instance_arg>)*
-<instance_fn_def> := <class_fn_id> "|" <expression>
-<instance_fn_defs> := <instance_fn_def> ("\n" <instance_fn_def>)*
-<def_instance> := "instance" <type_name> <class_name> <instance_args> "::\n" <instance_fn_defs>
-
+<reserved_idents> ::= "class" | "type" | "instance" | "module" | "true"
+                    | "false" | "if" | "then" | "else" | "elseif" | "let" | "in"
+                    | "case"
 ```
 
 ## Structure
@@ -138,3 +127,50 @@ let
 in joe == Person.person_of_interest
 -- this will finally return false since the two sets aren't comparable
 ```
+
+
+<expr> ::= <comp_expr>
+<comp_expr> ::= <addiv_expr> (<bool_op> <addiv_expr>)*
+<addiv_expr> ::= <multiv_expr> (("+" | "-") <multiv_expr>)*
+<multiv_expr> ::= <primary> ( ("*" | "/") <primary>)*
+<primary> ::= "(" <expr> ")" | <number> | <ident> | "-" <primary>
+
+<func_type_sig> ::= <ident> "::" <ident> ("," <ident>)* "=>" <ident>
+<func_def> ::= <ident> "::" (<func_expr> | <func_case_expr>)
+<func_expr> ::= <ident> ("," <ident>) "=>" <expr>
+
+<func_case> ::= <func_expression>
+<func_case_expression> := "case" <func_case> (<func_case>)*
+<func_expression> ::= (<func_params> "=>" <expression>)
+<func_params> ::= <ident> ("," <ident>)*
+
+<func_argument> ::= <ident> | <literal>
+<func_arguments> ::= <func_argument> (" " <func_argument>)*
+<func_call> ::= <func_name> " " <func_arguments>
+
+<def_variable> ::= <ident> ":" <type_name>? "=" (<identifer> | <literal>)
+
+<type_name> := <ident>
+
+<set_prototype> := ("\t" <set_prototype_entry>)+
+<set_prototype_entry> := <ident> ":" <type_name>
+<def_type> := "type" <type_name> "::" "\n" <set_prototype>
+<type_union> := "type" <type_name> "::" <type> "|" <type> ("|" <type>)*
+
+<set_literal> := "{" (<set_entry> ("," <set_entry>)*)? "}"
+<set_entry> := <ident> "=" (<ident> | <literal>)
+
+<class_name> := <ident>
+<class_var> := <ident>
+<class_vars> := <class_var> ("," <class_var>)*
+<class_fn_id> := <ident> | ("(" <operator> "))
+<class_fn_sig> := <class_fn_id> "::" <class_vars> "=>" <type>
+<class_fn_sigs> := <class_fn_sig> ("\n" <class_fn_sig>)*
+<def_class> := "class" <class_name> <class_var> "::\n" <class_fn_signature>
+
+<instance_arg> := <ident>
+<instance_args> := <instance_arg> ("," <instance_arg>)*
+<instance_fn_def> := <class_fn_id> "|" <expression>
+<instance_fn_defs> := <instance_fn_def> ("\n" <instance_fn_def>)*
+<def_instance> := "instance" <type_name> <class_name> <instance_args> "::\n" <instance_fn_defs>
+
