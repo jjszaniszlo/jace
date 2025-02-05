@@ -289,37 +289,6 @@
 //    })
 //}
 //
-//pub fn parse_if_then_else<'a>() -> impl Parser<'a, ast::Expr> {
-//    pair(
-//    right(
-//        match_token(Token::IfKeyword),
-//        left(
-//            parse_expression(),
-//            match_token(Token::ThenKeyword))),
-//    pair(
-//        pair(
-//                parse_expression(),
-//                zero_or_more(parse_elseif_p_then_e())),
-//        right(
-//            match_token(Token::ElseKeyword),
-//            parse_expression())))
-//    .map(|(pred, ((expr, elseifs), else_expr))| {
-//        let mut final_result = vec![(pred, expr)];
-//        final_result.extend(elseifs);
-//
-//        ast::Expr::IfThenElseIfExpr(final_result, P(else_expr))
-//    })
-//}
-//
-//pub fn parse_elseif_p_then_e<'a>() -> impl Parser<'a, (ast::Expr, ast::Expr)> {
-//    pair(
-//        right(
-//            match_token(Token::ElseIfKeyword),
-//            left(
-//                parse_expression(),
-//                match_token(Token::ThenKeyword))),
-//        parse_expression())
-//}
 //
 //
 //

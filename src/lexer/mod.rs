@@ -90,6 +90,7 @@ fn lex_identifer(src: &str, line: usize, col: usize) -> TokenResult {
         "if" => Ok((Token::IfKeyword, line, col, identifier.len())),
         "then" => Ok((Token::ThenKeyword, line, col, identifier.len())),
         "else" => Ok((Token::ElseKeyword, line, col, identifier.len())),
+        "elseif" => Ok((Token::ElseIfKeyword, line, col, identifier.len())),
         _ => Ok((Token::from(identifier.clone()), line, col, identifier.len()))
     }
 }
