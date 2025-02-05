@@ -34,7 +34,7 @@ pub enum Def {
     FnDef(Identifier, Vec<TypeName>, TypeName, FnExpr),
     TypeDef(TypeName, Vec<(Identifier, TypeName)>),
     ClassDef(ClassName, Vec<GenericTypeParam>, Vec<MethodDef>),
-    InstanceDef(TypeName, ClassName, Vec<FnParam>, Vec<MethodImpl>),
+    InstanceDef(ClassName, TypeName, Vec<FnParam>, Vec<MethodImpl>),
     ModuleDef(String),
 }
 
