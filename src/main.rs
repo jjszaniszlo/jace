@@ -4,28 +4,13 @@ mod parser;
 fn main() {
     let toks = lexer::tokenize_into_vec_no_positions(
         r#"
-        type Person ::
-            name : String
-            age : Integer
 
-        class Equal Person a ::
-            (==) :: a, a => Bool
-            sameAge :: a, a => Bool
-            sameName :: a, a => Bool
-
-        instance Equal Person {name, age}, {name2, age2} ::
-            (==) => name == name2 && age == age2
-            sameAge => age == age2
-            sameName => name == name2
-
-        map :: {c}, {a} => {b}
+        map :: [a], [b] => [c]
         map :: case
             _, {} => {}
+            f, {x:xs} => {f x} + (map f xs)
 
-        let
-            john : Person = {name = "john", age = 21}
-            harry : Person = {name = "harry", age = 21}
-        in sameAge john.age
+        1
         "#
     ).unwrap();
 

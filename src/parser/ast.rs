@@ -85,6 +85,7 @@ pub enum Expr {
     IdentExpr(Identifier),
     LitExpr(Literal),
     SetExpr(Vec<(Identifier, Expr)>),
+    ArrayExpr(Vec<Expr>),
     BinOpExpr(BinOperator, P<Expr>, P<Expr>),
     LetInExpr(Vec<Stmt>, P<Expr>),
     FnExpr(P<FnExpr>),
