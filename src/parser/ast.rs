@@ -85,6 +85,20 @@ pub enum Expr {
     FnCall(Identifier, Vec<Expr>),
     // predicates followed by their expressions, and lastly an else expression
     IfThenElseIfExpr(Vec<(Expr, Expr)>, P<Expr>),
+
+    MemberExpr(MemberExpr),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MemberExpr {
+    pub identifier: Identifier,
+    pub base: MemberExprBase,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum MemberExprBase {
+    Identifier(Identifier),
+    MemberExpr(P<MemberExpr>),
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -4,6 +4,8 @@ use thiserror::Error;
 
 use std::fmt::Debug;
 
+use super::ast::MemberExpr;
+
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum ParserError {
     #[error("Could not match token")]
@@ -579,6 +581,33 @@ pub fn parse_unary_minus<'a>() -> impl Parser<'a, ast::Expr> {
     }
 }
 
+pub fn parse_member_expr<'a>() -> impl Parser<'a, ast::Expr> {
+    pair(
+        parse_identifier,
+        one_or_more(
+            right(
+            match_token(Token::Dot),
+            parse_identifier)))
+    .map(|(first, rest)| {
+        // Start building from the leftmost identifier (foo) outward
+        let mut iter = rest.into_iter();
+        let mut base = ast::MemberExpr {
+            identifier: iter.next().unwrap(),
+            base: ast::MemberExprBase::Identifier(first),
+        };
+
+        // Fold the remaining identifiers correctly so that the rightmost is the outermost
+        for identifier in iter {
+            base = ast::MemberExpr {
+                identifier,
+                base: ast::MemberExprBase::MemberExpr(P(base)),
+            };
+        }
+
+        ast::Expr::MemberExpr(base)
+    })
+}
+
 pub fn parse_primary<'a>() -> impl Parser<'a, ast::Expr> {
     //or(
     //    parse_parenthesized_expression(),
@@ -591,6 +620,7 @@ pub fn parse_primary<'a>() -> impl Parser<'a, ast::Expr> {
         BoxedParser::new(parse_parenthesized_expression()),
         BoxedParser::new(parse_unary_minus()),
         BoxedParser::new(parse_literal.map(|l| ast::Expr::LitExpr(l))),
+        BoxedParser::new(parse_member_expr()),
         BoxedParser::new(parse_identifier.map(|i| ast::Expr::IdentExpr(i))),
     ])
 }
