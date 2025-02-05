@@ -162,6 +162,35 @@ fn test_right_combinator() {
     assert_eq!(remaining, &tokens[2..]); // Both tokens should be consumed
 }
 
+#[test]
+fn test_match_identifier_success() {
+    let tokens = vec![
+        Token::Identifier("myVar".to_string()),
+        Token::Plus,
+        Token::Integer(42),
+    ];
+    let result = parse_identifier(&tokens);
+
+    assert!(result.is_ok());
+    let (remaining, identifier) = result.unwrap();
+    
+    // Verify that the identifier is correctly extracted
+    assert_eq!(identifier, ast::Identifier("myVar".to_string()));
+
+    // Verify that the remaining tokens are correct
+    assert_eq!(remaining, &[Token::Plus, Token::Integer(42)]);
+}
+
+#[test]
+fn test_match_identifier_failure() {
+    let tokens = vec![
+        Token::Plus,
+        Token::Identifier("myVar".to_string()),
+    ];
+    let result = parse_identifier(&tokens);
+
+    assert!(result.is_err());
+}
 //#[test]
 //fn test_parse_set_literal_with_valid_commas() {
 //    let toks = vec![

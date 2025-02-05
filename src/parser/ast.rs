@@ -1,4 +1,5 @@
 use super::ptr::*;
+use crate::lexer::token::Token;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String);
@@ -115,6 +116,7 @@ pub enum BinOperator {
     Minus,
     Divide,
     Multiply,
+    Exp,
     And,
     Or,
     GreaterEquals,
