@@ -65,6 +65,9 @@ pub enum Token {
     ThenKeyword,    // then
     ElseKeyword,    // else
     ElseIfKeyword,  // elseif
+    ImportKeyword,  // import 
+    DoKeyword,      // do 
+    EndKeyword,     // end
 }
 
 impl Token {
