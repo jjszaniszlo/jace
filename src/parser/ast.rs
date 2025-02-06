@@ -31,11 +31,17 @@ pub struct Module(pub Vec<Def>, pub Expr);
 //***************Definitions*****************
 #[derive(Clone, Debug, PartialEq)]
 pub enum Def {
-    FnDef(Identifier, Vec<TypeName>, TypeName, FnExpr),
+    FnDef(Identifier, Vec<TypeParam>, TypeParam, FnExpr),
     TypeDef(TypeName, Vec<(Identifier, TypeName)>),
     ClassDef(ClassName, Vec<GenericTypeParam>, Vec<MethodDef>),
     InstanceDef(ClassName, TypeName, Vec<FnParam>, Vec<MethodImpl>),
     ModuleDef(String),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TypeParam {
+    Single(Identifier),
+    ArrayType(Identifier),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -79,6 +85,7 @@ pub enum Expr {
     IdentExpr(Identifier),
     LitExpr(Literal),
     SetExpr(Vec<(Identifier, Expr)>),
+    ArrayExpr(Vec<Expr>),
     BinOpExpr(BinOperator, P<Expr>, P<Expr>),
     LetInExpr(Vec<Stmt>, P<Expr>),
     FnExpr(P<FnExpr>),

@@ -36,6 +36,7 @@ pub enum Token {
     WrappedDivide,          // (/)
     WrappedMultiply,        // (*)
     WrappedExp,             // (^)
+    WrappedOperator(String),// (custom_operator)
 
     // other operators 
     Equals,             // =
@@ -64,6 +65,9 @@ pub enum Token {
     ThenKeyword,    // then
     ElseKeyword,    // else
     ElseIfKeyword,  // elseif
+    ImportKeyword,  // import 
+    DoKeyword,      // do 
+    EndKeyword,     // end
 }
 
 impl Token {
