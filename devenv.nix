@@ -3,7 +3,7 @@ let
   nixvim = inputs.nixvim.packages.${pkgs.system}.default;
 in
 {
-  packages = [ pkgs.git pkgs.lazygit nixvim];
+  packages = [ pkgs.git pkgs.lazygit];
 
   languages.rust.enable = true;
   languages.lua.enable = true;

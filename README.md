@@ -7,152 +7,369 @@ Predefined:
 
 # Grammar
 
-Still incomplete in BNF form.  Need to figure out how to represent binary expressions properly without too much recursion.
+## Some notes about the EBNF.
+The EBNF grammar doesn't take into account operator precedence because the parser uses pratt parsing for operators, so its not inherently needed to be a part of the grammar.
 
 ```
-<identifier> ::= ([a-z] | [A-Z] | "_") ([a-z] | [A-Z] | [0-9] | "_")*
+<ident> ::= ([a-z] | [A-Z] | "_") ([a-z] | [A-Z] | [0-9] | "_")*
 <integer> ::= [1-9] [0-9]*
 <float> ::= ("0" "." [0-9]+) | ([1-9] [0-9]* "." [0-9]+)
-<number> := <integer> | <float>
+<number> ::= <integer> | <float>
+<bool> ::= "true" | "false"
 
-<literal> ::= <integer> | <float> | <string> | <set_literal>
+<bin_op> ::= "==" | "!=" | ">" | ">=" | "<" | "<=" | "+" | "-" | "*" | "/" | "&&" | "||" 
+<bin_expr> ::= <primary> (<bin_op> <primary>)*
+<primary> ::= "(" <expr> ")" | <number> | <ident> | <bool> | "-" <primary> | <set_access>
 
-<expression> ::= <func_call>
-             | <expression> "+" <factor> | <expression> "-" <factor>
-             | <factor>
+<pred_expr> ::= <bin_expr> | <bool> | <fn_call>
 
-<atom> := <number> | "(" <expression> ")"
-<factor> := <atom> | <factor> "*" <atom>
+<fn_call> ::= ( <ident> | <set_access> ) ( <primary> | <bool> )+
+<fn_param> ::= <ident>
+             | <set_selector>
+             | <set_destructure>
 
-<func_name> ::= <identifier>
+<case_expr> ::= <case> (<fn_param> ("," <fn_param>")* => <expr>)+
 
-<func_input_types> ::= <type_name> ("," <type_name>)*
-<func_type_sig> ::= <func_name> "::" <func_input_types> "=>" <type_name>
+<set_destructure> ::= "{" <ident> ("," <ident>)* "}"
+<set_selector> ::= "{" <ident> ":" <ident> "}
+<set_access> ::= <ident> "." <ident> ("." <ident>)*
 
-<def_func> ::= <func_name> "::" (<func_expression> | <func_case_expression>)
-<func_case> ::= <func_expression>
-<func_case_expression> := "case\n" <func_case> ("\n" <func_case")*
-<func_expression> ::= (<func_params> "=>" <expression>)
-<func_params> ::= <identifier> ("," <identifier>)*
+<expr> ::= <bin_expr>
+         | "if" <pred_expr> "then" <expr> ("elseif" <pred_expr> "then" <expr>)* "else" <expr>
+         | "let" <stmt>* "in" <expr>
+         | <fn_call>
+         | <fn_param> ("," <fn_param>")* "=>" ( <expr> | <case_expr> )
+         | "{" (<ident> "=" <expr>)+ ("," <ident> "=" <expr>)* "}"
 
-<func_argument> ::= <identifier> | <literal>
-<func_arguments> ::= <func_argument> (" " <func_argument>)*
-<func_call> ::= <func_name> " " <func_arguments>
+<stmt> ::= <ident> ":=" <expr>
+         | <ident> ("," <ident>)* := <set_destructure>
+         | <set_destructure> = <expr> ("," <expr>)*
+         | <ident> "=" <expr>
+         | <set_access> "=" <expr>
 
-<def_variable> ::= <identifier> ":" <type_name>? "=" (<identifer> | <literal>)
+<def> ::= "type" <ident> "::" <ident> ":" <ident> (<ident> ":" <ident>)*
+        | "class" <ident> <ident>+ "::" ( <ident> "::" ( <ident> ( "," <ident> )* "=>" <ident> )+ )+
+        | "class" <ident> <ident>+ "::" ( "(" <bin_op> ")" "::" ( <ident> "," <ident> "=>" <ident> )+ )+
+        | "instance" <ident> <ident> <ident>* "::" <ident> "=>" ( <expr> | <case_expr> )
+        | "module" "::" <ident>
 
-<type_name> := <identifier>
-
-<set_prototype> := ("\t" <set_prototype_entry>)+
-<set_prototype_entry> := <identifier> ":" <type_name>
-<def_type> := "type" <type_name> "::" "\n" <set_prototype>
-<type_union> := "type" <type_name> "::" <type> "|" <type> ("|" <type>)*
-
-<set_literal> := "{" (<set_entry> ("," <set_entry>)*)? "}"
-<set_entry> := <identifier> "=" (<identifier> | <literal>)
-
-<class_name> := <identifier>
-<class_var> := <identifier>
-<class_vars> := <class_var> ("," <class_var>)*
-<class_fn_id> := <identifier> | ("(" <operator> "))
-<class_fn_sig> := <class_fn_id> "::" <class_vars> "=>" <type>
-<class_fn_sigs> := <class_fn_sig> ("\n" <class_fn_sig>)*
-<def_class> := "class" <class_name> <class_var> "::\n" <class_fn_signature>
-
-<instance_arg> := <identifier>
-<instance_args> := <instance_arg> ("," <instance_arg>)*
-<instance_fn_def> := <class_fn_id> "|" <expression>
-<instance_fn_defs> := <instance_fn_def> ("\n" <instance_fn_def>)*
-<def_instance> := "instance" <type_name> <class_name> <instance_args> "::\n" <instance_fn_defs>
-
+<reserved_idents> ::= "class" | "type" | "instance" | "module" | "true"
+                    | "false" | "if" | "then" | "else" | "elseif" | "let" | "in"
+                    | "case"
 ```
 
 ## Structure
 
-A jace file always will follow the following structure
+A jace module always will follow the following structure
 
-1) All Definitions
-2) A single expression
+1) Zero or more modules
+2) zero or more definitions
 
+Additionally, the entry point module must contain a main procedure.
 
 ```Haskell
-MyModule :: mod mymodule
+-- main procedure
+def main :: ()
+do
+    print "Hello World!"
+```
 
--- all definitions which can be remembered by the :: syntax
+```Haskell
+-- import a module
+import mymodule
+
+-- all definitions use :: which is the constant assignment operator.
+
 type Foo ::
     ...
 
 class Bar _ ::
     ...
 
-instance Foo Bar _ ::
+instance Bar Foo _ ::
     ...
 
-fooFunc :: Foo => Foo
-fooFunc :: {} => {}
+-- function definitions
+def fooFunc :: Foo => Foo
+    params... => expression...
 
--- then a single expression as an entry point to the program or module.
--- for example this:
--- fooFunc {}
+-- function with case (pattern matching)
+def barFunc :: Foo => Foo
+case
+    params1... => exp1...
+    params2... => exp2...
 
--- or this
+-- function with local vars.
+def bazFunc :: Foo => Foo
 let
-    x : Foo = {} 
-in fooFunc x
+    bazValue := ...
+in
+    params1... => exp1...
+    params2... => bazValue...
+
+-- constant value.
+MATH_PI :: 3.14
+
+def sayHelloWorld :: ()
+do
+    print "Hello World!"!       -- function calls are terminated with !
+    ...
+
+-- only in entry point module
+def main :: ()
+do
+    sayHelloWorld!      -- call a proc which has no params or return type.
+    ...
+
 ```
 
-A snippet of what all that looks like.
+## Types
+
+These are the base types in Jace.
 
 ```Haskell
-type Person ::
-  name : String
-  age : Integer
+-- the base primitive types are
+Number, Float, Integer, Bool, String
+-- all sets are implicitly unioned with the "Set" type.
+Set
 
+-- Note that Number is simply a Float unioned with the Integer type.
+-- Type unioning means that it can be constructed from both types, but not coerced into those types.
+type Number :: Float | Integer
+
+```
+
+Non-primitive types are defined in two different ways. Set prototype definition and set alias definition.
+
+```Haskell
+-- set prototype definition
+type Vector3 ::
+    x : Number
+    y : Number
+    z : Number
+
+-- set alias definition     (The two definitions ARE NOT EQUIVALENT)
+type Vec3 :: [Number 3]
+
+```
+
+Types can be assigned to expressions explicitly or literally.  Either way, fields must be defined with their names.
+
+```Haskell
+type Vector3 ::
+    x : Number
+    y : Number
+    z : Number
+
+-- defines a constant value.
+CONSTANT_VEC_3 :: {x = 1, y = 2, z = 3}
+
+-- + is not defined by default on sets, so the final operation is technically invalid, but later on + can be defined on types.
+UP_AND_RIGHT :: let
+    up := {x = 0, y = 0, z = 1}
+    right : Vector3 = {x = 0, y = 1, z = 0}
+in up + right
+
+```
+
+For the other vec definition however, since it alias an array, it can be defined as the following
+
+```Haskell
+type Vec3 :: [Number 3]
+
+CONSTANT_VEC_3 :: {1, 2, 3}
+
+-- + is not defined by default on sets, so the final operation is technically invalid, but later on + can be defined on types.
+UP_AND_RIGHT ::let
+    up := {0, 0, 1}
+    right := {0, 1, 0}
+in up + right
+
+```
+
+## Function Types
+
+Functions are first class citizens in Jace, so they are a valid type.  These types of functions are referred to as closures.
+
+```Haskell
+ 
+-- for example
+-- This function takes a closure which takes in an integer and returns an integer.
+-- it also takes in an Integer and returns an Integer.
+-- the final expression in the function applies function f to integer i.
+def applyTo :: (Integer => Integer), Integer => Integer
+    func, int => func int
+
+RESULT :: applyTo (a => a * 2) 4! -- RESULT = 8
+
+```
+
+## Case expression in functions.
+
+Functions may accept a case expression.  A case expression matches the input values of the function and returns the expression which matches.
+Pattern expressions may be used in case expressions.
+
+```Haskell
+
+-- all cases must be covered in some way.  in this case, the first param is only used if its 0, 1 or 2.
+def doOperation :: Integer, Integer => Integer
+case
+    0, n => n^2
+    1, n => n^3
+    2, n => n^4
+    _, n => n
+
+-- the case expression works really nicely for recursive functions.
+def factorial :: Integer => Integer
+case
+    0 => 1
+    n => n * factorial (n - 1)!
+
+```
+
+## Pattern Expressions
+
+Pattern expressions may be only used in the context of a case expression within a function.
+
+```Haskell
+type Vector3 ::
+    x : Number
+    y : Number
+    z : Number
+
+-- makes the vector's y value 0 essentially.
+-- this matches all possible vaules of vector3 but discards the y value.
+-- the set destructure pattern takes on the type of the associated param type.
+def groundVector :: Vector3 => Vector3
+case
+    {x, _, z} => {x = x, y = 0, z = z}
+
+-- in this specific case, working with set arrays is much nicer.
+ 
+type Vec3 :: [Number 3]
+
+def groundVec :: Vec3 => Vec3
+case
+    {x, _, z} => {x, 0, z}
+
+-- another useful expression is the set selector.
+-- the syntax is {first_element:rest_of_array}
+-- it doesn't have to be used in case expressions, but they typically will, especially for recursive functions.
+def first :: [Number] => Number
+    {f:_} => f
+
+-- Speaking of recursive functions, we can now implement the map function.
+
+def map :: (Number => String), [Number] => [String]
+case
+    _, {} => {}
+    f, {x:xs} => f x! : map f xs!
+
+-- this doesnt seem very useful though... it can only map a set array of numbers to a set array of strings...
+-- luckily, generics can save the day! On to the next section.
+
+```
+
+## Generic Fn Params
+
+Any lowercase type name, where types can be parsed is implicity a generic type.
+
+```Haskell
+
+-- this means that map can really be implemented *better* as this:
+def map :: (a => b), [a] => [b]
+case
+    _, {} => {}
+    f, {x:xs} => f x! : map f xs!
+
+```
+
+## Classes
+
+Classes are really where things start to become more useful and clear.
+
+```Haskell
+
+-- first lets define a type.
+type Foo ::
+    bar : String,
+    baz : Integer,
+
+-- next, define a class with a method. The method in this case overloads the == operator.
+-- this uses the generic param a to dictate that the input params are the same type.
 class Equal a ::
     (==) :: a, a => Bool
 
-instance Person Equal x y ::
-    (==) => x.name == y.name && x.age == y.age
+-- implement the desired class for a type.
+instance Equal Foo x y ::
+    (==) => x.bar == y.bar && x.baz == y.baz
 
--- bill will infer the type of Person, since it has two members which match the names and types of the type "Person"
-let
-    bill := {name = "bill", age = 34}
-in { person_of_interest = bill }
--- the final expression is a set with a member, which is a set of type "Person"
-```
+TEST :: let
+    fooIsh := {bar = "fizzbuzz", baz = 21}
+    barIsh := {bar = "fizzbuzz", baz = 21}
+in fooIsh == barIsh     -- returns true.
 
-Importing this module is as simple as adding it to the definitions.
-
-Importing a module means importing all of its definitions, under the namespace of the module name.
-
-```Haskell
-mod Person
-
-let 
-    joe := {name = "joe", age = 23}
-in joe == Person.person_of_interest
--- this will finally return false since the two sets aren't comparable
 ```
 
 ```Haskell
+-- classes become even more useful when you use them as type params.
+type Vector3 ::
+    x : Number
+    y : Number
+    z : Number
 
--- map implementation example.
--- any function as a type, must be surrounded by parenthesis.
--- additionally, any lower case types are implied to be "generic" and inferred later.
-map :: (a => b), {a} => {b}
-map :: case
-    _, {} => {}                                   -- _ matches any and discards, whereas {} matches empty sets only.
-    func, {t:ts} => func t : (map func ts)        -- : is the set union syntax.
+type Vec2 :: [Number 2]
+
+class Dot a b ::
+    dot :: a, a => Number
+
+-- set destructuring can be used here as well
+instance Dot Vector3 {x1, y1, z1} {x2, y2, z2} ::
+    dot => x1*x2+y1*y2+z1*z2
+
+-- since array sets can be destructured the same way as sets, this is also valid and identical for that matter.
+instance Dot Vec2 {x1, y1} {x2, y2} ::
+    dot => x1*x2+y1*y2+z1*z2
+
+RESULT :: let 
+    -- notice that the same method applies to both set types!
+    result1 := dot {x = 1, y = 2, z = 3} {x = 2, y = 3, z = 1}
+    result2 := dot {1, 2} {3, 4}
+in {result1, result2}
 
 ```
 
-```Lua
+```Haskell
+type Vector3 ::
+    x : Number
+    y : Number
+    z : Number
 
-function map(func, set)
-    if set == {} then
-        return {}
-    else
-        return table.insert(table.insert({}, func(table.remove(set, 1))), map(func, set))
-    end
-end
+class Display a ::
+    print :: a => Void
+
+instance Display Vector3 {x, y, z} ::
+    print => printfmt "({}, {}, {})" x y z!
+
 ```
+
+## Procedures
+
+Procedures are essentially functions which may take in parameters but do not return a value.  They are impure.
+
+They cannot be assigned to anything, nor can they be returned from functions.
+
+
+```Haskell
+
+-- a proc is really the only place where functions that don't have return values can be called.
+-- a proc is a collection of statements and proc calls.
+
+
+-- the () signifies the type of proc.
+proc run :: ()
+do
+    print "Hello World!"!
+
+```
+
