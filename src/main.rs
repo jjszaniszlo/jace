@@ -36,6 +36,7 @@ fn run(path: PathBuf) {
             err::error_maybe(
             lexer::tokenize_into_vec_no_positions(buf.as_str()),
             format!("Lexer Error"));
+        println!("{:#?}", toks);
 
         let (_, result) = 
             err::error_maybe(

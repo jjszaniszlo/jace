@@ -39,8 +39,9 @@ pub enum LexerError {
         col : usize,
     },
 
-    #[error("Malformed operator when tokenizing {}:{}", line, col)]
+    #[error("Malformed operator when tokenizing '{}' {}:{}", st,  line, col)]
     MalformedOperator {
+        st : String,
         line: usize,
         col : usize,
     },
@@ -95,6 +96,8 @@ fn lex_identifer(src: &str, line: usize, col: usize) -> TokenResult {
         "then" => Ok((Token::ThenKeyword, line, col, identifier.len())),
         "else" => Ok((Token::ElseKeyword, line, col, identifier.len())),
         "elseif" => Ok((Token::ElseIfKeyword, line, col, identifier.len())),
+        "do" => Ok((Token::DoKeyword, line, col, identifier.len())),
+        "def" => Ok((Token::DefKeyword, line, col, identifier.len())),
         _ => Ok((Token::from(identifier.clone()), line, col, identifier.len()))
     }
 }
@@ -158,33 +161,23 @@ fn lex_operator(src: &str, line: usize, col: usize) -> TokenResult {
     let mut chars = src.chars();
     let mut operator = String::new();
 
-    let mut could_be_wrapped_op = false;
-
     while let Some(next_char) = chars.next() {
         match next_char {
-            // these are symbols which can only be lexed as singles or terminates the wrapped
-            // operator.
-            ch @ ('{' | '}' | '[' | ']' | ')' | ',' | '.') => {
-                operator.push(ch);
-                break;
-            },
-
-            // these are symbols which can begin or continue longer symbols.
-            ch @ ('=' | ':' | '&' | '|' | '>' | '<' | '!'
-                      | '+' | '-' | '/' | '*' | '^') => operator.push(ch),
-
-            // wrapped operator logic. breaks if another (( instead of another symbol.
-            ch @ '(' => {
-                if could_be_wrapped_op {
-                    break;
-                }
-                could_be_wrapped_op = true;
-                operator.push(ch);
-            }
-
+            ch if ch.is_ascii_punctuation() => operator.push(ch),
             _ => break,
         }
     }
+
+    // match longest matching operator
+    while match operator.as_str() {
+            "=="   | "!="   | "&&"   | "||"  | ">="  | "<=" | ">"    |
+            "<"    | "+"    | "-"    | "/"   | "*"   | "^"  | "(==)" |
+            "(!=)" | "(>=)" | "(<=)" | "(>)" | "(<)" | "(+)"| "(-)"  |
+            "(/)"  | "(*)"  | "(^)"  | "="   | ":="  | ":"  | "::"   |
+            "|"    | "=>"   | ","    | "."   | "("   | ")"  | "{"    |
+            "}"    |  "["   | "]"    | "()"  | "!" => false,
+            _ => true,
+    } { operator.pop(); }
 
     match operator.as_str() {
         "==" => Ok((Token::EqualsEquals, line, col, operator.len())),
@@ -227,7 +220,10 @@ fn lex_operator(src: &str, line: usize, col: usize) -> TokenResult {
         "}" => Ok((Token::RightBrace, line, col, operator.len())),
         "[" => Ok((Token::LeftBracket, line, col, operator.len())),
         "]" => Ok((Token::RightBracket, line, col, operator.len())),
-        _ => Err(LexerError::MalformedOperator {line, col})
+
+        "()" => Ok((Token::ProcType, line, col, operator.len())),
+        "!" => Ok((Token::Bang, line, col, operator.len())),
+        str => Err(LexerError::MalformedOperator {st: str.to_string(), line, col})
     }
 }
 

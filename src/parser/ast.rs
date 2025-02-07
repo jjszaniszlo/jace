@@ -3,59 +3,45 @@ use super::ptr::*;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String);
 
-impl<'a> From<&'a str> for Identifier {
-    fn from(value: &'a str) -> Self {
-        Identifier(value.to_string())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct TypeName(pub Identifier);
-
-impl<'a> From<&'a str> for TypeName {
-    fn from(value: &'a str) -> Self {
-        Self(Identifier(value.to_string()))
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct GenericTypeParam(pub Identifier);
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ClassName(pub Identifier);
-
 //***************Module*********************
 #[derive(Clone, Debug, PartialEq)]
-pub struct Module(pub Vec<Def>, pub Expr);
+pub struct Module(pub Vec<Def>, pub Option<Expr>);
 
 //***************Definitions*****************
 #[derive(Clone, Debug, PartialEq)]
 pub enum Def {
     FnDef(Identifier, Vec<TypeParam>, TypeParam, FnExpr),
-    TypeDef(TypeName, Vec<(Identifier, TypeName)>),
-    ClassDef(ClassName, Vec<GenericTypeParam>, Vec<MethodDef>),
-    InstanceDef(ClassName, TypeName, Vec<FnParam>, Vec<MethodImpl>),
+    // type_name, Vec of (field_name, type_name)
+    TypeDef(Identifier, Vec<(Identifier, Identifier)>),
+    // class_name, Vec of generic_type_param
+    ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>),
+    // class_name, type_name
+    InstanceDef(Identifier, Identifier, Vec<FnParam>, Vec<MethodImpl>),
+    ProcDef(Identifier, Vec<Stmt>),
     ModuleDef(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeParam {
-    Single(Identifier),
+    Type(Identifier),
     ArrayType(Identifier),
+    FuncType(Vec<TypeParam>, P<TypeParam>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum FnParam {
-    Literal(Literal),                   // only really for case
-    Identifier(Identifier),
-    SetDeconstruct(Vec<Identifier>),
-    SetSelector(Identifier, Identifier),
+    LiteralParam(Literal),                   // only really for case
+    IdentParam(Identifier),
+    SetDeconstructParam(Vec<Identifier>),
+    SetSelectorParam(Identifier, Identifier),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MethodDef {
-    Operator(MethodOperator, Vec<GenericTypeParam>, TypeName),
-    Named(Identifier, Vec<GenericTypeParam>, TypeName),
+    // Vec of generic_type_param, return type_name
+    Operator(MethodOperator, Vec<Identifier>, Identifier),
+    // vec of generic_type_param, return type_name
+    Named(Identifier, Vec<Identifier>, Identifier),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -87,9 +73,10 @@ pub enum Expr {
     SetExpr(Vec<(Identifier, Expr)>),
     ArrayExpr(Vec<Expr>),
     BinOpExpr(BinOperator, P<Expr>, P<Expr>),
+    UnaryOp(UnaryOperator, P<Expr>),
     LetInExpr(Vec<Stmt>, P<Expr>),
     FnExpr(P<FnExpr>),
-    FnCall(Identifier, Vec<Expr>),
+    FnCallExpr(Identifier, Vec<Expr>),
     // predicates followed by their expressions, and lastly an else expression
     IfThenElseIfExpr(Vec<(Expr, Expr)>, P<Expr>),
 
@@ -104,7 +91,7 @@ pub struct MemberExpr {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MemberExprBase {
-    Identifier(Identifier),
+    Member(Identifier),
     MemberExpr(P<MemberExpr>),
 }
 
@@ -146,12 +133,19 @@ pub enum BinOperator {
     Less,
     EqualsEquals,
     NotEquals,
+    AppendSet,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum UnaryOperator {
+    Negative,
+    Not,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum FnExpr {
-    Single(Vec<FnParam>, Expr),
-    Case(Vec<FnExpr>),
+    FnExpr(Vec<FnParam>, Vec<Expr>),
+    CaseFnExpr(Vec<FnExpr>),
 }
 
 //***************Statements*****************
@@ -159,7 +153,12 @@ pub enum FnExpr {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
-    Asmt(Identifier, Option<TypeName>, Expr),
-    MultiAsmt(Vec<Identifier>, Vec<TypeName>, Vec<Expr>),
-    SetDeconstructAsmt(Vec<Identifier>, Vec<Expr>),
+    // Option of type_name
+    AssignStmt(Identifier, Option<Identifier>, Expr),
+    FnCallStmt(Identifier, Vec<Expr>),
+    ProcCallStmt(Identifier),
+
+    // Vec of type_name
+    MultiAssignStmt(Vec<Identifier>, Option<Vec<Identifier>>, Vec<Expr>),
+    SetDeconstructAssignStmt(Vec<Identifier>, Vec<Expr>),
 }

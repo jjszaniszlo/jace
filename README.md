@@ -64,14 +64,21 @@ A jace module always will follow the following structure
 
 1) Zero or more modules
 2) zero or more definitions
-3) final expression or main proc definition **if its the** entry point file.
+
+Additionally, the entry point module must contain a main procedure.
+
+```Haskell
+-- main procedure
+def main :: ()
+do
+    print "Hello World!"
+```
 
 ```Haskell
 -- import a module
 import mymodule
 
--- all definitions use ::, which is the constant assignment operator.
-
+-- all definitions use :: which is the constant assignment operator.
 
 type Foo ::
     ...
@@ -82,21 +89,38 @@ class Bar _ ::
 instance Bar Foo _ ::
     ...
 
-fooFunc :: Foo => Foo
-fooFunc :: ... => ...
+-- function definitions
+def fooFunc :: Foo => Foo
+    params... => expression...
+
+-- function with case (pattern matching)
+def barFunc :: Foo => Foo
+case
+    params1... => exp1...
+    params2... => exp2...
+
+-- function with local vars.
+def bazFunc :: Foo => Foo
+let
+    bazValue := ...
+in
+    params1... => exp1...
+    params2... => bazValue...
+
+-- constant value.
+MATH_PI :: 3.14
+
+def sayHelloWorld :: ()
+do
+    print "Hello World!"!       -- function calls are terminated with !
+    ...
 
 -- only in entry point module
-main :: ()
-main :: do
+def main :: ()
+do
+    sayHelloWorld!      -- call a proc which has no params or return type.
     ...
-    end
 
--- any other module than entrypoint
-let ... in expr
-
--- or
-
-expr
 ```
 
 ## Types
@@ -140,10 +164,11 @@ type Vector3 ::
 -- defines a constant value.
 CONSTANT_VEC_3 :: {x = 1, y = 2, z = 3}
 
-let
+-- + is not defined by default on sets, so the final operation is technically invalid, but later on + can be defined on types.
+UP_AND_RIGHT :: let
     up := {x = 0, y = 0, z = 1}
-    down : Vector3 = {x = 0, y = 0, z = -1}
-in up
+    right : Vector3 = {x = 0, y = 1, z = 0}
+in up + right
 
 ```
 
@@ -154,10 +179,11 @@ type Vec3 :: [Number 3]
 
 CONSTANT_VEC_3 :: {1, 2, 3}
 
-let
+-- + is not defined by default on sets, so the final operation is technically invalid, but later on + can be defined on types.
+UP_AND_RIGHT ::let
     up := {0, 0, 1}
-    down : Vector3 = {0, 0, 1}
-in up
+    right := {0, 1, 0}
+in up + right
 
 ```
 
@@ -171,10 +197,10 @@ Functions are first class citizens in Jace, so they are a valid type.  These typ
 -- This function takes a closure which takes in an integer and returns an integer.
 -- it also takes in an Integer and returns an Integer.
 -- the final expression in the function applies function f to integer i.
-applyTo :: (Integer => Integer), Integer => Integer
-applyTo :: func, int => func int
+def applyTo :: (Integer => Integer), Integer => Integer
+    func, int => func int
 
-applyTo (a => a * 2) 4  -- returns 8.
+RESULT :: applyTo (a => a * 2) 4! -- RESULT = 8
 
 ```
 
@@ -186,18 +212,18 @@ Pattern expressions may be used in case expressions.
 ```Haskell
 
 -- all cases must be covered in some way.  in this case, the first param is only used if its 0, 1 or 2.
-doOperation :: Integer, Integer => Integer
-doOperation :: case
+def doOperation :: Integer, Integer => Integer
+case
     0, n => n^2
     1, n => n^3
     2, n => n^4
     _, n => n
 
 -- the case expression works really nicely for recursive functions.
-factorial :: Integer => Integer
-factorial :: case
+def factorial :: Integer => Integer
+case
     0 => 1
-    n => n * factorial (n - 1)
+    n => n * factorial (n - 1)!
 
 ```
 
@@ -214,30 +240,30 @@ type Vector3 ::
 -- makes the vector's y value 0 essentially.
 -- this matches all possible vaules of vector3 but discards the y value.
 -- the set destructure pattern takes on the type of the associated param type.
-groundVector :: Vector3 => Vector3
-groundVector :: case
+def groundVector :: Vector3 => Vector3
+case
     {x, _, z} => {x = x, y = 0, z = z}
 
 -- in this specific case, working with set arrays is much nicer.
  
 type Vec3 :: [Number 3]
 
-groundVec :: Vec3 => Vec3
-groundVec :: case
+def groundVec :: Vec3 => Vec3
+case
     {x, _, z} => {x, 0, z}
 
 -- another useful expression is the set selector.
 -- the syntax is {first_element:rest_of_array}
 -- it doesn't have to be used in case expressions, but they typically will, especially for recursive functions.
-first :: [Number] => Number
-first :: {f:_} => f
+def first :: [Number] => Number
+    {f:_} => f
 
 -- Speaking of recursive functions, we can now implement the map function.
 
-map :: (Number => String), [Number] => [String]
-map :: case
+def map :: (Number => String), [Number] => [String]
+case
     _, {} => {}
-    f, {x:xs} => {f x} | (map f xs)
+    f, {x:xs} => f x! : map f xs!
 
 -- this doesnt seem very useful though... it can only map a set array of numbers to a set array of strings...
 -- luckily, generics can save the day! On to the next section.
@@ -251,10 +277,10 @@ Any lowercase type name, where types can be parsed is implicity a generic type.
 ```Haskell
 
 -- this means that map can really be implemented *better* as this:
-map :: (a => b), [a] => [b]
-map :: case
+def map :: (a => b), [a] => [b]
+case
     _, {} => {}
-    f, {x:xs} => {f x} | (map f xs)
+    f, {x:xs} => f x! : map f xs!
 
 ```
 
@@ -278,7 +304,7 @@ class Equal a ::
 instance Equal Foo x y ::
     (==) => x.bar == y.bar && x.baz == y.baz
 
-let
+TEST :: let
     fooIsh := {bar = "fizzbuzz", baz = 21}
     barIsh := {bar = "fizzbuzz", baz = 21}
 in fooIsh == barIsh     -- returns true.
@@ -305,11 +331,11 @@ instance Dot Vector3 {x1, y1, z1} {x2, y2, z2} ::
 instance Dot Vec2 {x1, y1} {x2, y2} ::
     dot => x1*x2+y1*y2+z1*z2
 
-let 
+RESULT :: let 
     -- notice that the same method applies to both set types!
     result1 := dot {x = 1, y = 2, z = 3} {x = 2, y = 3, z = 1}
     result2 := dot {1, 2} {3, 4}
-    in {result1, result2}
+in {result1, result2}
 
 ```
 
@@ -323,7 +349,7 @@ class Display a ::
     print :: a => Void
 
 instance Display Vector3 {x, y, z} ::
-    print => printfmt "({}, {}, {})" x y z
+    print => printfmt "({}, {}, {})" x y z!
 
 ```
 
@@ -341,10 +367,9 @@ They cannot be assigned to anything, nor can they be returned from functions.
 
 
 -- the () signifies the type of proc.
-run :: ()
-run :: do
-    print "Hello World!"
-    end
+proc run :: ()
+do
+    print "Hello World!"!
 
 ```
 

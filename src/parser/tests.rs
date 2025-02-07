@@ -1,6 +1,6 @@
 use super::*;
 use crate::lexer::token::Token;
-use crate::parser::ast::{ClassName, TypeName, MethodImpl, Identifier, MethodOperator};
+use crate::parser::ast::{MethodImpl, Identifier, MethodOperator};
 
 fn identifier_token(name: &str) -> Token {
     Token::Identifier(name.to_string())

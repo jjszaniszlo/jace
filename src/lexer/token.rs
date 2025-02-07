@@ -53,6 +53,10 @@ pub enum Token {
     RightBrace,         // }
     LeftBracket,        // [
     RightBracket,       // ]
+    
+    // Other
+    ProcType,           // ()
+    Bang,               // !
  
     // reserved words
     TypeKeyword,    // type
@@ -67,7 +71,7 @@ pub enum Token {
     ElseIfKeyword,  // elseif
     ImportKeyword,  // import 
     DoKeyword,      // do 
-    EndKeyword,     // end
+    DefKeyword,     // def
 }
 
 impl Token {
