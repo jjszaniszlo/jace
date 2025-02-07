@@ -1,30 +1,6 @@
-def map :: (a => b), [a] => [b]
-case
-  _, {} => {}
-  f, {x:xs} => f x! : map f xs!
 
 def sum :: Integer, Integer => Integer
-  a, b => a + b
-
-def testCall :: ()
-  test := sum 1 2!
-  print "hello world!"!
-
-type Person ::
-  name : String
-  age : Integer
-
-class Equal a ::
-  (==) :: a, a => Bool
-
-instance Equal Person x, y ::
-  (==) => x.name == y.name && x.age == y.age
+  a, b => a + 2 * 5
 
 def main :: ()
-  john := {name = "John", age = 21}
-  harry := {name = "Harry", age = 21}
-
-  names := map (p => p.name) {john, harry}!
-
-  print "Is John and Harry Equal?" (john == harry)!
-
+  result := sum 1 2!

@@ -7,6 +7,6 @@ use crate::lexer::token::Token;
 use parser::*;
 
 // Parser entry point.
-pub fn parse<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Module> {
+pub fn parse<'a>(input: &'a [Token]) -> ParseResult<'a, (ast::Module, Vec<parser::ParserError>)> {
     parse_module().parse(input)
 }

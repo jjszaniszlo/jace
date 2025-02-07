@@ -3,13 +3,18 @@ mod parser;
 mod cli;
 mod err;
 
+use codespan_reporting::files::SimpleFiles;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
+use std::sync::LazyLock;
+use std::sync::RwLock;
 
 use clap::Parser;
 use cli::Cli;
 use cli::Command;
+
+pub static SOURCES: LazyLock<RwLock<SimpleFiles<String, String>>> = LazyLock::new(|| SimpleFiles::new().into());
 
 fn main() {
     let args = Cli::parse();
@@ -32,49 +37,19 @@ fn run(path: PathBuf) {
             f.read_to_string(&mut buf),
             format!("Read Error"));
 
-        let toks = 
-            err::error_maybe(
-            lexer::tokenize_into_vec_no_positions(buf.as_str()),
-            format!("Lexer Error"));
-        println!("{:#?}", toks);
+        let file_name = path.file_stem().unwrap().to_str().unwrap();
 
-        let (_, result) = 
-            err::error_maybe(
-            parser::parse(&toks),
-            format!("Parse Error"));
+        let id = SOURCES
+            .write()
+            .unwrap()
+            .add(file_name.to_string(), buf);
 
-        println!("{:#?}", result);
+        compile(id).expect("Could not compile!");
     } else if path.is_dir() {
         println!("Opening dir {path:?}");
     } 
 }
 
-    //let toks = lexer::tokenize_into_vec_no_positions(
-    //    r#"
-    //    type Person ::
-    //        name : String
-    //        age : Integer
-    //
-    //    class Equal Person a ::
-    //        (==) :: a, a => Bool
-    //        sameAge :: a, a => Bool
-    //        sameName :: a, a => Bool
-    //
-    //    instance Equal Person {name, age}, {name2, age2} ::
-    //        (==) => name == name2 && age == age2
-    //        sameAge => age == age2
-    //        sameName => name == name2
-    //
-    //    let
-    //        john := {name = "john", age = 21}
-    //        harry := {name = "harry", age = 21}
-    //    in sameAge (a,b => a+b) (harry)
-    //    "#
-    //).unwrap();
-    ////let toks = lexer::tokenize_into_vec_no_positions(concat!(\n
-    ////    "{john = \"John\", age = 21, init = age, name => {age = age, name = name}}",
-    ////)).unwrap();
-    //println!("{:?}", toks);
-    //
-    //let (_, result) = parser::parse(&toks).unwrap();
-    //println!("{:#?}", result);
+fn compile(id: usize) -> Result<(), String> {
+    Ok(())
+}
