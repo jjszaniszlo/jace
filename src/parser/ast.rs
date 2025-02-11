@@ -11,22 +11,31 @@ pub struct Module(pub Vec<Def>, pub Option<Expr>);
 //***************Definitions*****************
 #[derive(Clone, Debug, PartialEq)]
 pub enum Def {
-    FnDef(Identifier, Vec<TypeParam>, TypeParam, FnExpr),
+    FnDef(Identifier, Vec<TypeParam>, TypeParam, Option<Vec<(Identifier, Identifier)>>, FnExpr),
     // type_name, Vec of (field_name, type_name)
     TypeDef(Identifier, Vec<(Identifier, Identifier)>),
+
+    TypeAlias(Identifier, Vec<TypeParam>),
+
     // class_name, Vec of generic_type_param
     ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>),
     // class_name, type_name
     InstanceDef(Identifier, Identifier, Vec<FnParam>, Vec<MethodImpl>),
+    // proc_name, statements
     ProcDef(Identifier, Vec<Stmt>),
+    // module_name
     ModuleDef(String),
+
+    // const_name, literal
+    ConstDef(Identifier, Literal),
+
     Error(ParserError),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeParam {
     Type(Identifier),
-    ArrayType(Identifier),
+    ArrayType(Identifier, Option<usize>),
     FuncType(Vec<TypeParam>, P<TypeParam>),
 }
 

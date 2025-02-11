@@ -3,6 +3,9 @@ mod parser;
 mod ptr;
 mod tests;
 
+pub mod prelude {
+}
+
 use crate::lexer::token::TokenKind;
 use parser::*;
 

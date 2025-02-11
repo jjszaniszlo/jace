@@ -108,7 +108,7 @@ in
     params2... => bazValue...
 
 -- constant value.
-MATH_PI :: 3.14
+const MATH_PI :: 3.14
 
 def sayHelloWorld :: ()
 do
@@ -162,7 +162,7 @@ type Vector3 ::
     z : Number
 
 -- defines a constant value.
-CONSTANT_VEC_3 :: {x = 1, y = 2, z = 3}
+const CONSTANT_VEC_3 :: {x = 1, y = 2, z = 3}
 
 -- + is not defined by default on sets, so the final operation is technically invalid, but later on + can be defined on types.
 UP_AND_RIGHT :: let
@@ -284,6 +284,34 @@ case
 
 ```
 
+## Type constraints
+
+```Haskell
+type Vector3 :: [Number 3]
+type Vec3 ::
+    x : Number
+    y : Number
+    z : Number
+
+class Dot a b ::
+    dot :: a, a => a
+
+instance Dot Vector3 x, y ::
+    dot => x.1*y.1 + x.2*y.2 + z.3*z.3
+
+instance Dot Vec3 a, b ::
+    dot => a.x*b.x + a.y*b.y + a.z*a.z
+
+def scaleDot :: a, a, Number => Number
+where
+    a: Dot
+in 
+    v1, v2, scalar => let
+        dot_prod := dot v1 v2!
+    in dot_prod * scalar
+
+```
+
 ## Classes
 
 Classes are really where things start to become more useful and clear.
@@ -304,7 +332,7 @@ class Equal a ::
 instance Equal Foo x y ::
     (==) => x.bar == y.bar && x.baz == y.baz
 
-TEST :: let
+const TEST :: let
     fooIsh := {bar = "fizzbuzz", baz = 21}
     barIsh := {bar = "fizzbuzz", baz = 21}
 in fooIsh == barIsh     -- returns true.

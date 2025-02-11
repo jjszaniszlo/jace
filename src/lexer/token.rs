@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use miette::SourceSpan;
-
 #[derive(Debug, PartialEq)]
 pub struct TokenSpan {
     start: usize,
@@ -9,7 +7,7 @@ pub struct TokenSpan {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Token(TokenKind, TokenSpan);
+pub struct Token(pub TokenKind, pub TokenSpan);
 
 impl Token {
     pub fn new(kind: TokenKind, start: usize, length: usize) -> Token {
@@ -85,6 +83,8 @@ pub enum TokenKind {
     ElseKeyword,    // else
     ElseIfKeyword,  // elseif
     DefKeyword,     // def
+    ConstKeyword,   // const
+    WhereKeyword,   // where
 }
 
 impl TokenKind {

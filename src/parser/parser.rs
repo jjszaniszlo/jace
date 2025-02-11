@@ -46,10 +46,10 @@ pub enum ParserError {
         got : TokenKind,
     },
 
-    #[error("expected: {}, {}", expected, got)]
+    #[error("expected: {}, {:?}", expected, got)]
     CouldNotParseBinExp {
         expected : String,
-        got : TokenKind,
+        got : Option<TokenKind>,
     },
 }
 
@@ -150,7 +150,8 @@ where
     P: Parser<'a, A> + 'a,
     F: Fn(A) -> B + 'a,
 {
-    move |input| parser.parse(input).map(|(next, result)| (next, map_fn(result)))
+    move |input|
+        parser.parse(input).map(|(next, result)| (next, map_fn(result)))
 }
 
 pub fn left<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R1>
@@ -195,7 +196,6 @@ where
         while let Ok((next_input, result)) = p.parse(input) {
             if next_input == input {
                 errors.push(ParserError::ZeroOrMoreParseError);
-
                 break;
             }
 
@@ -210,11 +210,11 @@ where
     })
 }
 
-pub fn one_or_more<'a, P, A>(p: P) -> impl Parser<'a, Vec<A>>
+pub fn one_or_more<'a, P, A>(p: P) -> BoxedParser<'a, Vec<A>>
 where
     P: Parser<'a, A> + 'a,
 {
-    move |mut input| {
+    BoxedParser::new(move |mut input| {
         let mut result = vec![];
         let mut errors : Vec<ParserError> = vec![];
 
@@ -230,15 +230,11 @@ where
 
         while let Ok((next_input, next_item)) = p.parse(input) {
             if next_input == input {
+                errors.push(ParserError::ZeroOrMoreParseError);
                 break;
             }
-            input = next_input;
             result.push(next_item);
-        }
-
-        while let Err(errs) = p.parse(input) {
-            errors.extend(errs);
-            break;
+            input = next_input;
         }
 
         if errors.is_empty() {
@@ -246,7 +242,7 @@ where
         } else {
             Err(errors)
         }
-    }
+    })
 }
 
 pub fn zero_or_one<'a, P, A>(p: P) -> BoxedParser<'a, Option<A>> 
@@ -294,6 +290,20 @@ pub fn parse_literal<'a>(input: &'a [TokenKind]) -> ParseResult<'a, ast::Literal
             TokenKind::Integer(i) => Ok((&input[1..], ast::Literal::from(*i))),
             TokenKind::Float(f) => Ok((&input[1..], ast::Literal::from(*f))),
             TokenKind::String(s) => Ok((&input[1..], ast::Literal::from(s.clone()))),
+            _ => Err(vec![
+                ParserError::ExpectedLiteralGot { got: t.clone() },
+            ]),
+        },
+        None => Err(vec![
+            ParserError::UnexpectedEOF,
+        ]),
+    }
+}
+
+pub fn parse_literal_integer<'a>(input: &'a [TokenKind]) -> ParseResult<'a, usize> {
+    match input.get(0) {
+        Some(t) => match t {
+            TokenKind::Integer(i) => Ok((&input[1..], *i)),
             _ => Err(vec![
                 ParserError::ExpectedLiteralGot { got: t.clone() },
             ]),
@@ -363,9 +373,11 @@ pub fn parse_definition<'a>() -> impl Parser<'a, ast::Def> {
     or_n(vec![
         BoxedParser::new(parse_instance_def),
         BoxedParser::new(parse_type_def()),
+        BoxedParser::new(parse_type_alias_def()),
         BoxedParser::new(parse_class_def()),
         BoxedParser::new(parse_fn_def),
         BoxedParser::new(parse_proc_def()),
+        BoxedParser::new(parse_const_def()),
     ])
 }
 
@@ -374,8 +386,10 @@ pub fn parse_fn_def<'a>(input: &'a [TokenKind]) -> ParseResult<'a, ast::Def> {
         pair(
             parse_fn_def_header,
             parse_fn_def_types()),
-        parse_fn_expr())
-    .map(|((i, (tp, rt)), exp)| ast::Def::FnDef(i, tp, rt, exp))
+        pair(
+            zero_or_one(parse_fn_type_constraints()),
+            parse_fn_expr()))
+    .map(|((i, (tp, rt)), (cons, exp))| ast::Def::FnDef(i, tp, rt, cons, exp))
     .parse(input)
 }
 
@@ -422,9 +436,12 @@ pub fn parse_fn_type_param<'a>() -> impl Parser<'a, ast::TypeParam> {
 pub fn parse_array_type_param<'a>() -> impl Parser<'a, ast::TypeParam> {
     right(
         match_token(TokenKind::LeftBracket),
-        left(parse_identifier,
+        left(
+            pair(
+                parse_identifier,
+                zero_or_one(parse_literal_integer)),
             match_token(TokenKind::RightBracket)))
-    .map(|i| ast::TypeParam::ArrayType(i))
+    .map(|(i, l)| ast::TypeParam::ArrayType(i, l))
 }
 
 pub fn parse_fn_func_type_param<'a>(input: &'a[TokenKind]) -> ParseResult<'a, ast::TypeParam> {
@@ -441,6 +458,19 @@ pub fn parse_fn_func_type_param<'a>(input: &'a[TokenKind]) -> ParseResult<'a, as
     .parse(input)
 }
 
+pub fn parse_fn_type_constraints<'a>() -> impl Parser<'a, Vec<(ast::Identifier, ast::Identifier)>> {
+    right(
+        match_token(TokenKind::WhereKeyword),
+        left(
+            one_or_more(
+                pair(
+                    left(
+                        parse_identifier,
+                        match_token(TokenKind::Colon)),
+                    parse_identifier)),
+            match_token(TokenKind::InKeyword)))
+}
+
 pub fn parse_proc_def<'a>() -> impl Parser<'a, ast::Def> {
     pair(
         left(
@@ -450,10 +480,15 @@ pub fn parse_proc_def<'a>() -> impl Parser<'a, ast::Def> {
     .map(|(ident, stmts)| ast::Def::ProcDef(ident, stmts))
 }
 
-pub fn parse_do_block<'a>() -> impl Parser<'a, Vec<ast::Stmt>> {
-    right(
-        match_token(TokenKind::DoKeyword),
-        zero_or_more(parse_statement()))
+pub fn parse_const_def<'a>() -> impl Parser<'a, ast::Def> {
+    pair(
+        right(
+            match_token(TokenKind::ConstKeyword),
+            parse_identifier),
+        right(
+            match_token(TokenKind::ColonColon),
+            parse_literal))
+    .map(|(i, l)| ast::Def::ConstDef(i, l))
 }
 
 pub fn parse_type_def<'a>() -> impl Parser<'a, ast::Def> {
@@ -470,6 +505,31 @@ pub fn parse_type_def<'a>() -> impl Parser<'a, ast::Def> {
                     match_token(TokenKind::Colon),
                     parse_identifier))))
     .map(|(i, v)| ast::Def::TypeDef(i, v))
+}
+
+pub fn parse_type_alias_def<'a>() -> impl Parser<'a, ast::Def> {
+    pair(
+        right(
+            match_token(TokenKind::TypeKeyword),
+            left(
+                parse_identifier,
+                match_token(TokenKind::ColonColon))),
+        parse_type_alias_types())
+    .map(|(i, ty)| ast::Def::TypeAlias(i, ty)) 
+}
+
+pub fn parse_type_alias_types<'a>() -> impl Parser<'a, Vec<ast::TypeParam>> {
+    pair(
+        parse_fn_type_param(),
+        zero_or_more(
+            right(
+            match_token(TokenKind::Union),
+            parse_fn_type_param())))
+    .map(|(p, ps)| {
+        let mut final_params = vec![p];
+        final_params.extend(ps);
+        final_params
+    })
 }
 
 pub fn parse_class_def<'a>() -> impl Parser<'a, ast::Def> {
@@ -543,7 +603,6 @@ pub fn parse_method_operator<'a>(input: &'a [TokenKind]) -> ParseResult<'a, ast:
             TokenKind::WrappedMinus => Ok((&input[1..], ast::MethodOperator::Minus)),
             TokenKind::WrappedDivide => Ok((&input[1..], ast::MethodOperator::Divide)),
             TokenKind::WrappedMultiply => Ok((&input[1..], ast::MethodOperator::Multiply)),
-            TokenKind::WrappedExp => Ok((&input[1..], ast::MethodOperator::Exp)),
             _ => Err(vec![
                 ParserError::ExpectedWrappedOperatorGot { got : t.clone() },
             ])
@@ -622,9 +681,9 @@ pub fn parse_instance_method_impl_named<'a>() -> impl Parser<'a, ast::MethodImpl
 pub fn parse_expression<'a>() -> impl Parser<'a, ast::Expr> {
     or_n(vec![
         BoxedParser::new(parse_fn_expr_as_expr()),
-        BoxedParser::new(parse_bin_op(0)),
         BoxedParser::new(parse_let_in_expression),
         BoxedParser::new(parse_if_then_else),
+        BoxedParser::new(parse_bin_op(0)),
     ])
 }
 
@@ -641,7 +700,7 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, ast::Expr> {
 
                 (input, ast::Expr::Error(ParserError::CouldNotParseBinExp {
                     expected: "primary expression".to_string(),
-                    got : input[0].clone(),
+                    got : input.get(0).cloned(),
                 }))
             }
         };
@@ -667,7 +726,7 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, ast::Expr> {
 
                     (input, ast::Expr::Error(ParserError::CouldNotParseBinExp {
                         expected: "primary expression".to_string(),
-                        got : rest[0].clone(),
+                        got : rest.get(0).cloned(),
                     }))
                 }
             };
@@ -694,13 +753,18 @@ fn get_infix_binding_power(op: ast::BinOperator) -> (u8, u8) {
 }
 
 pub fn parse_parenthesized_expression<'a>() -> impl Parser<'a, ast::Expr> {
-    move |input| {
-        let (input, _) = match_token(TokenKind::LeftParen).parse(input)?;
-        let (input, expr) = parse_expression().parse(input)?;
-        let (input, _) = match_token(TokenKind::RightParen).parse(input)?;
-
-        Ok((input, expr))
-    }
+    //move |input| {
+    //    let (input, _) = match_token(TokenKind::LeftParen).parse(input)?;
+    //    let (input, expr) = parse_expression().parse(input)?;
+    //    let (input, _) = match_token(TokenKind::RightParen).parse(input)?;
+    //
+    //    Ok((input, expr))
+    //}
+    right(
+        match_token(TokenKind::LeftParen),
+            left(
+                parse_expression(),
+                match_token(TokenKind::RightParen)))
 }
 
 pub fn parse_unary_op<'a>(input: &'a [TokenKind]) -> ParseResult<'a, ast::Expr> {
@@ -951,7 +1015,6 @@ pub fn parse_statement<'a>() -> impl Parser<'a, ast::Stmt> {
         BoxedParser::new(parse_proc_call),
         parse_fn_call.map(|expr| match expr {
             ast::Expr::FnCallExpr(ident, args) => ast::Stmt::FnCallStmt(ident, args),
-            // absolutely unreachable since fn_call returns ast::Expr::FnCall guaranteed.
             _ => unreachable!(),
         }),
     ])
