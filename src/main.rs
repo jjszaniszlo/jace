@@ -1,31 +1,51 @@
-mod lexer;
-mod parser;
 mod cli;
 mod err;
+mod jace_file;
+mod lexer;
+mod parser;
 
-use codespan_reporting::files::SimpleFiles;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::LazyLock;
-use std::sync::RwLock;
 
 use clap::Parser;
 use cli::Cli;
 use cli::Command;
-
-pub static SOURCES: LazyLock<RwLock<SimpleFiles<String, String>>> = LazyLock::new(|| SimpleFiles::new().into());
+use jace_file::JaceFile;
+use crate::lexer::prelude::*;
 
 fn main() {
-    let args = Cli::parse();
+    //let args = Cli::parse();
     
-    match args.command {
-        Command::Run { path } => run(path),
-        Command::Build { path } => println!("Building: {path:?}"),
+    //match args.command {
+    //    Command::Run { path } => run(path),
+    //    Command::Build { path } => println!("Building: {path:?}"),
+    //}
+
+    let jcf = JaceFile::new("test.jc", 
+        r#"
+            def sum :: Integer, Integer => Integer
+                a,b => a +
+
+            def main :: ()
+                print "hello world!"!
+        "#);
+
+    let mut lexer = Lexer::new(jcf).into_iter();
+    let toks: Vec<Token> = lexer
+        .filter_map(|t| t.ok())
+        .collect();
+    println!("{toks:#?}");
+
+    match parser::parse(&toks) {
+        Ok((r, t)) => println!("{t:#?}"),
+        Err(e) => {
+            println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents()));
+        }
     }
 }
 
-fn run(path: PathBuf) {
+fn compiler_pipeline(path: PathBuf) {
     if path.is_file() {
         let mut f = err::error_maybe(
             File::open(path.clone()),
@@ -39,17 +59,7 @@ fn run(path: PathBuf) {
 
         let file_name = path.file_stem().unwrap().to_str().unwrap();
 
-        let id = SOURCES
-            .write()
-            .unwrap()
-            .add(file_name.to_string(), buf);
-
-        compile(id).expect("Could not compile!");
     } else if path.is_dir() {
         println!("Opening dir {path:?}");
     } 
-}
-
-fn compile(id: usize) -> Result<(), String> {
-    Ok(())
 }

@@ -1,8 +1,19 @@
 use super::ptr::*;
-use super::ParserError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String);
+
+impl Into<Identifier> for & str {
+    fn into(self) -> Identifier {
+        Identifier(self.to_string())
+    }
+}
+
+impl Into<Identifier> for String {
+    fn into(self) -> Identifier {
+        Identifier(self)
+    }
+}
 
 //***************Module*********************
 #[derive(Clone, Debug, PartialEq)]
@@ -11,22 +22,30 @@ pub struct Module(pub Vec<Def>, pub Option<Expr>);
 //***************Definitions*****************
 #[derive(Clone, Debug, PartialEq)]
 pub enum Def {
-    FnDef(Identifier, Vec<TypeParam>, TypeParam, FnExpr),
+    FnDef(Identifier, Vec<TypeParam>, TypeParam, Option<Vec<(Identifier, Identifier)>>, FnExpr),
     // type_name, Vec of (field_name, type_name)
     TypeDef(Identifier, Vec<(Identifier, Identifier)>),
+
+    TypeAlias(Identifier, Vec<TypeParam>),
+
     // class_name, Vec of generic_type_param
     ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>),
     // class_name, type_name
     InstanceDef(Identifier, Identifier, Vec<FnParam>, Vec<MethodImpl>),
+    // proc_name, statements
     ProcDef(Identifier, Vec<Stmt>),
+    // module_name
     ModuleDef(String),
-    Error(ParserError),
+
+    // const_name, literal
+    ConstDef(Identifier, Literal),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeParam {
+    Empty,
     Type(Identifier),
-    ArrayType(Identifier),
+    ArrayType(Identifier, Option<usize>),
     FuncType(Vec<TypeParam>, P<TypeParam>),
 }
 
@@ -83,8 +102,6 @@ pub enum Expr {
     IfThenElseIfExpr(Vec<(Expr, Expr)>, P<Expr>),
 
     MemberExpr(MemberExpr),
-
-    Error(ParserError),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -165,5 +182,4 @@ pub enum Stmt {
     // Vec of type_name
     MultiAssignStmt(Vec<Identifier>, Option<Vec<Identifier>>, Vec<Expr>),
     SetDeconstructAssignStmt(Vec<Identifier>, Vec<Expr>),
-    Error(ParserError),
 }
