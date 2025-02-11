@@ -6,6 +6,7 @@ mod ptr;
 mod tests;
 
 pub mod prelude {
+    pub use crate::{parser::parser::*, parser::error::*, parser::combinator::*};
 }
 
 use crate::lexer::token::Token;

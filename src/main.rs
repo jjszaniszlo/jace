@@ -13,6 +13,7 @@ use cli::Cli;
 use cli::Command;
 use jace_file::JaceFile;
 use crate::lexer::prelude::*;
+use crate::parser::prelude::*;
 
 fn main() {
     //let args = Cli::parse();
@@ -24,11 +25,8 @@ fn main() {
 
     let jcf = JaceFile::new("test.jc", 
         r#"
-            def sum :: Integer, Integer => Integer
-                a,b => a +
-
             def main :: ()
-                print "hello world!"!
+                print ab!
         "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
@@ -39,9 +37,13 @@ fn main() {
 
     match parser::parse(&toks) {
         Ok((r, t)) => println!("{t:#?}"),
-        Err(e) => {
-            println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents()));
-        }
+        Err(ParserError::UnrecoverableError(e)) => 
+            println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents())),
+        Err(ParserError::ContextualError(e)) =>
+            println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents())),
+        Err(ParserError::InnerError(e)) =>
+            println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents())),
+        _ => {},
     }
 }
 

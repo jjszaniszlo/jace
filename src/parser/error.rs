@@ -1,5 +1,3 @@
-use std::backtrace::Backtrace;
-
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
 
@@ -8,20 +6,24 @@ use crate::TokenKind;
 #[derive(Error, Debug, Diagnostic)]
 #[error("Unrecoverable Error: {message}")]
 pub struct UnrecoverableError {
-    message: String,
+    pub message: String,
 
     #[label("here")]
-    error_span: SourceSpan,
+    pub error_span: SourceSpan,
+
+    #[source]
+    #[diagnostic_source]
+    pub cause: InnerError,
 }
 
 #[derive(Error, Debug, Diagnostic)]
 #[error("Contextual error in {context}")]
 pub struct ContextualError {
-    context: String,
+    pub context: String,
 
     #[source]
     #[diagnostic_source]
-    error: InnerError,
+    pub error: InnerError,
 }
 
 
@@ -46,11 +48,13 @@ impl ParserError {
                 UnrecoverableError {
                     message: message.to_string(),
                     error_span: at,
+                    cause: cause.error,
                 }),
             ParserError::InnerError(inner_error) => ParserError::UnrecoverableError(
                 UnrecoverableError{
                     message: message.to_string(),
                     error_span: at,
+                    cause: inner_error.into()
                 }),
         }
     }
