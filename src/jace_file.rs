@@ -22,7 +22,7 @@ impl<'a> JaceFile<'a> {
 
     pub fn contents(&self) -> &'a str {
         self.contents
-    }
+    } 
 }
 
 impl<'b> SourceCode for JaceFile<'b> {

@@ -3,6 +3,18 @@ use super::ptr::*;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String);
 
+impl Into<Identifier> for & str {
+    fn into(self) -> Identifier {
+        Identifier(self.to_string())
+    }
+}
+
+impl Into<Identifier> for String {
+    fn into(self) -> Identifier {
+        Identifier(self)
+    }
+}
+
 //***************Module*********************
 #[derive(Clone, Debug, PartialEq)]
 pub struct Module(pub Vec<Def>, pub Option<Expr>);
@@ -31,6 +43,7 @@ pub enum Def {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeParam {
+    Empty,
     Type(Identifier),
     ArrayType(Identifier, Option<usize>),
     FuncType(Vec<TypeParam>, P<TypeParam>),

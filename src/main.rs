@@ -24,49 +24,11 @@ fn main() {
 
     let jcf = JaceFile::new("test.jc", 
         r#"
-            def map :: (a => b), [a] => [b]
-            where
-                a : Number
-                b : Number
-            in
-            case
-                _, {} => {}
-                f, {x:xs} => f x! : map f xs!
-
-            type Number :: Float | Integer
-
-            def sum :: a, a, a, a => a
-            where
-                a : Number
-            in
-                a, b, c, d => let
-                    inter := a + b
-                    inter2 := c + d
-                in inter + inter2
-
-            def complexOperation :: Number, Number, Number => Number
-                a, b, c => a^2+a*b+2^2*5^2/57*56
-
-            def multi_return :: Number, Number, Number, Number => Number
-                a, b, c, d => a*5+b*7,c*3+d*4
-
-            type Foo ::
-                bar : String
-                baz : Number
-
-            const MATH_PI :: 3.14
-
-            class Equal a ::
-                (==) :: a, a => Bool
+            def sum :: Integer, Integer => Integer
+                a,b => a +
 
             def main :: ()
-                foo := {bar = "FooBaz", baz = 67}
-                multi1,multi2 := multi_return 1 2 3 4!
-                {m1, m2} := multi_return 5 6 7 8!
-                arr_ret := {multi_return 5 6 7 8!}
-                arr_ret_x_2 := map (a => a * 2) arr_ret!
-
-            1 +
+                print "hello world!"!
         "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
@@ -77,7 +39,9 @@ fn main() {
 
     match parser::parse(&toks) {
         Ok((r, t)) => println!("{t:#?}"),
-        Err(e) => println!("{e:?}")
+        Err(e) => {
+            println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents()));
+        }
     }
 }
 

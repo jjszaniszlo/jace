@@ -16,6 +16,17 @@ pub trait Parser<'a, O> {
     {
         BoxedParser::new(map(self, map_fn))
     }
+
+    fn and_then<F, NP, N>(self, f: F) -> BoxedParser<'a, N>
+    where
+        Self: Sized + 'a,
+        O: 'a,
+        N: 'a,
+        NP: Parser<'a, N> + 'a,
+        F: Fn(O) -> NP + 'a,
+    {
+        BoxedParser::new(and_then(self, f))
+    }
 }
 
 impl<'a, F, Output> Parser<'a, Output> for F
@@ -52,10 +63,13 @@ pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
     move |toks: &'a [Token]| match toks.get(0) {
         Some(tok) if tok.0 == expected => Ok((&toks[1..], ())),
         Some(tok) => Err(
-            ParserError::ExpectedTokenGot { expected: expected.clone(), got: tok.0.clone() },
-        ),
+            InnerError::ExpectedTokenGot {
+                expected: expected.clone(),
+                got: tok.0.clone(),
+                error_span: tok.1.into(),
+            }.into()),
         _ => Err(
-            ParserError::UnexpectedEOF,
+            InnerError::UnexpectedEOF.into(),
         )
     }
 }
@@ -64,9 +78,13 @@ pub fn parse_identifier<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Identifi
     match input.get(0) {
         Some(t) => match &t.0 { 
             TokenKind::Identifier(i) => Ok((&input[1..], ast::Identifier(i.clone()))),
-            _ => Err(ParserError::ExpectedIdentifierGot { got: t.0.clone() }),
+            _ => Err(
+                InnerError::ExpectedIdentifierGot {
+                    got: t.0.clone(),
+                    error_span: t.1.into(),
+                }.into()),
         },
-        None => Err(ParserError::UnexpectedEOF.into()),
+        None => Err(InnerError::UnexpectedEOF.into()),
     }
 }
 
@@ -77,9 +95,12 @@ pub fn parse_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
             TokenKind::Integer(i) => Ok((&input[1..], ast::Literal::from(*i))),
             TokenKind::Float(f) => Ok((&input[1..], ast::Literal::from(*f))),
             TokenKind::String(s) => Ok((&input[1..], ast::Literal::from(s.clone()))),
-            _ => Err(ParserError::ExpectedLiteralGot { got: t.0.clone() }),
+            _ => Err(InnerError::ExpectedLiteralGot {
+                got: t.0.clone(),
+                error_span: t.1.into(),
+            }.into()),
         },
-        None => Err(ParserError::UnexpectedEOF.into()),
+        None => Err(InnerError::UnexpectedEOF.into()),
     }
 }
 
@@ -87,9 +108,12 @@ pub fn parse_literal_integer<'a>(input: &'a [Token]) -> ParseResult<'a, usize> {
     match input.get(0) {
         Some(t) => match &t.0 {
             TokenKind::Integer(i) => Ok((&input[1..], *i)),
-            _ => Err(ParserError::ExpectedLiteralGot { got: t.0.clone() }.into()),
+            _ => Err(InnerError::ExpectedLiteralGot {
+                got: t.0.clone(),
+                error_span: t.1.into(),
+            }.into()),
         },
-        None => Err(ParserError::UnexpectedEOF),
+        None => Err(InnerError::UnexpectedEOF.into()),
     }
 }
 
@@ -111,9 +135,12 @@ pub fn parse_operator<'a>(input: &'a [Token]) -> ParseResult<'a, ast::BinOperato
             TokenKind::Greater => Ok((&input[1..], BinOperator::Greater)),
             TokenKind::GreaterEquals => Ok((&input[1..], BinOperator::GreaterEquals)),
             TokenKind::Colon => Ok((&input[1..], BinOperator::AppendSet)),
-            _ => Err(ParserError::ExpectedOperatorGot { got: t.0.clone() }),
+            _ => Err(InnerError::ExpectedOperatorGot {
+                got: t.0.clone(),
+                error_span: t.1.into(),
+            }.into()),
         },
-        _ => Err(ParserError::UnexpectedEOF.into()),
+        _ => Err(InnerError::UnexpectedEOF.into()),
     }
 }
 
@@ -146,7 +173,9 @@ pub fn parse_fn_def<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Def> {
             parse_fn_def_types()),
         pair(
             zero_or_one(parse_fn_type_constraints()),
-            parse_fn_expr()))
+            cut(
+                parse_fn_expr(),
+                "Expression expected after function definition!")))
     .map(|((i, (tp, rt)), (cons, exp))| ast::Def::FnDef(i, tp, rt, cons, exp))
     .parse(input)
 }
@@ -156,16 +185,20 @@ pub fn parse_fn_def_header<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Ident
         right(
             match_token(TokenKind::DefKeyword),
             parse_identifier),
-        match_token(TokenKind::ColonColon))
+        cut(
+            match_token(TokenKind::ColonColon),
+            "Expected '::' after function or procedure defintion!"))
     .parse(input)
 }
 
 pub fn parse_fn_def_types<'a>() -> impl Parser<'a, (Vec<ast::TypeParam>, ast::TypeParam)> {
     pair(
         parse_fn_type_params(),
-        right(
-            match_token(TokenKind::FatArrow),
-            parse_fn_type_param()))
+            right(
+                match_token(TokenKind::FatArrow),
+                    cut(
+                        parse_fn_type_param(),
+                        "Expected a return type followed by a '=>'!")))
     .map(|(type_params, return_type)| (type_params, return_type))
 }
 
@@ -361,9 +394,12 @@ pub fn parse_method_operator<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Met
             TokenKind::WrappedMinus => Ok((&input[1..], ast::MethodOperator::Minus)),
             TokenKind::WrappedDivide => Ok((&input[1..], ast::MethodOperator::Divide)),
             TokenKind::WrappedMultiply => Ok((&input[1..], ast::MethodOperator::Multiply)),
-            _ => Err(ParserError::ExpectedWrappedOperatorGot { got : t.0.clone() })
+            _ => Err(InnerError::ExpectedWrappedOperatorGot {
+                got : t.0.clone(),
+                error_span: t.1.into(),
+            }.into())
         },
-        None => Err(ParserError::UnexpectedEOF.into())
+        None => Err(InnerError::UnexpectedEOF.into())
     }
 }
 
@@ -433,12 +469,14 @@ pub fn parse_instance_method_impl_named<'a>() -> impl Parser<'a, ast::MethodImpl
 // ******************** EXPRESSION *********************
 
 pub fn parse_expression<'a>() -> impl Parser<'a, ast::Expr> {
-    or_n(vec![
+    cut(
+        or_n(vec![
         BoxedParser::new(parse_fn_expr_as_expr()),
         BoxedParser::new(parse_let_in_expression),
         BoxedParser::new(parse_if_then_else),
         BoxedParser::new(parse_bin_op(0)),
-    ])
+    ]),
+    "Expected to parse an expression!")
 }
 
 // ********* BINARY EXPRESSION RELATED ***********
@@ -503,9 +541,12 @@ pub fn parse_unary_operator_from_token<'a>(input: &'a [Token]) -> ParseResult<'a
         Some(t) => match &t.0 {
             TokenKind::Minus => Ok((&input[1..], ast::UnaryOperator::Negative)),
             TokenKind::Bang => Ok((&input[1..], ast::UnaryOperator::Not)),
-            _ => Err(ParserError::ExpectedUnaryOperatorGot { got : t.0.clone() }),
+            _ => Err(InnerError::ExpectedUnaryOperatorGot {
+                got : t.0.clone(),
+                error_span: t.1.into(),
+            }.into()),
         },
-        None => Err(ParserError::UnexpectedEOF),
+        None => Err(InnerError::UnexpectedEOF.into()),
     }
 }
 
@@ -555,7 +596,9 @@ pub fn parse_fn_expr_as_expr<'a>() -> impl Parser<'a, ast::Expr> {
 }
 
 pub fn parse_fn_expr<'a>() -> impl Parser<'a, ast::FnExpr> { 
-    or(parse_fn_expr_single,parse_fn_expr_case)
+    or(
+        parse_fn_expr_single, 
+        parse_fn_expr_case)
 }
 
 pub fn parse_fn_expr_single<'a>(input: &'a [Token]) -> ParseResult<'a, ast::FnExpr> {
@@ -563,7 +606,9 @@ pub fn parse_fn_expr_single<'a>(input: &'a [Token]) -> ParseResult<'a, ast::FnEx
         left(
             parse_fn_expr_params(),
             match_token(TokenKind::FatArrow)),
-        parse_comma_seperated_expressions)
+        cut(
+            parse_comma_seperated_expressions,
+            "Expression expected after function params and '=>' !"))
     .map(|(params, expr)| ast::FnExpr::FnExpr(params, expr))
     .parse(input)
 }
@@ -571,7 +616,9 @@ pub fn parse_fn_expr_single<'a>(input: &'a [Token]) -> ParseResult<'a, ast::FnEx
 pub fn parse_fn_expr_case<'a>(input: &'a [Token]) -> ParseResult<'a, ast::FnExpr> {
     right(
         match_token(TokenKind::CaseKeyword),
-        one_or_more(parse_fn_expr_case_branch))
+        cut(
+            one_or_more(parse_fn_expr_case_branch),
+            "One or more function expression expected for case block!"))
     .map(|fn_exprs| ast::FnExpr::CaseFnExpr(fn_exprs))
     .parse(input)
 }
