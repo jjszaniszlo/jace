@@ -1,31 +1,54 @@
 mod lexer;
-mod parser;
 mod cli;
 mod err;
+mod jace_file;
 
-use codespan_reporting::files::SimpleFiles;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::LazyLock;
-use std::sync::RwLock;
 
 use clap::Parser;
 use cli::Cli;
 use cli::Command;
-
-pub static SOURCES: LazyLock<RwLock<SimpleFiles<String, String>>> = LazyLock::new(|| SimpleFiles::new().into());
+use jace_file::JaceFile;
+use lexer::Lexer;
+use lexer::LexerIterator;
 
 fn main() {
-    let args = Cli::parse();
+    //let args = Cli::parse();
     
-    match args.command {
-        Command::Run { path } => run(path),
-        Command::Build { path } => println!("Building: {path:?}"),
-    }
+    //match args.command {
+    //    Command::Run { path } => run(path),
+    //    Command::Build { path } => println!("Building: {path:?}"),
+    //}
+
+    let jcf = JaceFile::new("test.jc", 
+        r#"
+            class Equal a ::
+                (==) :: a, a => Bool
+                (!=) :: a, a => Bool
+                (>=) :: a, a => Bool
+                (<=) :: a, a => Bool
+                (+)  :: a, a => a
+                (-)  :: a, a => a 
+                (*)  :: a, a => a 
+                (/)  :: a, a => a 
+
+            def doOperation::Integer,Integer=>Integer
+                a,b=>a+b*(2^5)-2.5+3.6,7
+
+            def main::()
+                @
+                print "Hello World!"!
+                john := {name="John", age = 21}
+                john.name
+        "#);
+
+    let mut lexer = Lexer::new(jcf).into_iter();
+
 }
 
-fn run(path: PathBuf) {
+fn compiler_pipeline(path: PathBuf) {
     if path.is_file() {
         let mut f = err::error_maybe(
             File::open(path.clone()),
@@ -39,17 +62,7 @@ fn run(path: PathBuf) {
 
         let file_name = path.file_stem().unwrap().to_str().unwrap();
 
-        let id = SOURCES
-            .write()
-            .unwrap()
-            .add(file_name.to_string(), buf);
-
-        compile(id).expect("Could not compile!");
     } else if path.is_dir() {
         println!("Opening dir {path:?}");
     } 
-}
-
-fn compile(id: usize) -> Result<(), String> {
-    Ok(())
 }

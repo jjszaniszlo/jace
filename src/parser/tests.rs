@@ -1,25 +1,25 @@
 use super::*;
-use crate::lexer::token::Token;
+use crate::lexer::token::TokenKind;
 use crate::parser::ast::{MethodImpl, Identifier, MethodOperator};
 
-fn identifier_token(name: &str) -> Token {
-    Token::Identifier(name.to_string())
+fn identifier_token(name: &str) -> TokenKind {
+    TokenKind::Identifier(name.to_string())
 }
 
  #[test]
 fn test_parse_instance_def_with_params() {
     let tokens = vec![
-        Token::InstanceKeyword,
+        TokenKind::InstanceKeyword,
         identifier_token("Equal"),
         identifier_token("Person"),
         identifier_token("x"),
         identifier_token("y"),
-        Token::ColonColon,
+        TokenKind::ColonColon,
         identifier_token("wow"),
-        Token::FatArrow,
-        Token::Identifier("x".to_string()),
-        Token::EqualsEquals,
-        Token::Identifier("y".to_string()),
+        TokenKind::FatArrow,
+        TokenKind::Identifier("x".to_string()),
+        TokenKind::EqualsEquals,
+        TokenKind::Identifier("y".to_string()),
     ];
 
     let result = parse_instance_def().parse(&tokens);
@@ -42,9 +42,9 @@ fn test_parse_instance_def_with_params() {
 #[test]
 fn test_parse_instance_method_impl_op() {
     let tokens = vec![
-        Token::WrappedPlus,
-        Token::FatArrow,
-        Token::Integer(10),
+        TokenKind::WrappedPlus,
+        TokenKind::FatArrow,
+        TokenKind::Integer(10),
     ];
 
     let result = parse_instance_method_impl_op().parse(&tokens);
@@ -67,8 +67,8 @@ fn test_parse_instance_method_impl_op() {
 fn test_parse_instance_method_impl_named() {
     let tokens = vec![
         identifier_token("myMethod"),
-        Token::FatArrow,
-        Token::String("Hello".to_string()),
+        TokenKind::FatArrow,
+        TokenKind::String("Hello".to_string()),
     ];
 
     let result = parse_instance_method_impl_named().parse(&tokens);
@@ -90,7 +90,7 @@ fn test_parse_instance_method_impl_named() {
 #[test]
 fn test_parse_instance_header() {
     let tokens = vec![
-        Token::InstanceKeyword,
+        TokenKind::InstanceKeyword,
         identifier_token("MyClass"),
         identifier_token("MyType"),
     ];
@@ -106,12 +106,12 @@ fn test_parse_instance_header() {
 #[test]
 fn test_parse_instance_method_impls() {
     let tokens = vec![
-        Token::WrappedPlus,
-        Token::FatArrow,
-        Token::Integer(5),
+        TokenKind::WrappedPlus,
+        TokenKind::FatArrow,
+        TokenKind::Integer(5),
         identifier_token("myMethod"),
-        Token::FatArrow,
-        Token::String("Test".to_string()),
+        TokenKind::FatArrow,
+        TokenKind::String("Test".to_string()),
     ];
 
     let result = parse_instance_method_impls().parse(&tokens);
