@@ -70,9 +70,8 @@ fn main() {
         "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
-    let toks: Vec<TokenKind> = lexer
+    let toks: Vec<Token> = lexer
         .filter_map(|t| t.ok())
-        .map(|t| t.0)
         .collect();
     println!("{toks:#?}");
 

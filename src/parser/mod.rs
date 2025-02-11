@@ -6,10 +6,10 @@ mod tests;
 pub mod prelude {
 }
 
-use crate::lexer::token::TokenKind;
+use crate::lexer::token::Token;
 use parser::*;
 
 // Parser entry point.
-pub fn parse<'a>(input: &'a [TokenKind]) -> ParseResult<'a, (ast::Module, Vec<parser::ParserError>)> {
+pub fn parse<'a>(input: &'a [Token]) -> ParseResult<'a, (ast::Module, Vec<parser::ParserError>)> {
     parse_module().parse(input)
 }
