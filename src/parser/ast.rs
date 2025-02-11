@@ -1,5 +1,4 @@
 use super::ptr::*;
-use super::ParserError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String);
@@ -28,8 +27,6 @@ pub enum Def {
 
     // const_name, literal
     ConstDef(Identifier, Literal),
-
-    Error(ParserError),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -92,8 +89,6 @@ pub enum Expr {
     IfThenElseIfExpr(Vec<(Expr, Expr)>, P<Expr>),
 
     MemberExpr(MemberExpr),
-
-    Error(ParserError),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -174,5 +169,4 @@ pub enum Stmt {
     // Vec of type_name
     MultiAssignStmt(Vec<Identifier>, Option<Vec<Identifier>>, Vec<Expr>),
     SetDeconstructAssignStmt(Vec<Identifier>, Vec<Expr>),
-    Error(ParserError),
 }

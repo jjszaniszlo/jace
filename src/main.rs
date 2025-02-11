@@ -66,7 +66,7 @@ fn main() {
                 arr_ret := {multi_return 5 6 7 8!}
                 arr_ret_x_2 := map (a => a * 2) arr_ret!
 
-            main
+            1 +
         "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
@@ -75,8 +75,10 @@ fn main() {
         .collect();
     println!("{toks:#?}");
 
-    let (_, (result, errs)) = parser::parse(&toks).unwrap();
-    println!("{result:#?}");
+    match parser::parse(&toks) {
+        Ok((r, t)) => println!("{t:#?}"),
+        Err(e) => println!("{e:?}")
+    }
 }
 
 fn compiler_pipeline(path: PathBuf) {

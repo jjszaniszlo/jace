@@ -1,59 +1,8 @@
-use crate::{lexer::token::{Token, TokenKind}, parser::{ast, ptr::*}};
+use crate::{lexer::token::{Token, TokenKind}, parser::{ast, ptr::*, error::*}};
 
-use thiserror::Error;
+use super::combinator::*;
 
-use std::fmt::Debug;
-
-#[derive(Error, Debug, Clone, PartialEq)]
-pub enum ParserError {
-    #[error("Could not match token")]
-    CouldNotMatchToken,
-
-    #[error("Expected a token but no remaining tokens.")]
-    UnexpectedEOF,
-
-    #[error("Could not parse zero_or_more")]
-    ZeroOrMoreParseError,
-
-    #[error("Expected token {}, got {}", expected, got)]
-    ExpectedTokenGot {
-        expected : TokenKind,
-        got : TokenKind,
-    },
-
-    #[error("Expected an Identifier, got: {}", got)]
-    ExpectedIdentifierGot {
-        got : TokenKind,
-    },
-
-    #[error("Expected a Literal (Integer, Float, Bool, String, Set), got: {}", got)]
-    ExpectedLiteralGot {
-        got : TokenKind,
-    },
-
-    #[error("Expected an Operator, got: {}", got)]
-    ExpectedOperatorGot {
-        got : TokenKind,
-    },
-
-    #[error("Expected a Wrapped Operator, got: {}", got)]
-    ExpectedWrappedOperatorGot {
-        got : TokenKind,
-    },
-
-    #[error("Expected a Unary Operator, got: {}", got)]
-    ExpectedUnaryOperatorGot {
-        got : TokenKind,
-    },
-
-    #[error("expected: {}, {:?}", expected, got)]
-    CouldNotParseBinExp {
-        expected : String,
-        got : Option<TokenKind>,
-    },
-}
-
-pub type ParseResult<'a, O> = Result<(&'a [Token], O), Vec<ParserError>>;
+pub type ParseResult<'a, O> = Result<(&'a [Token], O), ParserError>;
 
 pub trait Parser<'a, O> {
     fn parse(&self, input: &'a [Token]) -> ParseResult<'a, O>;
@@ -99,173 +48,15 @@ impl<'a, Output> Parser<'a, Output> for BoxedParser<'a, Output> {
     }
 }
 
-pub fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
-where
-    P1: Parser<'a, R1>,
-    P2: Parser<'a, R2>,
-{
-    move |input| {
-        p1.parse(input).and_then(|(next_input, result1)| {
-            p2.parse(next_input)
-                .map(|(last_input, result2)| (last_input, (result1, result2)))
-        })
-    }
-}
-
-pub fn seq<'a, P, R>(parsers: Vec<P>) -> impl Parser<'a, Vec<R>> 
-where
-    P : Parser<'a, R>,
-{
-    move |input| {
-        parsers.iter().fold(Ok((input, Vec::new())), |prev_results, parser| {
-            prev_results.and_then(|(next_inputs, mut parser_outputs)| {
-                parser.parse(next_inputs).map(|(next_inputs, result)| {
-                    parser_outputs.push(result);
-                    (next_inputs, parser_outputs)
-                })
-            })
-        })
-    }
-}
-
-pub fn or_n<'a, Out>(parsers: Vec<BoxedParser<'a, Out>>) -> impl Parser<'a, Out> 
-where
-    Out: 'a,
-{
-    move |input| {
-        let mut errors = vec![];
-
-        for p in &parsers {
-            match p.parse(input) {
-                Ok(result) => return Ok(result),
-                Err(err) => errors.extend(err),
-            }
-        }
-
-        Err(errors)
-    }
-}
-pub fn map<'a, P, F, A, B>(parser: P, map_fn: F) -> impl Parser<'a, B>
-where
-    P: Parser<'a, A> + 'a,
-    F: Fn(A) -> B + 'a,
-{
-    move |input|
-        parser.parse(input).map(|(next, result)| (next, map_fn(result)))
-}
-
-pub fn left<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R1>
-where
-    P1: Parser<'a, R1> + 'a,
-    P2: Parser<'a, R2> + 'a,
-    R1: 'a,
-    R2: 'a,
-{
-    pair(p1, p2).map( |(l, _)| l)
-}
-
-pub fn right<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R2>
-where
-    P1: Parser<'a, R1> + 'a,
-    P2: Parser<'a, R2> + 'a,
-    R1: 'a,
-    R2: 'a,
-{
-    pair(p1, p2).map( |(_, r)| r)
-}
-
-pub fn or<'a, P1, P2, R>(p1: P1, p2: P2) -> impl Parser<'a, R>
-where
-    P1: Parser<'a, R>,
-    P2: Parser<'a, R>,
-{
-    move |input| match p1.parse(input) {
-        ok @ Ok(_) => ok,
-        Err(_) => p2.parse(input),
-    }
-}
-
-pub fn zero_or_more<'a, P, A>(p: P) -> BoxedParser<'a, Vec<A>>
-where
-    P: Parser<'a, A> + 'a
-{
-    BoxedParser::new(move |mut input| {
-        let mut results = vec![];
-        let mut errors = vec![];
-
-        while let Ok((next_input, result)) = p.parse(input) {
-            if next_input == input {
-                errors.push(ParserError::ZeroOrMoreParseError);
-                break;
-            }
-
-            results.push(result);
-            input = next_input;
-        }
-        if errors.is_empty() {
-            Ok((input, results))
-        } else {
-            Err(errors)
-        }
-    })
-}
-
-pub fn one_or_more<'a, P, A>(p: P) -> BoxedParser<'a, Vec<A>>
-where
-    P: Parser<'a, A> + 'a,
-{
-    BoxedParser::new(move |mut input| {
-        let mut result = vec![];
-        let mut errors : Vec<ParserError> = vec![];
-
-        match p.parse(input) {
-            Ok((next, first)) => {
-                input = next;
-                result.push(first);
-            },
-            Err(errs) => {
-                return Err(errs)
-            }
-        }
-
-        while let Ok((next_input, next_item)) = p.parse(input) {
-            if next_input == input {
-                errors.push(ParserError::ZeroOrMoreParseError);
-                break;
-            }
-            result.push(next_item);
-            input = next_input;
-        }
-
-        if errors.is_empty() {
-            Ok((input, result))
-        } else {
-            Err(errors)
-        }
-    })
-}
-
-pub fn zero_or_one<'a, P, A>(p: P) -> BoxedParser<'a, Option<A>> 
-where
-    P: Parser<'a, A> + 'a
-{
-    BoxedParser::new(move |input| {
-        match p.parse(input) {
-            Ok((next, result)) => Ok((next, Some(result))),
-            Err(_) => Ok((input, None)),
-        }
-    })
-}
-
 pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
     move |toks: &'a [Token]| match toks.get(0) {
         Some(tok) if tok.0 == expected => Ok((&toks[1..], ())),
-        Some(tok) => Err(vec![
+        Some(tok) => Err(
             ParserError::ExpectedTokenGot { expected: expected.clone(), got: tok.0.clone() },
-        ]),
-        _ => Err(vec![
+        ),
+        _ => Err(
             ParserError::UnexpectedEOF,
-        ])
+        )
     }
 }
 
@@ -273,13 +64,9 @@ pub fn parse_identifier<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Identifi
     match input.get(0) {
         Some(t) => match &t.0 { 
             TokenKind::Identifier(i) => Ok((&input[1..], ast::Identifier(i.clone()))),
-            _ => Err(vec![
-                ParserError::ExpectedIdentifierGot { got: t.0.clone() },
-            ]),
+            _ => Err(ParserError::ExpectedIdentifierGot { got: t.0.clone() }),
         },
-        None => Err(vec![
-            ParserError::UnexpectedEOF,
-        ]),
+        None => Err(ParserError::UnexpectedEOF.into()),
     }
 }
 
@@ -290,13 +77,9 @@ pub fn parse_literal<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Literal> {
             TokenKind::Integer(i) => Ok((&input[1..], ast::Literal::from(*i))),
             TokenKind::Float(f) => Ok((&input[1..], ast::Literal::from(*f))),
             TokenKind::String(s) => Ok((&input[1..], ast::Literal::from(s.clone()))),
-            _ => Err(vec![
-                ParserError::ExpectedLiteralGot { got: t.0.clone() },
-            ]),
+            _ => Err(ParserError::ExpectedLiteralGot { got: t.0.clone() }),
         },
-        None => Err(vec![
-            ParserError::UnexpectedEOF,
-        ]),
+        None => Err(ParserError::UnexpectedEOF.into()),
     }
 }
 
@@ -304,13 +87,9 @@ pub fn parse_literal_integer<'a>(input: &'a [Token]) -> ParseResult<'a, usize> {
     match input.get(0) {
         Some(t) => match &t.0 {
             TokenKind::Integer(i) => Ok((&input[1..], *i)),
-            _ => Err(vec![
-                ParserError::ExpectedLiteralGot { got: t.0.clone() },
-            ]),
+            _ => Err(ParserError::ExpectedLiteralGot { got: t.0.clone() }.into()),
         },
-        None => Err(vec![
-            ParserError::UnexpectedEOF,
-        ]),
+        None => Err(ParserError::UnexpectedEOF),
     }
 }
 
@@ -332,41 +111,20 @@ pub fn parse_operator<'a>(input: &'a [Token]) -> ParseResult<'a, ast::BinOperato
             TokenKind::Greater => Ok((&input[1..], BinOperator::Greater)),
             TokenKind::GreaterEquals => Ok((&input[1..], BinOperator::GreaterEquals)),
             TokenKind::Colon => Ok((&input[1..], BinOperator::AppendSet)),
-            _ => Err(vec![
-                ParserError::ExpectedOperatorGot { got: t.0.clone() },
-            ]),
+            _ => Err(ParserError::ExpectedOperatorGot { got: t.0.clone() }),
         },
-        _ => Err(vec![
-            ParserError::UnexpectedEOF,
-        ]),
+        _ => Err(ParserError::UnexpectedEOF.into()),
     }
 }
 
 // *************** DEFINITIONS **************************
 
-pub fn parse_module<'a>() -> impl Parser<'a, (ast::Module, Vec<ParserError>)> {
-    move |input| {
-        let mut errors = vec![];
-        let mut module_ast = ast::Module(vec![], None);
+pub fn parse_module<'a>() -> impl Parser<'a, ast::Module> {
+    pair(
+        zero_or_more(parse_definition()),
+        zero_or_one(parse_expression()))
+    .map(|(defs, expr)| ast::Module(defs, expr))
 
-        match pair(
-            zero_or_more(parse_definition()),
-            zero_or_one(parse_expression())).parse(input)
-        {
-            Ok((_, (defs, expr))) => {
-                module_ast = ast::Module(defs, expr);
-            },
-            Err(errs) => {
-                errors.extend(errs);
-            },
-        }
-
-        if errors.is_empty() {
-            Ok((input, (module_ast, vec![])))
-        } else {
-            Ok((input, (module_ast, errors)))
-        }
-    }
 }
 
 pub fn parse_definition<'a>() -> impl Parser<'a, ast::Def> { 
@@ -603,13 +361,9 @@ pub fn parse_method_operator<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Met
             TokenKind::WrappedMinus => Ok((&input[1..], ast::MethodOperator::Minus)),
             TokenKind::WrappedDivide => Ok((&input[1..], ast::MethodOperator::Divide)),
             TokenKind::WrappedMultiply => Ok((&input[1..], ast::MethodOperator::Multiply)),
-            _ => Err(vec![
-                ParserError::ExpectedWrappedOperatorGot { got : t.0.clone() },
-            ])
+            _ => Err(ParserError::ExpectedWrappedOperatorGot { got : t.0.clone() })
         },
-        None => Err(vec![
-            ParserError::UnexpectedEOF,
-        ])
+        None => Err(ParserError::UnexpectedEOF.into())
     }
 }
 
@@ -692,44 +446,20 @@ pub fn parse_expression<'a>() -> impl Parser<'a, ast::Expr> {
 // PRATT parser for binary expressions
 pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, ast::Expr> {
     move |input| {
-        let mut errors = vec![];
-        let (mut input, mut lhs) = match parse_primary().parse(input) {
-            Ok(res) => res,
-            Err(err) => {
-                errors.extend(err);
-
-                (input, ast::Expr::Error(ParserError::CouldNotParseBinExp {
-                    expected: "primary expression".to_string(),
-                    got : input.get(0).map(|t| t.0.clone()),
-                }))
-            }
-        };
-        
+        let (mut input, mut lhs) = parse_primary().parse(input)?;
+  
         loop {
             let (rest, op) = match parse_operator(input) {
                 Ok((i, o)) => (i, o),
-                Err(errs) => {
-                    errors.extend(errs);
-                    break;
-                }
+                Err(_) => break,
             };
 
-            let (l_bp, r_bp) = match get_infix_binding_power(op.clone()) {
+            let (_, r_bp) = match get_infix_binding_power(op.clone()) {
                 bp if bp.0 >= min_bp => bp,
                 _ => break,
             };
 
-            let (rest, rhs) = match parse_bin_op(r_bp).parse(rest) {
-                Ok(res) => res,
-                Err(err) => {
-                    errors.extend(err);
-
-                    (input, ast::Expr::Error(ParserError::CouldNotParseBinExp {
-                        expected: "primary expression".to_string(),
-                        got : rest.get(0).map(|t| t.0.clone()),
-                    }))
-                }
-            };
+            let (rest, rhs) = parse_bin_op(r_bp).parse(rest)?;
             input = rest;
             
             lhs = ast::Expr::BinOpExpr(op, P(lhs), P(rhs))
@@ -753,13 +483,6 @@ fn get_infix_binding_power(op: ast::BinOperator) -> (u8, u8) {
 }
 
 pub fn parse_parenthesized_expression<'a>() -> impl Parser<'a, ast::Expr> {
-    //move |input| {
-    //    let (input, _) = match_token(TokenKind::LeftParen).parse(input)?;
-    //    let (input, expr) = parse_expression().parse(input)?;
-    //    let (input, _) = match_token(TokenKind::RightParen).parse(input)?;
-    //
-    //    Ok((input, expr))
-    //}
     right(
         match_token(TokenKind::LeftParen),
             left(
@@ -780,11 +503,9 @@ pub fn parse_unary_operator_from_token<'a>(input: &'a [Token]) -> ParseResult<'a
         Some(t) => match &t.0 {
             TokenKind::Minus => Ok((&input[1..], ast::UnaryOperator::Negative)),
             TokenKind::Bang => Ok((&input[1..], ast::UnaryOperator::Not)),
-            _ => Err(vec![
-                ParserError::ExpectedUnaryOperatorGot { got : t.0.clone() },
-            ]),
+            _ => Err(ParserError::ExpectedUnaryOperatorGot { got : t.0.clone() }),
         },
-        None => Err(vec![ParserError::UnexpectedEOF]),
+        None => Err(ParserError::UnexpectedEOF),
     }
 }
 

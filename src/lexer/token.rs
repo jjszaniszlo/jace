@@ -1,17 +1,11 @@
 use std::fmt::Display;
 
 #[derive(Debug, PartialEq)]
-pub struct TokenSpan {
-    start: usize,
-    length: usize,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Token(pub TokenKind, pub TokenSpan);
+pub struct Token(pub TokenKind, pub (usize, usize));
 
 impl Token {
     pub fn new(kind: TokenKind, start: usize, length: usize) -> Token {
-        Self(kind, TokenSpan {start, length})
+        Self(kind, (start, length))
     }
 }
 
