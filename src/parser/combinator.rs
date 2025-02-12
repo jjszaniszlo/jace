@@ -1,5 +1,5 @@
 use crate::{parser::BoxedParser, TokenKind};
-use super::{error::{InnerError, ParserError}, Parser};
+use super::{error::*, Parser};
 
 pub fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
 where

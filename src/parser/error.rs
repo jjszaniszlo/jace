@@ -5,164 +5,34 @@ use crate::TokenKind;
 
 use super::Span;
 
-#[derive(Error, Debug, Diagnostic)]
-#[error("Unrecoverable Error: {message}")]
-pub struct UnrecoverableError {
-    pub message: String,
-
-    #[label("here")]
-    pub error_span: SourceSpan,
-
-    #[source]
-    #[diagnostic_source]
-    pub cause: InnerError,
+// Error - an error which is recoverable.
+// Failure - an error which is not recoverable.
+// Complete - parse was successful
+pub enum ParseResult {
+    Error(ParserError),
+    Failure(ParserError),
+    Complete,
 }
 
-#[derive(Error, Debug, Diagnostic)]
-#[error("Contextual error in {context}")]
-pub struct ContextualError {
-    pub context: String,
-
-    #[source]
-    #[diagnostic_source]
-    pub error: InnerError,
-}
-
-
-#[derive(Error, Debug, Diagnostic)]
-#[error("Parser Error")]
+#[derive(thiserror::Error, miette::Diagnostic, Debug)]
 pub enum ParserError {
-    #[diagnostic_source]
-    UnrecoverableError(#[from] UnrecoverableError),
-
-    #[diagnostic_source]
-    ContextualError(#[from] ContextualError),
-
-    #[diagnostic_source]
-    InnerError(#[from] InnerError),
-}
-
-impl ParserError {
-    pub fn unrecoverable(message: &'static str, cause: ParserError, at: SourceSpan) -> ParserError {
-        match cause {
-            ParserError::UnrecoverableError(err) => ParserError::UnrecoverableError(err),
-            ParserError::ContextualError(cause) => ParserError::UnrecoverableError(
-                UnrecoverableError {
-                    message: message.to_string(),
-                    error_span: at,
-                    cause: cause.error,
-                }),
-            ParserError::InnerError(inner_error) => ParserError::UnrecoverableError(
-                UnrecoverableError{
-                    message: message.to_string(),
-                    error_span: at,
-                    cause: inner_error.into()
-                }),
-        }
-    }
-
-    pub fn contextual(context: &'static str, error: ParserError) -> ParserError {
-        match error {
-            ParserError::UnrecoverableError(err) => ParserError::ContextualError(
-                ContextualError {
-                    context: context.to_string(),
-                    error: InnerError::UnexpectedEOF,
-                }),
-            ParserError::ContextualError(context) => ParserError::ContextualError(context),
-            ParserError::InnerError(inner_error) => ParserError::ContextualError(
-                ContextualError{
-                    context: context.to_string(),
-                    error: inner_error,
-                }),
-        }
-    }
-}
-
-#[derive(Error, Debug, Diagnostic)]
-pub enum InnerError {
-    #[error("Expected a token but no remaining tokens.")]
+    #[error("Unexpected EOF")]
     UnexpectedEOF,
 
-    #[error("Errors: {errors:?}")]
-    #[diagnostic(severity(Error))]
-    CombinedErrors {
-        #[related]
-        errors: Vec<ParserError>,
+    #[error("Expected: {expected}, Got: {got}")]
+    ExpectedGot {
+        expected: TokenKind,
+        got: TokenKind,
+
+        #[label("Here")]
+        span: SourceSpan
     },
 
-    #[error("Could not match token")]
-    CouldNotMatchToken {
-        #[label("this token")]
-        error_span: SourceSpan,
-    },
+    #[error("Unexpected Token: {tok}")]
+    UnexpectedToken {
+        tok: TokenKind,
 
-    #[error("Could not parse zero_or_more")]
-    ZeroOrMoreParseError {
-        #[label("here")]
-        error_span: SourceSpan,
-    },
-
-    #[error("Expected token {}, got {}", expected, got)]
-    ExpectedTokenGot {
-        #[label("this token")]
-        error_span: SourceSpan,
-
-        expected : TokenKind,
-        got : TokenKind,
-    },
-
-    #[error("Expected an Identifier, got: {}", got)]
-    ExpectedIdentifierGot {
-        #[label("this token")]
-        error_span: SourceSpan,
-
-        got : TokenKind,
-    },
-
-    #[error("Expected a Literal (Integer, Float, Bool, String, Set), got: {}", got)]
-    ExpectedLiteralGot {
-        #[label("this token")]
-        error_span: SourceSpan,
-
-        got : TokenKind,
-    },
-
-    #[error("Expected an Operator, got: {}", got)]
-    ExpectedOperatorGot {
-        #[label("this token")]
-        error_span: SourceSpan,
-
-        got : TokenKind,
-    },
-
-    #[error("Expected a Wrapped Operator, got: {}", got)]
-    ExpectedWrappedOperatorGot {
-        #[label("this token")]
-        error_span: SourceSpan,
-
-        got : TokenKind,
-    },
-
-    #[error("Expected a Unary Operator, got: {}", got)]
-    ExpectedUnaryOperatorGot {
-        #[label("this token")]
-        error_span: SourceSpan,
-
-        got : TokenKind,
-    },
-
-    #[error("expected: {}, {:?}", expected, got)]
-    CouldNotParseBinExp {
-        #[label("this operator")]
-        error_span: SourceSpan,
-
-        expected : String,
-        got : Option<TokenKind>,
-    },
-}
-
-impl InnerError {
-    pub fn combined(errors: Vec<ParserError>) -> Self {
-        InnerError::CombinedErrors { errors }
+        #[label("Here")]
+        span: SourceSpan
     }
 }
