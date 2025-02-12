@@ -23,9 +23,6 @@ pub struct UnrecoverableError {
 pub struct ContextualError {
     pub context: String,
 
-    #[label("here")]
-    pub error_span: SourceSpan,
-
     #[source]
     #[diagnostic_source]
     pub error: InnerError,
@@ -43,24 +40,6 @@ pub enum ParserError {
 
     #[diagnostic_source]
     InnerError(#[from] InnerError),
-}
-
-impl From<InnerError> for UnrecoverableError {
-    fn from(value: InnerError) -> Self {
-        match value {
-            InnerError::UnexpectedEOF => ,
-            InnerError::CombinedErrors { errors } => todo!(),
-            InnerError::CouldNotMatchToken { error_span } => todo!(),
-            InnerError::ZeroOrMoreParseError { error_span } => todo!(),
-            InnerError::ExpectedTokenGot { error_span, expected, got } => todo!(),
-            InnerError::ExpectedIdentifierGot { error_span, got } => todo!(),
-            InnerError::ExpectedLiteralGot { error_span, got } => todo!(),
-            InnerError::ExpectedOperatorGot { error_span, got } => todo!(),
-            InnerError::ExpectedWrappedOperatorGot { error_span, got } => todo!(),
-            InnerError::ExpectedUnaryOperatorGot { error_span, got } => todo!(),
-            InnerError::CouldNotParseBinExp { error_span, expected, got } => todo!(),
-        }
-    }
 }
 
 impl ParserError {
@@ -82,19 +61,17 @@ impl ParserError {
         }
     }
 
-    pub fn contextual(context: &'static str, error: ParserError, span: Span) -> ParserError {
+    pub fn contextual(context: &'static str, error: ParserError) -> ParserError {
         match error {
             ParserError::UnrecoverableError(err) => ParserError::ContextualError(
                 ContextualError {
                     context: context.to_string(),
-                    error_span: span.into(),
                     error: InnerError::UnexpectedEOF,
                 }),
             ParserError::ContextualError(context) => ParserError::ContextualError(context),
             ParserError::InnerError(inner_error) => ParserError::ContextualError(
                 ContextualError{
                     context: context.to_string(),
-                    error_span: span.into(),
                     error: inner_error,
                 }),
         }

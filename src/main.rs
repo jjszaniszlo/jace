@@ -26,7 +26,7 @@ fn main() {
     let jcf = JaceFile::new("test.jc", 
         r#"
             def main :: ()
-                print 23ab
+                print "hello world!"!
         "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
