@@ -183,9 +183,7 @@ impl<'a> LexerIterator<'a> {
                         expected: String::from("a digit"),
                         got: String::from(ch),
                     }.into()),
-
                 '0'..='9' => number.push(self.eat_char()),
-
                 _ => break,
             }
         }

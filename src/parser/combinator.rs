@@ -8,8 +8,8 @@ where
 {
     move |input| {
         match p1.parse(input) {
-            Ok((next_input, r1)) => match p2.parse(next_input) {
-                Ok((last, r2)) => Ok((last, (r1, r2))),
+            Ok((next_input, r1, s1)) => match p2.parse(next_input) {
+                Ok((last, r2, s2)) => Ok((last, (r1, r2), (s1.0, s2.1))),
                 Err(ParserError::UnrecoverableError(e)) =>
                     return Err(ParserError::UnrecoverableError(e)),
                 Err(err) => Err(err),
@@ -28,26 +28,26 @@ where
     F: Fn(A) -> NextP,
 {
     move |input| match parser.parse(input) {
-        Ok((next_input, result)) => f(result).parse(next_input),
+        Ok((next_input, result, _)) => f(result).parse(next_input),
         Err(err) => Err(err),
     }
 }
 
-pub fn seq<'a, P, R>(parsers: Vec<P>) -> impl Parser<'a, Vec<R>> 
-where
-    P : Parser<'a, R>,
-{
-    move |input| {
-        parsers.iter().fold(Ok((input, Vec::new())), |prev_results, parser| {
-            prev_results.and_then(|(next_inputs, mut parser_outputs)| {
-                parser.parse(next_inputs).map(|(next_inputs, result)| {
-                    parser_outputs.push(result);
-                    (next_inputs, parser_outputs)
-                })
-            })
-        })
-    }
-}
+//pub fn seq<'a, P, R>(parsers: Vec<P>) -> impl Parser<'a, Vec<R>> 
+//where
+//    P : Parser<'a, R>,
+//{
+//    move |input| {
+//        parsers.iter().fold(Ok((input, Vec::new(), Vec::new())), |prev_results, parser| {
+//            prev_results.and_then(|(next_inputs, mut parser_outputs, next_span)| {
+//                parser.parse(next_inputs).map(|(next_inputs, result, span)| {
+//                    parser_outputs.push(result);
+//                    (next_inputs, parser_outputs)
+//                })
+//            })
+//        })
+//    }
+//}
 
 pub fn or_n<'a, Out>(parsers: Vec<BoxedParser<'a, Out>>) -> impl Parser<'a, Out> 
 where
@@ -76,7 +76,7 @@ where
 {
     move |input|
         parser.parse(input)
-            .map(|(next, result)| (next, map_fn(result)))
+            .map(|(next, result, span)| (next, map_fn(result), span))
 }
 
 pub fn left<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R1>
@@ -126,11 +126,13 @@ where
 {
     BoxedParser::new(move |mut input| {
         let mut results = vec![];
+        let mut spans = vec![];
 
         loop {
             let parse_result = p.parse(input);
             match parse_result {
-                Ok((next_input, result)) => {
+                Ok((next_input, result, span)) => {
+                    spans.push(span);
                     results.push(result);
                     input = next_input;
                 }
@@ -139,8 +141,10 @@ where
                 Err(_) => break,
             }
         }
+        let st = spans.first().unwrap_or_else(|| &(0, 0));
+        let ed = spans.last().unwrap_or_else(|| &(0, 0));
 
-        Ok((input, results))
+        Ok((input, results, (st.0, ed.1)))
     })
 }
 
@@ -150,9 +154,11 @@ where
 {
     BoxedParser::new(move |mut input| {
         let mut results = vec![];
+        let mut spans = vec![];
 
         match p.parse(input) {
-            Ok((next, first)) => {
+            Ok((next, first, span)) => {
+                spans.push(span);
                 input = next;
                 results.push(first);
             },
@@ -162,7 +168,8 @@ where
         loop {
             let parse_result = p.parse(input);
             match parse_result {
-                Ok((next_input, result)) => {
+                Ok((next_input, result, span)) => {
+                    spans.push(span);
                     results.push(result);
                     input = next_input;
                 }
@@ -172,8 +179,10 @@ where
             }
         }
 
+        let st = spans.first().unwrap_or_else(|| &(0, 0));
+        let ed = spans.last().unwrap_or_else(|| &(0, 0));
 
-        Ok((input, results))
+        Ok((input, results, (st.0, ed.1)))
     })
 }
 
@@ -183,8 +192,8 @@ where
 {
     BoxedParser::new(move |input| {
         match p.parse(input) {
-            Ok((next, result)) => Ok((next, Some(result))),
-            Err(_) => Ok((input, None)),
+            Ok((next, result, span)) => Ok((next, Some(result), span)),
+            Err(_) => Ok((input, None, (0, 0))),
         }
     })
 }
@@ -197,7 +206,8 @@ where
         Ok(result) => Ok(result),
         Err(err) => {
             let span = input.get(0).unwrap();
-            Err(ParserError::unrecoverable(msg, err, span.1.into()))
+            //Err(ParserError::unrecoverable(msg, err, span.1.into()))
+            Err(ParserError::from(err))
         },
     }
 }
@@ -219,9 +229,9 @@ pub fn recover<'a, P, O, F>(parser: P, fallback: F) -> impl Parser<'a, (O, Optio
     O: Clone + 'a,
 {
     move |input| match parser.parse(input) {
-        Ok((next, result)) => Ok((next, (result, None))),
+        Ok((next, result, span)) => Ok((next, (result, None), span)),
         Err(err) => {
-            Ok((input, (fallback(), Some(err))))
+            Ok((input, (fallback(), Some(err)), (0, 0)))
         }
     }
 }
@@ -232,7 +242,7 @@ pub fn recover_sync<'a, P, O, F>(parser: P, fallback: F, tok: TokenKind) -> impl
     O: Clone + 'a,
 {
     move |mut input| match parser.parse(input) {
-        Ok((next, result)) => Ok((next, (result, None))),
+        Ok((next, result, span)) => Ok((next, (result, None), span)),
         Err(err) => {
             while let Some((token, rest)) = input.split_first() {
                 if token.0 == tok {
@@ -242,7 +252,7 @@ pub fn recover_sync<'a, P, O, F>(parser: P, fallback: F, tok: TokenKind) -> impl
                 input = rest;
             }
 
-            Ok((input, (fallback(), Some(err))))
+            Ok((input, (fallback(), Some(err)), (0, 0)))
         }
     }
 }

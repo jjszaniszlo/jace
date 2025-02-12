@@ -26,17 +26,18 @@ fn main() {
     let jcf = JaceFile::new("test.jc", 
         r#"
             def main :: ()
-                print ab!
+                print 23ab
         "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
     let toks: Vec<Token> = lexer
         .filter_map(|t| t.ok())
         .collect();
+
     println!("{toks:#?}");
 
     match parser::parse(&toks) {
-        Ok((r, t)) => println!("{t:#?}"),
+        Ok((r, t, _)) => println!("{t:#?}"),
         Err(ParserError::UnrecoverableError(e)) => 
             println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents())),
         Err(ParserError::ContextualError(e)) =>

@@ -2,7 +2,9 @@ use crate::{lexer::token::{Token, TokenKind}, parser::{ast, ptr::*, error::*}};
 
 use super::combinator::*;
 
-pub type ParseResult<'a, O> = Result<(&'a [Token], O), ParserError>;
+pub type Span = (usize, usize);
+
+pub type ParseResult<'a, O> = Result<(&'a [Token], O, Span), ParserError>;
 
 pub trait Parser<'a, O> {
     fn parse(&self, input: &'a [Token]) -> ParseResult<'a, O>;
@@ -62,7 +64,7 @@ impl<'a, Output> Parser<'a, Output> for BoxedParser<'a, Output> {
 pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
     context("match_token",
     move |toks: &'a [Token]| match toks.get(0) {
-        Some(tok) if tok.0 == expected => Ok((&toks[1..], ())),
+        Some(tok) if tok.0 == expected => Ok((&toks[1..], (), tok.1)),
         Some(tok) => Err(
             InnerError::ExpectedTokenGot {
                 expected: expected.clone(),
@@ -80,7 +82,7 @@ pub fn parse_identifier<'a>() -> impl Parser<'a, ast::Identifier> {
     move |input: &'a[Token]| {
         match input.get(0) {
             Some(t) => match &t.0 { 
-                TokenKind::Identifier(i) => Ok((&input[1..], ast::Identifier(i.clone()))),
+                TokenKind::Identifier(i) => Ok((&input[1..], ast::Identifier(i.clone()), t.1)),
                 _ => Err(
                     InnerError::ExpectedIdentifierGot {
                         got: t.0.clone(),
@@ -97,10 +99,10 @@ pub fn parse_literal<'a>() -> impl Parser<'a, ast::Literal> {
         move |input: &'a [Token]| {
             match input.get(0) {
                 Some(t) => match &t.0 {
-                    TokenKind::Bool(b) => Ok((&input[1..], ast::Literal::from(*b))),
-                    TokenKind::Integer(i) => Ok((&input[1..], ast::Literal::from(*i))),
-                    TokenKind::Float(f) => Ok((&input[1..], ast::Literal::from(*f))),
-                    TokenKind::String(s) => Ok((&input[1..], ast::Literal::from(s.clone()))),
+                    TokenKind::Bool(b) => Ok((&input[1..], ast::Literal::from(*b), t.1)),
+                    TokenKind::Integer(i) => Ok((&input[1..], ast::Literal::from(*i), t.1)),
+                    TokenKind::Float(f) => Ok((&input[1..], ast::Literal::from(*f), t.1)),
+                    TokenKind::String(s) => Ok((&input[1..], ast::Literal::from(s.clone()), t.1)),
                     _ => Err(InnerError::ExpectedLiteralGot {
                         got: t.0.clone(),
                         error_span: t.1.into(),
@@ -116,7 +118,7 @@ pub fn parse_literal_integer<'a>() -> impl Parser<'a, usize> {
         move |input: &'a [Token]| {
             match input.get(0) {
                 Some(t) => match &t.0 {
-                    TokenKind::Integer(i) => Ok((&input[1..], *i)),
+                    TokenKind::Integer(i) => Ok((&input[1..], *i, t.1)),
                     _ => Err(InnerError::ExpectedLiteralGot {
                         got: t.0.clone(),
                         error_span: t.1.into(),
@@ -133,20 +135,20 @@ pub fn parse_operator<'a>() -> impl Parser<'a, ast::BinOperator> {
     move |input: &'a [Token]| {
         match input.get(0) {
             Some(t) => match &t.0 {
-                TokenKind::Plus => Ok((&input[1..], BinOperator::Plus)),
-                TokenKind::Minus => Ok((&input[1..], BinOperator::Minus)),
-                TokenKind::Multiply => Ok((&input[1..], BinOperator::Multiply)),
-                TokenKind::Divide => Ok((&input[1..], BinOperator::Divide)),
-                TokenKind::Exp => Ok((&input[1..], BinOperator::Exp)),
-                TokenKind::And => Ok((&input[1..], BinOperator::And)),
-                TokenKind::Or => Ok((&input[1..], BinOperator::Or)),
-                TokenKind::EqualsEquals => Ok((&input[1..], BinOperator::EqualsEquals)),
-                TokenKind::NotEquals => Ok((&input[1..], BinOperator::NotEquals)),
-                TokenKind::Less => Ok((&input[1..], BinOperator::Less)),
-                TokenKind::LessEquals => Ok((&input[1..], BinOperator::LessEquals)),
-                TokenKind::Greater => Ok((&input[1..], BinOperator::Greater)),
-                TokenKind::GreaterEquals => Ok((&input[1..], BinOperator::GreaterEquals)),
-                TokenKind::Colon => Ok((&input[1..], BinOperator::AppendSet)),
+                TokenKind::Plus => Ok((&input[1..], BinOperator::Plus, t.1)),
+                TokenKind::Minus => Ok((&input[1..], BinOperator::Minus, t.1)),
+                TokenKind::Multiply => Ok((&input[1..], BinOperator::Multiply, t.1)),
+                TokenKind::Divide => Ok((&input[1..], BinOperator::Divide, t.1)),
+                TokenKind::Exp => Ok((&input[1..], BinOperator::Exp, t.1)),
+                TokenKind::And => Ok((&input[1..], BinOperator::And, t.1)),
+                TokenKind::Or => Ok((&input[1..], BinOperator::Or, t.1)),
+                TokenKind::EqualsEquals => Ok((&input[1..], BinOperator::EqualsEquals, t.1)),
+                TokenKind::NotEquals => Ok((&input[1..], BinOperator::NotEquals, t.1)),
+                TokenKind::Less => Ok((&input[1..], BinOperator::Less, t.1)),
+                TokenKind::LessEquals => Ok((&input[1..], BinOperator::LessEquals, t.1)),
+                TokenKind::Greater => Ok((&input[1..], BinOperator::Greater, t.1)),
+                TokenKind::GreaterEquals => Ok((&input[1..], BinOperator::GreaterEquals, t.1)),
+                TokenKind::Colon => Ok((&input[1..], BinOperator::AppendSet, t.1)),
                 _ => Err(InnerError::ExpectedOperatorGot {
                     got: t.0.clone(),
                     error_span: t.1.into(),
@@ -397,16 +399,16 @@ pub fn parse_class_method_type_params<'a>() -> impl Parser<'a, Vec<ast::Identifi
 pub fn parse_method_operator<'a>(input: &'a [Token]) -> ParseResult<'a, ast::MethodOperator> {
     match input.get(0) {
         Some(t) => match &t.0 {
-            TokenKind::WrappedEqualsEquals => Ok((&input[1..], ast::MethodOperator::EqualsEquals)),
-            TokenKind::WrappedNotEquals => Ok((&input[1..], ast::MethodOperator::NotEquals)),
-            TokenKind::WrappedLessEquals => Ok((&input[1..], ast::MethodOperator::LessEquals)),
-            TokenKind::WrappedGreaterEquals => Ok((&input[1..], ast::MethodOperator::GreaterEquals)),
-            TokenKind::WrappedGreater => Ok((&input[1..], ast::MethodOperator::Greater)),
-            TokenKind::WrappedLess => Ok((&input[1..], ast::MethodOperator::Less)),
-            TokenKind::WrappedPlus => Ok((&input[1..], ast::MethodOperator::Plus)),
-            TokenKind::WrappedMinus => Ok((&input[1..], ast::MethodOperator::Minus)),
-            TokenKind::WrappedDivide => Ok((&input[1..], ast::MethodOperator::Divide)),
-            TokenKind::WrappedMultiply => Ok((&input[1..], ast::MethodOperator::Multiply)),
+            TokenKind::WrappedEqualsEquals => Ok((&input[1..], ast::MethodOperator::EqualsEquals, t.1)),
+            TokenKind::WrappedNotEquals => Ok((&input[1..], ast::MethodOperator::NotEquals, t.1)),
+            TokenKind::WrappedLessEquals => Ok((&input[1..], ast::MethodOperator::LessEquals, t.1)),
+            TokenKind::WrappedGreaterEquals => Ok((&input[1..], ast::MethodOperator::GreaterEquals, t.1)),
+            TokenKind::WrappedGreater => Ok((&input[1..], ast::MethodOperator::Greater, t.1)),
+            TokenKind::WrappedLess => Ok((&input[1..], ast::MethodOperator::Less, t.1)),
+            TokenKind::WrappedPlus => Ok((&input[1..], ast::MethodOperator::Plus, t.1)),
+            TokenKind::WrappedMinus => Ok((&input[1..], ast::MethodOperator::Minus, t.1)),
+            TokenKind::WrappedDivide => Ok((&input[1..], ast::MethodOperator::Divide, t.1)),
+            TokenKind::WrappedMultiply => Ok((&input[1..], ast::MethodOperator::Multiply, t.1)),
             _ => Err(InnerError::ExpectedWrappedOperatorGot {
                 got : t.0.clone(),
                 error_span: t.1.into(),
@@ -482,14 +484,12 @@ pub fn parse_instance_method_impl_named<'a>() -> impl Parser<'a, ast::MethodImpl
 // ******************** EXPRESSION *********************
 
 pub fn parse_expression<'a>() -> impl Parser<'a, ast::Expr> {
-    cut(
-        or_n(vec![
+    or_n(vec![
         BoxedParser::new(parse_fn_expr_as_expr()),
         BoxedParser::new(parse_let_in_expression),
         BoxedParser::new(parse_if_then_else),
         BoxedParser::new(parse_bin_op(0)),
-    ]),
-    "Expected to parse an expression!")
+    ])
 }
 
 // ********* BINARY EXPRESSION RELATED ***********
@@ -497,11 +497,11 @@ pub fn parse_expression<'a>() -> impl Parser<'a, ast::Expr> {
 // PRATT parser for binary expressions
 pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, ast::Expr> {
     move |input| {
-        let (mut input, mut lhs) = parse_primary().parse(input)?;
+        let (mut input, mut lhs, mut span) = parse_primary().parse(input)?;
   
         loop {
-            let (rest, op) = match parse_operator().parse(input) {
-                Ok((i, o)) => (i, o),
+            let (rest, op, op_span) = match parse_operator().parse(input) {
+                Ok((i, o, sp)) => (i, o, sp),
                 Err(_) => break,
             };
 
@@ -510,13 +510,14 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, ast::Expr> {
                 _ => break,
             };
 
-            let (rest, rhs) = parse_bin_op(r_bp).parse(rest)?;
+            let (rest, rhs, sp2) = parse_bin_op(r_bp).parse(rest)?;
             input = rest;
+            span.1 = sp2.1;
             
             lhs = ast::Expr::BinOpExpr(op, P(lhs), P(rhs))
         }
 
-        Ok((input, lhs))
+        Ok((input, lhs, span))
     }
 }
 
@@ -552,8 +553,8 @@ pub fn parse_unary_op<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
 pub fn parse_unary_operator_from_token<'a>(input: &'a [Token]) -> ParseResult<'a, ast::UnaryOperator> {
     match input.get(0) {
         Some(t) => match &t.0 {
-            TokenKind::Minus => Ok((&input[1..], ast::UnaryOperator::Negative)),
-            TokenKind::Bang => Ok((&input[1..], ast::UnaryOperator::Not)),
+            TokenKind::Minus => Ok((&input[1..], ast::UnaryOperator::Negative, t.1)),
+            TokenKind::Bang => Ok((&input[1..], ast::UnaryOperator::Not, t.1)),
             _ => Err(InnerError::ExpectedUnaryOperatorGot {
                 got : t.0.clone(),
                 error_span: t.1.into(),
@@ -938,7 +939,9 @@ pub fn parse_fn_call<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
         parse_identifier(),
         left(
             one_or_more(parse_fn_arg),
-            match_token(TokenKind::Bang)))
+            cut(
+                match_token(TokenKind::Bang),
+                "Function call not terminated by '!'!")))
     .map(|(func_name, params)| {
         ast::Expr::FnCallExpr(func_name, params)
     })
@@ -946,14 +949,13 @@ pub fn parse_fn_call<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
 }
 
 pub fn parse_fn_arg<'a>(input: &'a [Token]) -> ParseResult<'a, ast::Expr> {
-    cut(or_n(vec![
+    or_n(vec![
         BoxedParser::new(parse_parenthesized_expression()),
         BoxedParser::new(parse_set_literal()),
         BoxedParser::new(parse_set_array()),
         BoxedParser::new(parse_literal().map(|l| ast::Expr::LitExpr(l))),
         BoxedParser::new(parse_member_expr()),
         BoxedParser::new(parse_identifier().map(|i| ast::Expr::IdentExpr(i))),
-    ]),
-    "Could not parse function arg!")
+    ])
     .parse(input)
 }
