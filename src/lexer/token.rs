@@ -71,7 +71,6 @@ pub enum TokenKind {
     RightBracket,       // ]
     
     // Other
-    ProcType,           // ()
     Bang,               // !
  
     // reserved words

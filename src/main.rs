@@ -25,46 +25,52 @@ fn main() {
 
     let jcf = JaceFile::new("test.jc", 
         r#"
-            type Result a b :: Ok(a) | Err(b)
+            type Result a b :: (Ok a) | (Err b)
             type Bool :: True | False
 
-            type Option a :: Some(a) | None
+            type Option a :: (Some a) | None
 
-            type ContextError a :: SomethingWentWrong(a) | NoContextError
+            type ContextError a :: (SomethingWentWrong a) | NoContextError
 
             const MATH_PI :: 3.14
 
-            type Person ::
-                name : String
-                age : Integer
+            class Monad m ::
+                bind :: (m a), (a => (m b)) => (m b)
+                return :: a => (m a)
 
-            -- class Equal a b c ::
-            --    (==) :: a, a => Bool
-            --    (==) :: a, b => Bool
-            --    (==) :: a, c => Bool
+            instance Monad Option ::
+                bind :: case
+                    None, _ => None
+                    (Some x), f => f x!
+                return :: a => Some(a)
 
-            -- instance Equal Person Integer String ::
-            --    (==) :: x, y => x.name == y.name && x.age == y.age
-            --    (==) :: x, i => x.age == i
-            --    (==) :: x, s => x.name == s
+            type Sheep ::
+                father : (Option Sheep)
+                mother : (Option Sheep)
 
-            def result_default :: a, a => a
-            where
-                a : Equal + Add + Multiply
-            in case
-                Ok(v), _ => let
-                        calc := v ^ 2
-                    in case calc
-                        0 => calc + 1
-                        1 => (a => a*2+calc^5*6)
-                        3 => 5*2, 3, 6, a*b
-                Err(e), v => v
+            def father :: Sheep => (Option Sheep)
+                s => s.father
+
+            def mother :: Sheep => (Option Sheep)
+                s => s.mother
+
+            def materialGrandFather :: Sheep => (Option Sheep)
+                s => bind (bind (return s!) mother!) father!
+
+            type List a :: Nil | (Cons a (List a))
+
+            def join :: (List (List a)) => (List a)
+            case
+                Nil => Nil
+                (Cons xs xss) => cat xs (join xss!)!
+
+            def cat :: (List a), (List a) => (List a)
+            case
+                Nil, ls => ls
+                (Cons x xs), ys => Cons(x, cat xs ys!)
 
             def main :: ()
-                print "hello world!"!
-                x := case y
-                    1 => ident 2!
-                ident2 := ident3
+                list := Cons(5, Cons(10, Nil()))
         "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();

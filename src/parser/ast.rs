@@ -17,21 +17,21 @@ impl Into<Identifier> for String {
 
 //***************Module*********************
 #[derive(Clone, Debug, PartialEq)]
-pub struct Module(pub Vec<Def>, pub Option<Expr>);
+pub struct Module(pub Vec<Def>);
 
 //***************Definitions*****************
 #[derive(Clone, Debug, PartialEq)]
 pub enum Def {
     FnDef(Identifier, Vec<TypeParam>, TypeParam, Option<Vec<TypeConstraint>>, FnExpr),
     // type_name, Vec of (field_name, type_name)
-    TypeDef(Identifier, Vec<(Identifier, Identifier)>),
+    TypeDef(Identifier, Vec<(Identifier, TypeParam)>),
 
-    TypeUnion(Identifier, Vec<Identifier>, Vec<(Identifier, Option<Identifier>)>),
+    TypeUnion(Identifier, Vec<Identifier>, Vec<TypeParam>),
 
     // class_name, Vec of generic_type_param
     ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>),
     // class_name, type_name
-    InstanceDef(Identifier, Identifier, Vec<FnParam>, Vec<MethodImpl>),
+    InstanceDef(Identifier, Identifier, Vec<MethodImpl>),
     // proc_name, statements
     ProcDef(Identifier, Vec<Stmt>),
     // module_name
@@ -51,6 +51,7 @@ pub enum TypeParam {
     Type(Identifier),
     ArrayType(Identifier, Option<usize>),
     FuncType(Vec<TypeParam>, P<TypeParam>),
+    PayloadType(Identifier, Vec<TypeParam>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -59,15 +60,15 @@ pub enum FnParam {
     IdentParam(Identifier),
     SetDeconstructParam(Vec<Identifier>),
     SetSelectorParam(Identifier, Identifier),
-    TypeUnionParam(Identifier, Identifier),
+    TypeUnionParam(Identifier, Vec<Identifier>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MethodDef {
     // Vec of generic_type_param, return type_name
-    Operator(MethodOperator, Vec<Identifier>, Identifier),
+    Operator(MethodOperator, Vec<TypeParam>, TypeParam),
     // vec of generic_type_param, return type_name
-    Named(Identifier, Vec<Identifier>, Identifier),
+    Named(Identifier, Vec<TypeParam>, TypeParam),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -87,8 +88,8 @@ pub enum MethodOperator {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum MethodImpl {
-    Operator(MethodOperator, Expr),
-    Named(Identifier, Expr),
+    Operator(MethodOperator, FnExpr),
+    Named(Identifier, FnExpr),
 }
 
 //***************Expressions*****************
@@ -104,6 +105,9 @@ pub enum Expr {
     FnExpr(P<FnExpr>),
     FnCallExpr(Identifier, Vec<Expr>),
     CaseExpr(Identifier, Vec<(Vec<FnParam>, Vec<Expr>)>),
+
+    TypeConstructor(Identifier, Vec<Expr>),
+
     // predicates followed by their expressions, and lastly an else expression
     IfThenElseIfExpr(Vec<(Expr, Expr)>, P<Expr>),
 

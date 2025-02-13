@@ -282,16 +282,7 @@ impl<'a> LexerIterator<'a> {
                     _ => {},
                 }
             },
-            _ => {
-                match self.peek_char() {
-                    Some(')') => {
-                        operator.push(self.eat_char());
-                        return Ok(Token::new(TokenKind::ProcType, start_pos, operator.len()))
-                    },
-                    Some(_) => return Ok(Token::new(TokenKind::LeftParen, start_pos, operator.len())),
-                    None => {},
-                }
-            },
+            _ => return Ok(Token::new(TokenKind::LeftParen, start_pos, operator.len())),
         }
 
         let bytes = operator.len();
