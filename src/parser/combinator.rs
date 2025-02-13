@@ -1,5 +1,5 @@
-use crate::{parser::BoxedParser, TokenKind};
-use super::{error::*, Parser};
+use crate::{lexer::lexer::UnexpectedEOF, parser::BoxedParser, Token, TokenKind};
+use super::{error::*, POut, Parser};
 
 pub fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
 where
@@ -10,12 +10,8 @@ where
         match p1.parse(input) {
             Ok((next_input, r1, s1)) => match p2.parse(next_input) {
                 Ok((last, r2, s2)) => Ok((last, (r1, r2), (s1.0, s2.1))),
-                Err(ParserError::UnrecoverableError(e)) =>
-                    return Err(ParserError::UnrecoverableError(e)),
                 Err(err) => Err(err),
             }
-            Err(ParserError::UnrecoverableError(e)) =>
-                return Err(ParserError::UnrecoverableError(e)),
             Err(err) => Err(err),
         }
     }
@@ -54,18 +50,14 @@ where
     Out: 'a,
 {
     move |input| {
-        let mut errors = vec![];
-
         for p in &parsers {
             match p.parse(input) {
                 Ok(result) => return Ok(result),
-                Err(ParserError::UnrecoverableError(e)) =>
-                    return Err(ParserError::UnrecoverableError(e)),
-                Err(err) => errors.push(err),
+                Err(_) => {},
             }
         }
 
-        Err(InnerError::combined(errors).into())
+        POut::err(ParserError::UnexpectedEOF)
     }
 }
 
@@ -109,13 +101,9 @@ where
 {
     move |input| match p1.parse(input) {
         Ok(result) => Ok(result),
-        Err(ParserError::UnrecoverableError(e)) =>
-            return Err(ParserError::UnrecoverableError(e)),
         Err(err1) => match p2.parse(input) {
             Ok(result) => Ok(result),
-            Err(ParserError::UnrecoverableError(e)) =>
-                return Err(ParserError::UnrecoverableError(e)),
-            Err(err2) => Err(InnerError::combined(vec![err1, err2]).into()),
+            Err(err2) => Err(err2),
         }
     }
 }
@@ -136,8 +124,6 @@ where
                     results.push(result);
                     input = next_input;
                 }
-                Err(ParserError::UnrecoverableError(e)) =>
-                    return Err(ParserError::UnrecoverableError(e)),
                 Err(_) => break,
             }
         }
@@ -173,8 +159,6 @@ where
                     results.push(result);
                     input = next_input;
                 }
-                Err(ParserError::UnrecoverableError(e)) =>
-                    return Err(ParserError::UnrecoverableError(e)),
                 Err(_) => break,
             }
         }
@@ -207,7 +191,7 @@ where
         Err(err) => {
             let span = input.get(0).unwrap();
             //Err(ParserError::unrecoverable(msg, err, span.1.into()))
-            Err(ParserError::from(err))
+            POut::err(ParserError::UnexpectedEOF)
         },
     }
 }
@@ -218,7 +202,6 @@ where
 {
     move |input| match parser.parse(input) {
         Ok(result) => Ok(result),
-        Err(ParserError::UnrecoverableError(e)) => Err(ParserError::UnrecoverableError(e)),
         Err(err) => Err(ParserError::contextual(context, err)),
     }
 }
@@ -236,7 +219,7 @@ pub fn recover<'a, P, O, F>(parser: P, fallback: F) -> impl Parser<'a, (O, Optio
     }
 }
 
-pub fn recover_sync<'a, P, O, F>(parser: P, fallback: F, tok: TokenKind) -> impl Parser<'a, (O, Option<ParserError>)> where
+pub fn recover_sync<'a, P, O, F>(parser: P, fallback: F, tok: String) -> impl Parser<'a, (O, Option<ParserError>)> where
     P: Parser<'a, O> + 'a,
     F: Fn() -> O + 'a,
     O: Clone + 'a,

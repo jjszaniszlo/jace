@@ -1,11 +1,19 @@
 use std::fmt::Display;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token(pub TokenKind, pub (usize, usize));
 
 impl Token {
     pub fn new(kind: TokenKind, start: usize, length: usize) -> Token {
         Self(kind, (start, length))
+    }
+
+    pub fn kind(&self) -> TokenKind {
+        self.0.clone()
+    }
+
+    pub fn span(&self) -> (usize, usize) {
+        self.1.clone()
     }
 }
 

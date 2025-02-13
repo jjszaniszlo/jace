@@ -4,35 +4,35 @@ use super::combinator::*;
 
 pub type Span = (usize, usize);
 
-pub type Output<'a, Out> = (&'a [Token], Out, Span, ParseResult);
+pub type Output<'a, Out> = miette::Result<(&'a [Token], Out, Span)>;
 
-pub trait ParserOutput<'a, Out> {
-    fn new(input: &'a [Token], out: Out, span: Span, result: ParseResult) -> Self;
-    fn input(self) -> &'a [Token];
-    fn out(self) -> Out;
-    fn span(self) -> Span;
-    fn parse_result(self) -> ParseResult;
+pub trait POut<'a, Out> {
+    fn ok(input: &'a [Token], out: Out, span: Span) -> Self;
+    fn err(err: ParserError) -> Self;
+    fn input(self) -> Option<&'a [Token]>;
+    fn out(self) -> Option<Out>;
+    fn span(self) -> Option<Span>;
 }
 
-impl<'a, Out> ParserOutput<'a, Out> for Output<'a, Out> {
-    fn new(input: &'a [Token], out: Out, span: Span, result: ParseResult) -> Self {
-        (input, out, span, result)
+impl<'a, Out> POut<'a, Out> for Output<'a, Out> {
+    fn ok(input: &'a [Token], out: Out, span: Span) -> Self {
+        Self::Ok((input, out, span))
     }
 
-    fn input(self) -> &'a [Token] {
-        self.0
+    fn err(err: ParserError) -> Self {
+        Self::Err(err.into())
     }
 
-    fn out(self) -> Out {
-        self.1
+    fn input(self) -> Option<&'a [Token]> {
+        self.map(|(i, _, _)| i).ok()
     }
 
-    fn span(self) -> Span {
-        self.2
+    fn out(self) -> Option<Out> {
+        self.map(|(_, o, _)| o).ok()
     }
 
-    fn parse_result(self) -> ParseResult {
-        self.3
+    fn span(self) -> Option<Span> {
+        self.map(|(_, _, s)| s).ok()
     }
 }
 
@@ -95,10 +95,14 @@ pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
     context("match_token",
         move |toks: &'a [Token]| {
             match toks.get(0) {
-                Some(tok) if tok.0 == expected =>
-                    ParserOutput::new(&toks[1..], (), tok.1, ParseResult::Complete)
-                Some(tok) => (&toks, (), tok.1, ParseResult::Error()),
-                _ => ()
+                Some(tok)
+                    if tok.0 == expected =>
+                        POut::ok(
+                            &toks[1..],
+                            (),
+                            tok.1),
+                Some(tok) => POut::err(ParserError::unexpected_tok(tok).into()),
+                None => POut::err(ParserError::UnexpectedEOF),
             }
         }
     )
@@ -106,17 +110,15 @@ pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
 
 pub fn parse_identifier<'a>() -> impl Parser<'a, ast::Identifier> {
     context("parse_identifier",
-    move |input: &'a[Token]| {
-        match input.get(0) {
-            Some(t) => match &t.0 { 
-                TokenKind::Identifier(i) => Ok((&input[1..], ast::Identifier(i.clone()), t.1)),
-                _ => Err(
-                    InnerError::ExpectedIdentifierGot {
-                        got: t.0.clone(),
-                        error_span: t.1.into(),
-                    }.into()),
-            },
-            None => Err(InnerError::UnexpectedEOF.into()),
+    move |toks: &'a[Token]| {
+        match toks.get(0) {
+            Some(tok) =>
+                match &tok.0 { 
+                    TokenKind::Identifier(i) =>
+                        POut::ok(&toks[1..], ast::Identifier(i.clone()), tok.1),
+                    _ => POut::err(ParserError::expected_got("Identifier", tok))
+                },
+            None => POut::err(ParserError::UnexpectedEOF),
         }
     })
 }
@@ -125,17 +127,15 @@ pub fn parse_literal<'a>() -> impl Parser<'a, ast::Literal> {
     context("parse_literal",
         move |input: &'a [Token]| {
             match input.get(0) {
-                Some(t) => match &t.0 {
-                    TokenKind::Bool(b) => Ok((&input[1..], ast::Literal::from(*b), t.1)),
-                    TokenKind::Integer(i) => Ok((&input[1..], ast::Literal::from(*i), t.1)),
-                    TokenKind::Float(f) => Ok((&input[1..], ast::Literal::from(*f), t.1)),
-                    TokenKind::String(s) => Ok((&input[1..], ast::Literal::from(s.clone()), t.1)),
-                    _ => Err(InnerError::ExpectedLiteralGot {
-                        got: t.0.clone(),
-                        error_span: t.1.into(),
-                    }.into()),
-                },
-                None => Err(InnerError::UnexpectedEOF.into()),
+                Some(tok) =>
+                    match &tok.0 {
+                        TokenKind::Bool(b) => Ok((&input[1..], ast::Literal::from(*b), tok.1)),
+                        TokenKind::Integer(i) => Ok((&input[1..], ast::Literal::from(*i), tok.1)),
+                        TokenKind::Float(f) => Ok((&input[1..], ast::Literal::from(*f), tok.1)),
+                        TokenKind::String(s) => Ok((&input[1..], ast::Literal::from(s.clone()), tok.1)),
+                         _ => POut::err(ParserError::expected_got("literal", tok)),
+                    },
+                None => POut::err(ParserError::UnexpectedEOF),
             }
     })
 }
@@ -146,12 +146,9 @@ pub fn parse_literal_integer<'a>() -> impl Parser<'a, usize> {
             match input.get(0) {
                 Some(t) => match &t.0 {
                     TokenKind::Integer(i) => Ok((&input[1..], *i, t.1)),
-                    _ => Err(InnerError::ExpectedLiteralGot {
-                        got: t.0.clone(),
-                        error_span: t.1.into(),
-                    }.into()),
+                    _ => POut::err(ParserError::expected_got("literal_integer", t)),
                 },
-                None => Err(InnerError::UnexpectedEOF.into()),
+                None => POut::err(ParserError::UnexpectedEOF),
             }
     })
 }
@@ -176,12 +173,9 @@ pub fn parse_operator<'a>() -> impl Parser<'a, ast::BinOperator> {
                 TokenKind::Greater => Ok((&input[1..], BinOperator::Greater, t.1)),
                 TokenKind::GreaterEquals => Ok((&input[1..], BinOperator::GreaterEquals, t.1)),
                 TokenKind::Colon => Ok((&input[1..], BinOperator::AppendSet, t.1)),
-                _ => Err(InnerError::ExpectedOperatorGot {
-                    got: t.0.clone(),
-                    error_span: t.1.into(),
-                }.into()),
+                _ => POut::err(ParserError::expected_got("operator", t)),
             },
-            _ => Err(InnerError::UnexpectedEOF.into()),
+            None => POut::err(ParserError::UnexpectedEOF),
         }
     })
 }
@@ -436,12 +430,9 @@ pub fn parse_method_operator<'a>(input: &'a [Token]) -> Output<'a, ast::MethodOp
             TokenKind::WrappedMinus => Ok((&input[1..], ast::MethodOperator::Minus, t.1)),
             TokenKind::WrappedDivide => Ok((&input[1..], ast::MethodOperator::Divide, t.1)),
             TokenKind::WrappedMultiply => Ok((&input[1..], ast::MethodOperator::Multiply, t.1)),
-            _ => Err(InnerError::ExpectedWrappedOperatorGot {
-                got : t.0.clone(),
-                error_span: t.1.into(),
-            }.into())
+            _ => POut::err(ParserError::expected_got("wrapped_operator", t))
         },
-        None => Err(InnerError::UnexpectedEOF.into())
+        None => POut::err(ParserError::UnexpectedEOF)
     }
 }
 
@@ -582,12 +573,9 @@ pub fn parse_unary_operator_from_token<'a>(input: &'a [Token]) -> Output<'a, ast
         Some(t) => match &t.0 {
             TokenKind::Minus => Ok((&input[1..], ast::UnaryOperator::Negative, t.1)),
             TokenKind::Bang => Ok((&input[1..], ast::UnaryOperator::Not, t.1)),
-            _ => Err(InnerError::ExpectedUnaryOperatorGot {
-                got : t.0.clone(),
-                error_span: t.1.into(),
-            }.into()),
+            _ => POut::err(ParserError::expected_got("unary operator '!' or '-'", t)),
         },
-        None => Err(InnerError::UnexpectedEOF.into()),
+        None => POut::err(ParserError::UnexpectedEOF),
     }
 }
 

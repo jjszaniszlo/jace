@@ -2,17 +2,9 @@ use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
 
 use crate::TokenKind;
+use crate::Token;
 
 use super::Span;
-
-// Error - an error which is recoverable.
-// Failure - an error which is not recoverable.
-// Complete - parse was successful
-pub enum ParseResult {
-    Error(ParserError),
-    Failure(ParserError),
-    Complete,
-}
 
 #[derive(thiserror::Error, miette::Diagnostic, Debug)]
 pub enum ParserError {
@@ -21,7 +13,7 @@ pub enum ParserError {
 
     #[error("Expected: {expected}, Got: {got}")]
     ExpectedGot {
-        expected: TokenKind,
+        expected: String,
         got: TokenKind,
 
         #[label("Here")]
@@ -33,6 +25,29 @@ pub enum ParserError {
         tok: TokenKind,
 
         #[label("Here")]
-        span: SourceSpan
+        span: SourceSpan,
+    },
+
+    #[error("Error in context: {context}")]
+    Contextual {
+        context: String,
+
+        #[label("Here")]
+        span: SourceSpan,
     }
 }
+
+impl ParserError {
+    pub fn unexpected_eof() -> Self {
+        ParserError::UnexpectedEOF
+    }
+
+    pub fn unexpected_tok(tok: &Token) -> Self {
+        ParserError::UnexpectedToken { tok: tok.kind(), span: tok.span().into() } 
+    }
+
+    pub fn expected_got(expected: &'static str, got: &Token) -> Self {
+        ParserError::ExpectedGot { expected: expected.to_string() , got: got.kind(), span: got.span().into() }
+    }
+}
+
