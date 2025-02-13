@@ -38,12 +38,8 @@ fn main() {
 
     match parser::parse(&toks) {
         Ok((r, t, _)) => println!("{t:#?}"),
-        Err(ParserError::UnrecoverableError(e)) => 
-            println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents())),
-        Err(ParserError::ContextualError(e)) =>
-            println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents())),
-        Err(ParserError::InnerError(e)) =>
-            println!("{:?}", miette::Report::new(e).with_source_code(jcf.contents())),
+        Err(e) =>
+            println!("{:?}", e.with_source_code(jcf.contents())),
         _ => {},
     }
 }

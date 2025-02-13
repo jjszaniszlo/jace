@@ -1,7 +1,8 @@
 use std::fmt::Display;
+use crate::err::Span;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Token(pub TokenKind, pub (usize, usize));
+pub struct Token(pub TokenKind, pub Span);
 
 impl Token {
     pub fn new(kind: TokenKind, start: usize, length: usize) -> Token {

@@ -4,8 +4,6 @@ use thiserror::Error;
 use crate::TokenKind;
 use crate::Token;
 
-use super::Span;
-
 #[derive(thiserror::Error, miette::Diagnostic, Debug)]
 pub enum ParserError {
     #[error("Unexpected EOF")]
@@ -27,14 +25,6 @@ pub enum ParserError {
         #[label("Here")]
         span: SourceSpan,
     },
-
-    #[error("Error in context: {context}")]
-    Contextual {
-        context: String,
-
-        #[label("Here")]
-        span: SourceSpan,
-    }
 }
 
 impl ParserError {
