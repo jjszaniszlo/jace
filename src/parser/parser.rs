@@ -265,29 +265,29 @@ pub fn parse_fn_func_type_param(input: &[Token]) -> Output<TypeParam> {
 }
 
 pub fn parse_fn_type_constraints<'a>() -> impl Parser<'a, Vec<TypeConstraint>> {
-    surrounded(
-        match_token(TokenKind::WhereKeyword),
-        zero_or_more(
-            pair(
-                left(
-                    parse_identifier(),
-                    match_token(TokenKind::Colon)),
-            parse_fn_type_constraint())),
+    left(
+        right(
+            match_token(TokenKind::WhereKeyword),
+            zero_or_more(
+                    parse_fn_type_constraint())),
         match_token(TokenKind::InKeyword))
-        .map(|(ident, constraint)| TypeConstraint(ident, constraint))
 }
 
-pub fn parse_fn_type_constraint<'a>() -> impl Parser<'a, Vec<Identifier>> {
+pub fn parse_fn_type_constraint<'a>() -> impl Parser<'a, TypeConstraint> {
     pair(
-        parse_identifier(),
-        zero_or_more(
-            right(
-                match_token(TokenKind::Plus),
-                parse_identifier())))
-        .map(|(first, rest)| {
-            let mut constraints = vec![first];
-            constraints.extend(rest);
-            constraints
+        left(
+            parse_identifier(),
+            match_token(TokenKind::Colon)),
+        pair(
+            parse_identifier(),
+            zero_or_more(
+                right(
+                    match_token(TokenKind::Plus),
+                    parse_identifier()))))
+        .map(|(type_name, (first, rest))| {
+            let mut out = vec![first];
+            out.extend(rest);
+            TypeConstraint(type_name, out)
         })
 }
 

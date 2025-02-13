@@ -143,6 +143,7 @@ where
 pub fn one_or_more<'a, P, A>(p: P) -> BoxedParser<'a, Vec<A>>
 where
     P: Parser<'a, A> + 'a,
+    A: 'a,
 {
     BoxedParser::new(move |mut input| {
         let mut results = vec![];
