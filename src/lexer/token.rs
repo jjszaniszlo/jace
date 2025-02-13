@@ -6,14 +6,14 @@ pub struct Token(pub TokenKind, pub Span);
 
 impl Token {
     pub fn new(kind: TokenKind, start: usize, length: usize) -> Token {
-        Self(kind, (start, length))
+        Self(kind, Span(start, length))
     }
 
     pub fn kind(&self) -> TokenKind {
         self.0.clone()
     }
 
-    pub fn span(&self) -> (usize, usize) {
+    pub fn span(&self) -> Span {
         self.1.clone()
     }
 }

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, hash::Hash, str::Chars};
+use std::hash::Hash;
 
 use miette::{MietteSpanContents, SourceCode};
 

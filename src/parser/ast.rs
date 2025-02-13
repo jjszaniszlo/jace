@@ -22,11 +22,11 @@ pub struct Module(pub Vec<Def>, pub Option<Expr>);
 //***************Definitions*****************
 #[derive(Clone, Debug, PartialEq)]
 pub enum Def {
-    FnDef(Identifier, Vec<TypeParam>, TypeParam, Option<Vec<(Identifier, Identifier)>>, FnExpr),
+    FnDef(Identifier, Vec<TypeParam>, TypeParam, Option<Vec<TypeConstraint>>, FnExpr),
     // type_name, Vec of (field_name, type_name)
     TypeDef(Identifier, Vec<(Identifier, Identifier)>),
 
-    TypeAlias(Identifier, Vec<TypeParam>),
+    TypeUnion(Identifier, Vec<Identifier>, Vec<(Identifier, Option<Identifier>)>),
 
     // class_name, Vec of generic_type_param
     ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>),
@@ -42,6 +42,10 @@ pub enum Def {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+//type_constraint ::= '(' ident (ident | type_constraint)* ')'
+pub struct TypeConstraint(pub Identifier, pub Vec<Identifier>);
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum TypeParam {
     Empty,
     Type(Identifier),
@@ -55,6 +59,7 @@ pub enum FnParam {
     IdentParam(Identifier),
     SetDeconstructParam(Vec<Identifier>),
     SetSelectorParam(Identifier, Identifier),
+    TypeUnionParam(Identifier, Identifier),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -98,6 +103,7 @@ pub enum Expr {
     LetInExpr(Vec<Stmt>, P<Expr>),
     FnExpr(P<FnExpr>),
     FnCallExpr(Identifier, Vec<Expr>),
+    CaseExpr(Identifier, Vec<(Vec<FnParam>, Vec<Expr>)>),
     // predicates followed by their expressions, and lastly an else expression
     IfThenElseIfExpr(Vec<(Expr, Expr)>, P<Expr>),
 

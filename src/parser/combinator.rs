@@ -1,5 +1,10 @@
-use crate::{lexer::lexer::UnexpectedEOF, parser::BoxedParser, Token, TokenKind};
+use std::ops::Deref;
+use mlua::ffi::lua_WarnFunction;
+use crate::err::Span;
+use crate::lexer::token::TokenKind;
 use super::{error::*, POut, Parser};
+use crate::parser::BoxedParser;
+use crate::parser::parser::match_token;
 
 pub fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
 where
@@ -9,7 +14,7 @@ where
     move |input| {
         match p1.parse(input) {
             Ok((next_input, r1, s1)) => match p2.parse(next_input) {
-                Ok((last, r2, s2)) => Ok((last, (r1, r2), (s1.0, s2.1))),
+                Ok((last, r2, s2)) => Ok((last, (r1, r2), s1.combine(s2))),
                 Err(err) => Err(err),
             }
             Err(err) => Err(err),
@@ -110,7 +115,8 @@ where
 
 pub fn zero_or_more<'a, P, A>(p: P) -> BoxedParser<'a, Vec<A>>
 where
-    P: Parser<'a, A> + 'a
+    P: Parser<'a, A> + 'a,
+    A: 'a,
 {
     BoxedParser::new(move |mut input| {
         let mut results = vec![];
@@ -127,10 +133,10 @@ where
                 Err(_) => break,
             }
         }
-        let st = spans.first().unwrap_or_else(|| &(0, 0));
-        let ed = spans.last().unwrap_or_else(|| &(0, 0));
+        let st = spans.first().cloned().unwrap_or_else(|| Span(0, 0));
+        let ed = spans.last().cloned().unwrap_or_else(|| Span(0, 0));
 
-        Ok((input, results, (st.0, ed.1)))
+        Ok((input, results, st.combine(ed)))
     })
 }
 
@@ -163,21 +169,51 @@ where
             }
         }
 
-        let st = spans.first().unwrap_or_else(|| &(0, 0));
-        let ed = spans.last().unwrap_or_else(|| &(0, 0));
+        let st = spans.first().cloned().unwrap_or_else(|| Span(0, 0));
+        let ed = spans.last().cloned().unwrap_or_else(|| Span(0, 0));
 
-        Ok((input, results, (st.0, ed.1)))
+        Ok((input, results, st.combine(ed)))
     })
 }
 
-pub fn zero_or_one<'a, P, A>(p: P) -> BoxedParser<'a, Option<A>> 
+pub fn zero_or_one<'a, P, A>(p: P) -> BoxedParser<'a, Option<A>>
 where
-    P: Parser<'a, A> + 'a
+    P: Parser<'a, A> + 'a,
+    A: 'a,
 {
     BoxedParser::new(move |input| {
         match p.parse(input) {
             Ok((next, result, span)) => Ok((next, Some(result), span)),
-            Err(_) => Ok((input, None, (0, 0))),
+            Err(_) => Ok((input, None, Span(0, 0))),
         }
     })
+}
+
+pub fn terminated<'a, P, A>(parser_take: P, parser_terminator: P) -> impl Parser<'a, A>
+where
+    P: Parser<'a, A> + 'a,
+    A: 'a,
+{
+    left(
+        parser_take,
+        parser_terminator)
+}
+
+pub fn surrounded<'a, Sur1, Take, Sur2, IgnRes1, Res, IgnRes2>(
+    parser_begin: Sur1,
+    parser_take: Take,
+    parser_end: Sur2) -> impl Parser<'a, Res>
+where
+    Sur1: Parser<'a, IgnRes1> + 'a,
+    Take: Parser<'a, Res> + 'a,
+    Sur2: Parser<'a, IgnRes2> + 'a,
+    IgnRes1: 'a,
+    Res: 'a,
+    IgnRes2: 'a,
+{
+    left(
+        right(
+            parser_begin,
+            parser_take),
+        parser_end)
 }

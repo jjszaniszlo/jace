@@ -25,8 +25,46 @@ fn main() {
 
     let jcf = JaceFile::new("test.jc", 
         r#"
+            type Result a b :: Ok(a) | Err(b)
+            type Bool :: True | False
+
+            type Option a :: Some(a) | None
+
+            type ContextError a :: SomethingWentWrong(a) | NoContextError
+
+            const MATH_PI :: 3.14
+
+            type Person ::
+                name : String
+                age : Integer
+
+            -- class Equal a b c ::
+            --    (==) :: a, a => Bool
+            --    (==) :: a, b => Bool
+            --    (==) :: a, c => Bool
+
+            -- instance Equal Person Integer String ::
+            --    (==) :: x, y => x.name == y.name && x.age == y.age
+            --    (==) :: x, i => x.age == i
+            --    (==) :: x, s => x.name == s
+
+            def result_default :: a, a => a
+            where
+                a : Equal + Add + Multiply
+            in case
+                Ok(v), _ => let
+                        calc := v ^ 2
+                    in case calc
+                        0 => calc + 1
+                        1 => (a => a*2+calc^5*6)
+                        3 => 5*2, 3, 6, a*b
+                Err(e), v => v
+
             def main :: ()
                 print "hello world!"!
+                x := case y
+                    1 => ident 2!
+                ident2 := ident3
         "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
@@ -34,7 +72,7 @@ fn main() {
         .filter_map(|t| t.ok())
         .collect();
 
-    println!("{toks:#?}");
+    println!("{toks:?}");
 
     match parser::parse(&toks) {
         Ok((r, t, _)) => println!("{t:#?}"),
