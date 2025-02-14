@@ -59,7 +59,10 @@ impl<'a> LexerIterator<'a> {
     pub fn next(&mut self) -> Option<miette::Result<Token>> {
         let start_pos = self.src_iter.pos();
 
-        self.skip_comment();
+        match self.skip_comment(start_pos) {
+            Some(t) => return Some(Ok(t)),
+            _ => {},
+        }
 
         if let Some(ch) = self.src_iter.next() {
             let tok = match ch {
@@ -220,7 +223,7 @@ impl<'a> LexerIterator<'a> {
 
         let bytes = operator.len();
         
-        match operator.as_str() {        
+        match operator.as_str() {
             "==" => Ok(Token::new(TokenKind::EqualsEquals, start_pos, bytes)),
             "!=" => Ok(Token::new(TokenKind::NotEquals, start_pos, bytes)),
             "&&" => Ok(Token::new(TokenKind::And, start_pos, bytes)),
@@ -260,7 +263,7 @@ impl<'a> LexerIterator<'a> {
             ']' => Ok(Token::new(TokenKind::RightBracket, start_pos, bytes)),
             '{' => Ok(Token::new(TokenKind::LeftBrace, start_pos, bytes)),
             '}' => Ok(Token::new(TokenKind::RightBrace, start_pos, bytes)),
-            '(' => self.eat_wrapped_operator(first_char, start_pos + 1),
+            '(' => self.eat_wrapped_operator(first_char, start_pos),
             _ => unreachable!(),
         }
     }
@@ -347,13 +350,19 @@ impl<'a> LexerIterator<'a> {
         Ok(Token::new(TokenKind::String(string_literal), start_pos, bytes + 2 * '"'.len_utf8()))
     }
 
-    fn skip_comment(&mut self) {
+    fn skip_comment(&mut self, st: usize) -> Option<Token> {
         match self.peek_char() {
-            Some('-') => match self.peek_char() {
-                Some('-') => self.eat_until('\n'),
-                _ => {},
-            }
-            _ => {},
+            Some('-') => {
+                self.eat_char();
+                match self.peek_char() {
+                    Some('-') => {
+                        self.eat_until('\n');
+                        None
+                    },
+                    _ => Some(Token::new(TokenKind::Minus, st, '-'.len_utf8())),
+                }
+            },
+            _ => None,
         }
     }
 

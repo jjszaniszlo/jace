@@ -38,7 +38,7 @@ pub trait Parser<'a, Out> {
         Self: Sized + 'a,
         Out: 'a,
         NewOut: 'a,
-        Func: Fn(Out) -> NewOut + 'a,
+        Func: Fn(Out, Span) -> NewOut + 'a,
     {
         BoxedParser::new(map(self, map_fn))
     }
@@ -169,7 +169,7 @@ pub fn parse_operator<'a>() -> impl Parser<'a, BinOperator> {
 
 pub fn parse_module<'a>() -> impl Parser<'a, Module> {
     zero_or_more(parse_definition())
-        .map(|(defs)| Module(defs))
+        .map(|(defs), span| Module(defs, span))
 }
 
 pub fn parse_definition<'a>() -> impl Parser<'a, Def> {
@@ -193,7 +193,7 @@ pub fn parse_fn_def(input: &[Token]) -> Output<Def> {
             zero_or_one(parse_fn_type_constraints()),
             parse_fn_expr(),
         ))
-        .map(|((i, (tp, rt)), (cons, exp))| Def::FnDef(i, tp, rt, cons, exp))
+        .map(|((i, (tp, rt)), (cons, exp)), span| Def::FnDef(i, tp, rt, cons, exp, span))
         .parse(input)
 }
 
@@ -211,14 +211,18 @@ pub fn parse_fn_def_types<'a>() -> impl Parser<'a, (Vec<TypeParam>, TypeParam)> 
         parse_fn_type_params(),
         right(
             match_token(TokenKind::FatArrow),
-            or(
-                parse_fn_type_param(),
+            or_n(vec![
+                BoxedParser::new(parse_fn_type_param()),
                 pair(
                     match_token(TokenKind::LeftParen),
                     match_token(TokenKind::RightParen))
-                    .map(|(_, _)| TypeParam::Empty),
-            )))
-        .map(|(type_params, return_type)| (type_params, return_type))
+                    .map(|(_, _), span| TypeParam::Empty(span)),
+                BoxedParser::new(surrounded(
+                    match_token(TokenKind::LeftParen),
+                    parse_fn_type_params().map(|(params), span| TypeParam::Tuple(params, span)),
+                    match_token(TokenKind::RightParen))),
+            ])))
+        .map(|(type_params, return_type), _| (type_params, return_type))
 }
 
 pub fn parse_fn_type_params<'a>() -> impl Parser<'a, Vec<TypeParam>> {
@@ -228,7 +232,7 @@ pub fn parse_fn_type_params<'a>() -> impl Parser<'a, Vec<TypeParam>> {
             right(
                 match_token(TokenKind::Comma),
                 parse_fn_type_param())))
-        .map(|(first_type, types)| {
+        .map(|(first_type, types), _| {
             let mut final_types = vec![first_type];
             final_types.extend(types);
             final_types
@@ -237,7 +241,7 @@ pub fn parse_fn_type_params<'a>() -> impl Parser<'a, Vec<TypeParam>> {
 
 pub fn parse_fn_type_param<'a>() -> impl Parser<'a, TypeParam> {
     or_n(vec![
-        parse_identifier().map(|i| TypeParam::Type(i)),
+        parse_identifier().map(|i, span| TypeParam::Type(i, span)),
         BoxedParser::new(parse_array_type_param()),
         BoxedParser::new(parse_fn_func_type_param),
         BoxedParser::new(parse_type_union_payload_type)
@@ -252,7 +256,7 @@ pub fn parse_array_type_param<'a>() -> impl Parser<'a, TypeParam> {
                 parse_identifier(),
                 zero_or_one(parse_literal_integer())),
             match_token(TokenKind::RightBracket)))
-        .map(|(i, l)| TypeParam::ArrayType(i, l))
+        .map(|(i, l), span| TypeParam::ArrayType(i, l, span))
 }
 
 pub fn parse_fn_func_type_param(input: &[Token]) -> Output<TypeParam> {
@@ -265,7 +269,7 @@ pub fn parse_fn_func_type_param(input: &[Token]) -> Output<TypeParam> {
             left(
                 parse_fn_type_param(),
                 match_token(TokenKind::RightParen))))
-        .map(|(params, ret)| TypeParam::FuncType(params, P(ret)))
+        .map(|(params, ret), span| TypeParam::FuncType(params, P(ret), span))
         .parse(input)
 }
 
@@ -277,7 +281,7 @@ pub fn parse_type_union_payload_type(input: &[Token]) -> Output<TypeParam> {
             one_or_more(parse_fn_type_param())),
         match_token(TokenKind::RightParen),
     )
-        .map(|(i, params)| TypeParam::PayloadType(i, params))
+        .map(|(i, params), span| TypeParam::PayloadType(i, params, span))
         .parse(input)
 }
 
@@ -301,10 +305,10 @@ pub fn parse_fn_type_constraint<'a>() -> impl Parser<'a, TypeConstraint> {
                 right(
                     match_token(TokenKind::Plus),
                     parse_identifier()))))
-        .map(|(type_name, (first, rest))| {
+        .map(|(type_name, (first, rest)), span| {
             let mut out = vec![first];
             out.extend(rest);
-            TypeConstraint(type_name, out)
+            TypeConstraint(type_name, out, span)
         })
 }
 
@@ -316,7 +320,7 @@ pub fn parse_proc_def<'a>() -> impl Parser<'a, Def> {
                 match_token(TokenKind::LeftParen),
                 match_token(TokenKind::RightParen))),
         zero_or_more(parse_statement()))
-        .map(|(ident, stmts)| Def::ProcDef(ident, stmts))
+        .map(|(ident, stmts), span| Def::ProcDef(ident, stmts, span))
 }
 
 pub fn parse_const_def<'a>() -> impl Parser<'a, Def> {
@@ -327,7 +331,7 @@ pub fn parse_const_def<'a>() -> impl Parser<'a, Def> {
         right(
             match_token(TokenKind::ColonColon),
             parse_literal()))
-        .map(|(i, l)| Def::ConstDef(i, l))
+        .map(|(i, l), span| Def::ConstDef(i, l, span))
 }
 
 pub fn parse_type_def<'a>() -> impl Parser<'a, Def> {
@@ -343,7 +347,7 @@ pub fn parse_type_def<'a>() -> impl Parser<'a, Def> {
                 right(
                     match_token(TokenKind::Colon),
                     parse_fn_type_param()))))
-        .map(|(i, v)| Def::TypeDef(i, v))
+        .map(|(i, v), span| Def::TypeDef(i, v, span))
 }
 
 pub fn parse_type_union_def<'a>() -> impl Parser<'a, Def> {
@@ -356,7 +360,7 @@ pub fn parse_type_union_def<'a>() -> impl Parser<'a, Def> {
                     zero_or_more(parse_identifier())),
                 match_token(TokenKind::ColonColon))),
         parse_type_union())
-        .map(|((type_name, poly_types), members)| Def::TypeUnion(type_name, poly_types, members))
+        .map(|((type_name, poly_types), members), span| Def::TypeUnion(type_name, poly_types, members, span))
 }
 
 pub fn parse_type_union<'a>() -> impl Parser<'a, Vec<TypeParam>> {
@@ -366,7 +370,7 @@ pub fn parse_type_union<'a>() -> impl Parser<'a, Vec<TypeParam>> {
             right(
                 match_token(TokenKind::Union),
                 parse_fn_type_param())))
-        .map(|(first, rest)| {
+        .map(|(first, rest), _| {
             let mut types = vec![first];
             types.extend(rest);
             types
@@ -393,8 +397,8 @@ pub fn parse_class_def<'a>() -> impl Parser<'a, Def> {
                     parse_class_generic_types(),
                     match_token(TokenKind::ColonColon)))),
         parse_class_method_defs())
-        .map(|((class_name, params), methods)|
-            Def::ClassDef(class_name, params, methods))
+        .map(|((class_name, params), methods), span|
+            Def::ClassDef(class_name, params, methods, span))
 }
 
 pub fn parse_class_generic_types<'a>() -> impl Parser<'a, Vec<Identifier>> {
@@ -420,9 +424,14 @@ pub fn parse_class_method_def_operator<'a>() -> impl Parser<'a, MethodDef> {
             parse_fn_type_params(),
             right(
                 match_token(TokenKind::FatArrow),
-                parse_fn_type_param())))
-        .map(|(op, (params, ret))|
-            MethodDef::Operator(op, params, ret))
+                or(
+                    parse_fn_type_param(),
+                    surrounded(
+                        match_token(TokenKind::LeftParen),
+                        parse_fn_type_params().map(|params, span| TypeParam::Tuple(params, span)),
+                        match_token(TokenKind::RightParen))))))
+        .map(|(op, (params, ret)), span|
+            MethodDef::Operator(op, params, ret, span))
 }
 
 pub fn parse_class_method_type_params<'a>() -> impl Parser<'a, Vec<Identifier>> {
@@ -432,7 +441,7 @@ pub fn parse_class_method_type_params<'a>() -> impl Parser<'a, Vec<Identifier>> 
             right(
                 match_token(TokenKind::Comma),
                 parse_identifier())))
-        .map(|(first_type, types)| {
+        .map(|(first_type, types), _| {
             let mut final_type_params = vec![first_type];
 
             final_type_params.extend(types);
@@ -470,8 +479,8 @@ pub fn parse_class_method_def_named<'a>() -> impl Parser<'a, MethodDef> {
             right(
                 match_token(TokenKind::FatArrow),
                 parse_fn_type_param())))
-        .map(|(ident, (params, ret))|
-            MethodDef::Named(ident, params, ret))
+        .map(|(ident, (params, ret)), span|
+            MethodDef::Named(ident, params, ret, span))
 }
 
 pub fn parse_instance_def(input: &[Token]) -> Output<Def> {
@@ -480,8 +489,8 @@ pub fn parse_instance_def(input: &[Token]) -> Output<Def> {
             parse_instance_header(),
             match_token(TokenKind::ColonColon)),
         parse_instance_method_impls())
-        .map(|((cls, typ), impls)|
-            Def::InstanceDef(cls, typ, impls))
+        .map(|((cls, typ), impls), span|
+            Def::InstanceDef(cls, typ, impls, span))
         .parse(input)
 }
 
@@ -491,7 +500,7 @@ pub fn parse_instance_header<'a>() -> impl Parser<'a, (Identifier, Identifier)> 
         pair(
             parse_identifier(),
             parse_identifier()))
-        .map(|(class, ty)| (class, ty))
+        .map(|(class, ty), _| (class, ty))
 }
 
 pub fn parse_instance_method_impls<'a>() -> impl Parser<'a, Vec<MethodImpl>> {
@@ -510,7 +519,7 @@ pub fn parse_instance_method_impl_op<'a>() -> impl Parser<'a, MethodImpl> {
             parse_method_operator,
             match_token(TokenKind::ColonColon)),
         parse_fn_expr())
-        .map(|(op, expr)| MethodImpl::Operator(op, expr))
+        .map(|(op, expr), span| MethodImpl::Operator(op, expr, span))
 }
 
 pub fn parse_instance_method_impl_named<'a>() -> impl Parser<'a, MethodImpl> {
@@ -519,7 +528,7 @@ pub fn parse_instance_method_impl_named<'a>() -> impl Parser<'a, MethodImpl> {
             parse_identifier(),
             match_token(TokenKind::ColonColon)),
         parse_fn_expr())
-        .map(|(name, expr)| MethodImpl::Named(name, expr))
+        .map(|(name, expr), span| MethodImpl::Named(name, expr, span))
 }
 // ******************** EXPRESSION *********************
 
@@ -545,6 +554,7 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, Expr> {
                 Ok((i, o, sp)) => (i, o, sp),
                 Err(_) => break,
             };
+            span = span.combine(op_span);
 
             let (_, r_bp) = match get_infix_binding_power(op.clone()) {
                 bp if bp.0 >= min_bp => bp,
@@ -553,9 +563,9 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, Expr> {
 
             let (rest, rhs, sp2) = parse_bin_op(r_bp).parse(rest)?;
             input = rest;
-            span.1 = sp2.1;
+            span = span.combine(sp2);
 
-            lhs = Expr::BinOpExpr(op, P(lhs), P(rhs))
+            lhs = Expr::BinOpExpr(op, P(lhs), P(rhs), span.clone())
         }
 
         Ok((input, lhs, span))
@@ -587,7 +597,7 @@ pub fn parse_unary_op(input: &[Token]) -> Output<Expr> {
     pair(
         parse_unary_operator_from_token,
         parse_primary())
-        .map(|(op, expr)| Expr::UnaryOp(op, P(expr)))
+        .map(|(op, expr), span| Expr::UnaryOp(op, P(expr), span))
         .parse(input)
 }
 
@@ -609,7 +619,7 @@ pub fn parse_member_expr<'a>() -> impl Parser<'a, Expr> {
             right(
                 match_token(TokenKind::Dot),
                 parse_identifier())))
-        .map(|(first, rest)| {
+        .map(|(first, rest), span| {
             // Start building from the leftmost identifier (foo) outward
             let mut iter = rest.into_iter();
             let mut base = MemberExpr {
@@ -625,23 +635,8 @@ pub fn parse_member_expr<'a>() -> impl Parser<'a, Expr> {
                 };
             }
 
-            Expr::MemberExpr(base)
+            Expr::MemberExpr(base, span)
         })
-}
-
-pub fn parse_type_constructor(input: &[Token]) -> Output<Expr> {
-    pair(
-        parse_identifier(),
-        surrounded(
-            match_token(TokenKind::LeftParen),
-            zero_or_one(parse_comma_seperated_expressions),
-            match_token(TokenKind::RightParen),
-        ))
-        .map(|(ident, exprs)| {
-            let exprs = exprs.unwrap_or_else(|| vec![]);
-            Expr::TypeConstructor(ident, exprs)
-        })
-        .parse(input)
 }
 
 pub fn parse_primary<'a>() -> impl Parser<'a, Expr> {
@@ -651,16 +646,15 @@ pub fn parse_primary<'a>() -> impl Parser<'a, Expr> {
         BoxedParser::new(parse_set_array()),
         BoxedParser::new(parse_member_expr()),
         BoxedParser::new(parse_fn_call),
-        BoxedParser::new(parse_type_constructor),
-        BoxedParser::new(parse_literal().map(|l| Expr::LitExpr(l))),
-        BoxedParser::new(parse_identifier().map(|i| Expr::IdentExpr(i))),
+        BoxedParser::new(parse_literal().map(|l, s| Expr::LitExpr(l, s))),
+        BoxedParser::new(parse_identifier().map(|i, s| Expr::IdentExpr(i, s))),
     ])
 }
 //
 // *************** FUNCTION EXPRESSION ***********************
 
 pub fn parse_fn_expr_as_expr<'a>() -> impl Parser<'a, Expr> {
-    parse_fn_expr().map(|f| Expr::FnExpr(P(f)))
+    parse_fn_expr().map(|f, s| Expr::FnExpr(P(f), s))
 }
 
 pub fn parse_fn_expr<'a>() -> impl Parser<'a, FnExpr> {
@@ -674,10 +668,13 @@ pub fn parse_fn_expr_single(input: &[Token]) -> Output<FnExpr> {
         left(
             parse_fn_expr_params(),
             match_token(TokenKind::FatArrow)),
-        left(
-            parse_comma_seperated_expressions,
-            match_token(TokenKind::SemiColon)))
-        .map(|(params, expr)| FnExpr::FnExpr(params, expr))
+        or(
+            parse_expression(),
+            surrounded(
+                match_token(TokenKind::LeftParen),
+                parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
+                match_token(TokenKind::RightParen))))
+        .map(|(params, expr), span| FnExpr::FnExpr(params, expr, span))
         .parse(input)
 }
 
@@ -685,7 +682,7 @@ pub fn parse_fn_expr_case(input: &[Token]) -> Output<FnExpr> {
     right(
         match_token(TokenKind::CaseKeyword),
         one_or_more(parse_fn_expr_case_branch))
-        .map(|fn_exprs| FnExpr::CaseFnExpr(fn_exprs))
+        .map(|fn_exprs, span| FnExpr::CaseFnExpr(fn_exprs, span))
         .parse(input)
 }
 
@@ -695,9 +692,14 @@ pub fn parse_fn_expr_case_branch(input: &[Token]) -> Output<FnExpr> {
             parse_fn_expr_case_params(),
             match_token(TokenKind::FatArrow)),
         left(
-            parse_comma_seperated_expressions,
+            or(
+                parse_expression(),
+                surrounded(
+                    match_token(TokenKind::LeftParen),
+                    parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
+                    match_token(TokenKind::RightParen))),
             match_token(TokenKind::SemiColon)))
-        .map(|(params, expr)| FnExpr::FnExpr(params, expr))
+        .map(|(params, expr), span| FnExpr::FnExpr(params, expr, span))
         .parse(input)
 }
 
@@ -708,7 +710,7 @@ pub fn parse_fn_expr_params<'a>() -> impl Parser<'a, Vec<FnParam>> {
             right(
                 match_token(TokenKind::Comma),
                 parse_fn_expr_param())))
-        .map(|(first_param, params)| {
+        .map(|(first_param, params), _| {
             let mut final_params = vec![first_param];
             final_params.extend(params);
             final_params
@@ -717,10 +719,10 @@ pub fn parse_fn_expr_params<'a>() -> impl Parser<'a, Vec<FnParam>> {
 
 pub fn parse_fn_expr_param<'a>() -> impl Parser<'a, FnParam> {
     or_n(vec![
-        parse_identifier().map(|i| FnParam::IdentParam(i)),
-        BoxedParser::new(parse_set_deconstruct().map(|idents| FnParam::SetDeconstructParam(idents))),
+        parse_identifier().map(|i, s| FnParam::IdentParam(i, s)),
+        BoxedParser::new(parse_set_deconstruct().map(|idents, s| FnParam::SetDeconstructParam(idents, s))),
         BoxedParser::new(parse_fn_param_set_selector()),
-        BoxedParser::new(parse_empty_set.map(|_| FnParam::SetDeconstructParam(vec![]))),
+        BoxedParser::new(parse_empty_set.map(|_, s| FnParam::SetDeconstructParam(vec![], s))),
     ])
 }
 
@@ -731,7 +733,7 @@ pub fn parse_fn_expr_case_params<'a>() -> impl Parser<'a, Vec<FnParam>> {
             right(
                 match_token(TokenKind::Comma),
                 parse_fn_expr_case_param())))
-        .map(|(first_param, params)| {
+        .map(|(first_param, params), _| {
             let mut final_params = vec![first_param];
             final_params.extend(params);
             final_params
@@ -742,7 +744,7 @@ pub fn parse_fn_expr_case_param<'a>() -> impl Parser<'a, FnParam> {
     or_n(vec![
         BoxedParser::new(parse_fn_expr_case_deconstruct_union_type()),
         BoxedParser::new(parse_fn_expr_param()),
-        parse_literal().map(|l| FnParam::LiteralParam(l))
+        parse_literal().map(|l, s| FnParam::LiteralParam(l, s))
     ])
 }
 
@@ -764,7 +766,7 @@ pub fn parse_fn_param_set_selector<'a>() -> impl Parser<'a, FnParam> {
             left(
                 parse_identifier(),
                 match_token(TokenKind::RightBrace))))
-        .map(|(first, rest)| FnParam::SetSelectorParam(first, rest))
+        .map(|(first, rest), s| FnParam::SetSelectorParam(first, rest, s))
 }
 
 pub fn parse_fn_expr_case_deconstruct_union_type<'a>() -> impl Parser<'a, FnParam> {
@@ -774,45 +776,45 @@ pub fn parse_fn_expr_case_deconstruct_union_type<'a>() -> impl Parser<'a, FnPara
             parse_identifier(),
             one_or_more(parse_identifier())),
         match_token(TokenKind::RightParen))
-        .map(|(first, rest)| FnParam::TypeUnionParam(first, rest))
+        .map(|(first, rest), s| FnParam::TypeUnionParam(first, rest, s))
 }
 
 // *************** SET LITERAL ***********************
 
 pub fn parse_set_array<'a>() -> impl Parser<'a, Expr> {
     or(
-        parse_empty_set.map(|_| Expr::ArrayExpr(vec![])),
+        parse_empty_set.map(|_, s| Expr::ArrayExpr(vec![], s)),
         right(
             match_token(TokenKind::LeftBrace),
             left(
                 parse_comma_seperated_expressions,
                 match_token(TokenKind::RightBrace)))
-            .map(|exprs| Expr::ArrayExpr(exprs)))
+            .map(|exprs, s| Expr::ArrayExpr(exprs, s)))
 }
 
 pub fn parse_empty_set(input: &[Token]) -> Output<()> {
     pair(
         match_token(TokenKind::LeftBrace),
         match_token(TokenKind::RightBrace))
-        .map(|_| ())
+        .map(|_, _| ())
         .parse(input)
 }
 
 pub fn parse_set_literal<'a>() -> impl Parser<'a, Expr> {
     or(
-        parse_empty_set.map(|_| Expr::ArrayExpr(vec![])),
+        parse_empty_set.map(|_, s| Expr::ArrayExpr(vec![], s)),
         right(
             match_token(TokenKind::LeftBrace),
             left(
                 zero_or_one(parse_set_literal_comma_seperated_fields()),
                 match_token(TokenKind::RightBrace)))
-            .map(|v| {
+            .map(|v, span| {
                 let mut final_fields: Vec<(Identifier, Expr)> = vec![];
                 match v {
                     Some(v) => final_fields.extend(v),
                     None => {}
                 }
-                Expr::SetExpr(final_fields)
+                Expr::SetExpr(final_fields, span)
             }))
 }
 
@@ -823,7 +825,7 @@ pub fn parse_set_literal_comma_seperated_fields<'a>() -> impl Parser<'a, Vec<(Id
             right(
                 match_token(TokenKind::Comma),
                 parse_set_literal_field)))
-        .map(|(first, rest)| {
+        .map(|(first, rest), _| {
             let mut fields = vec![first];
             fields.extend(rest);
             fields
@@ -846,7 +848,7 @@ pub fn parse_let_in_expression(input: &[Token]) -> Output<Expr> {
             zero_or_more(parse_statement()),
             match_token(TokenKind::InKeyword)),
         parse_expression())
-        .map(|(v, e)| Expr::LetInExpr(v, P(e)))
+        .map(|(v, e), span| Expr::LetInExpr(v, P(e), span))
         .parse(input)
 }
 
@@ -858,14 +860,14 @@ pub fn parse_case_expression(input: &[Token]) -> Output<Expr> {
         pair(
             parse_identifier(),
             one_or_more(parse_fn_expr_case_branch)))
-        .map(|(first, rest)| {
-            let result: Vec<(Vec<FnParam>, Vec<Expr>)> =
+        .map(|(first, rest), span| {
+            let result: Vec<(Vec<FnParam>, Expr)> =
                 rest.iter()
                     .map(|f| match f.clone() {
-                        FnExpr::FnExpr(a, b) => (a, b),
+                        FnExpr::FnExpr(a, b, _) => (a, b),
                         _ => unreachable!()
                     }).collect();
-            Expr::CaseExpr(first, result)
+            Expr::CaseExpr(first, result, span)
         })
         .parse(input)
 }
@@ -886,20 +888,18 @@ pub fn parse_statement<'a>() -> impl Parser<'a, Stmt> {
 }
 
 pub fn parse_fn_call_stmt<'a>() -> BoxedParser<'a, Stmt> {
-    left(
-        parse_fn_call,
-        match_token(TokenKind::SemiColon))
-        .map(|expr| match expr {
-            Expr::FnCallExpr(ident, args) => Stmt::FnCallStmt(ident, args),
-            _ => unreachable!(),
-        })
+    parse_fn_call
+    .map(|expr, _| match expr {
+        Expr::FnCallExpr(ident, args, span) => Stmt::FnCallStmt(ident, args, span),
+        _ => unreachable!(),
+    })
 }
 
 pub fn parse_proc_call(input: &[Token]) -> Output<Stmt> {
     left(
         parse_identifier(),
-        match_token(TokenKind::SemiColon))
-        .map(|ident| Stmt::ProcCallStmt(ident))
+        match_token(TokenKind::Bang))
+        .map(|ident, span| Stmt::ProcCallStmt(ident, span))
         .parse(input)
 }
 
@@ -913,10 +913,8 @@ pub fn parse_type_assignment(input: &[Token]) -> Output<Stmt> {
                 parse_identifier())),
         right(
             match_token(TokenKind::Equals),
-            left(
-                parse_expression(),
-                match_token(TokenKind::SemiColon))))
-        .map(|((i, t), e)| Stmt::AssignStmt(i, Some(t), e))
+            parse_expression()))
+        .map(|((i, t), e), span| Stmt::AssignStmt(i, Some(t), e, span))
         .parse(input)
 }
 
@@ -925,37 +923,46 @@ pub fn parse_inferred_assignment(input: &[Token]) -> Output<Stmt> {
         parse_identifier(),
         right(
             match_token(TokenKind::InferredEquals),
-            left(
-                parse_expression(),
-                match_token(TokenKind::SemiColon))))
-        .map(|(id, e)| Stmt::AssignStmt(id, None, e))
+            parse_expression()))
+        .map(|(id, e), span| Stmt::AssignStmt(id, None, e, span))
         .parse(input)
 }
 
 pub fn parse_inferred_multi_assign_statement<'a>() -> impl Parser<'a, Stmt> {
     pair(
         left(
-            parse_comma_seperated_identifiers,
+            surrounded(
+                match_token(TokenKind::LeftParen),
+                parse_comma_seperated_identifiers,
+                match_token(TokenKind::RightParen)),
             match_token(TokenKind::InferredEquals)),
-        left(
-            parse_comma_seperated_expressions,
-            match_token(TokenKind::SemiColon)))
-        .map(|(idents, exprs)| Stmt::MultiAssignStmt(idents, None, exprs))
+        surrounded(
+            match_token(TokenKind::LeftParen),
+            parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
+            match_token(TokenKind::RightParen)))
+        .map(|(idents, exprs), span| Stmt::MultiAssignStmt(idents, None, exprs, span))
 }
 
 pub fn parse_typed_multi_assign_statement<'a>() -> impl Parser<'a, Stmt> {
     pair(
         pair(
-            parse_comma_seperated_identifiers,
+            surrounded(
+                match_token(TokenKind::LeftParen),
+                parse_comma_seperated_identifiers,
+                match_token(TokenKind::RightParen)),
             right(
                 match_token(TokenKind::Colon),
-                parse_comma_seperated_identifiers)),
+                surrounded(
+                    match_token(TokenKind::LeftParen),
+                    parse_comma_seperated_identifiers,
+                    match_token(TokenKind::RightParen)))),
         right(
             match_token(TokenKind::Equals),
-            left(
-                parse_comma_seperated_expressions,
-                match_token(TokenKind::SemiColon))))
-        .map(|((idents, types), exprs)| Stmt::MultiAssignStmt(idents, Some(types), exprs))
+            surrounded(
+                match_token(TokenKind::LeftParen),
+                parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
+                match_token(TokenKind::RightParen))))
+        .map(|((idents, types), exprs), span| Stmt::MultiAssignStmt(idents, Some(types), exprs, span))
 }
 
 pub fn parse_comma_seperated_expressions(input: &[Token]) -> Output<Vec<Expr>> {
@@ -965,7 +972,7 @@ pub fn parse_comma_seperated_expressions(input: &[Token]) -> Output<Vec<Expr>> {
             right(
                 match_token(TokenKind::Comma),
                 parse_expression())))
-        .map(|(first_ident, idents)| {
+        .map(|(first_ident, idents), _| {
             let mut final_idents = vec![first_ident];
             final_idents.extend(idents);
             final_idents
@@ -980,7 +987,7 @@ pub fn parse_comma_seperated_identifiers(input: &[Token]) -> Output<Vec<Identifi
             right(
                 match_token(TokenKind::Comma),
                 parse_identifier())))
-        .map(|(first_ident, idents)| {
+        .map(|(first_ident, idents), _| {
             let mut final_idents = vec![first_ident];
             final_idents.extend(idents);
             final_idents
@@ -995,10 +1002,8 @@ pub fn parse_set_deconstruct_assignment(input: &[Token]) -> Output<Stmt> {
             or(
                 match_token(TokenKind::InferredEquals),
                 match_token(TokenKind::Equals)),
-            left(
-                parse_comma_seperated_expressions,
-                match_token(TokenKind::SemiColon))))
-        .map(|(decon_set, exprs)| Stmt::SetDeconstructAssignStmt(decon_set, exprs))
+            parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span))))
+        .map(|(decon_set, exprs), span| Stmt::SetDeconstructAssignStmt(decon_set, exprs, span))
         .parse(input)
 }
 
@@ -1008,7 +1013,7 @@ pub fn parse_case_statement(input: &[Token]) -> Output<Stmt> {
         pair(
             parse_identifier(),
             one_or_more(parse_case_stmt_branch)))
-        .map(|(ident, branches)| Stmt::CaseStmt(ident, branches))
+        .map(|(ident, branches), span| Stmt::CaseStmt(ident, branches, span))
         .parse(input)
 }
 
@@ -1017,16 +1022,16 @@ pub fn parse_case_stmt_branch(input: &[Token]) -> Output<(Vec<FnParam>, Stmt)> {
         left(
             parse_fn_expr_case_params(),
             match_token(TokenKind::FatArrow)),
-        or_n(vec![
-            pair(
-                match_token(TokenKind::LeftParen),
+        left(
+            or_n(vec![
                 pair(
-                    match_token(TokenKind::RightParen),
-                    match_token(TokenKind::SemiColon)))
-                .map(|(_, _)| Stmt::Empty),
-            parse_fn_call_stmt(),
-            BoxedParser::new(parse_proc_call),
-        ]))
+                    match_token(TokenKind::LeftParen),
+                    match_token(TokenKind::RightParen))
+                    .map(|(_, _), span| Stmt::Empty(span)),
+                parse_fn_call_stmt(),
+                BoxedParser::new(parse_proc_call),
+            ]),
+            match_token(TokenKind::SemiColon)))
         .parse(input)
 }
 
@@ -1044,11 +1049,11 @@ pub fn parse_if_then_else(input: &[Token]) -> Output<Expr> {
             right(
                 match_token(TokenKind::ElseKeyword),
                 parse_expression())))
-        .map(|(pred, ((expr, elseifs), else_expr))| {
+        .map(|(pred, ((expr, elseifs), else_expr)), span| {
             let mut final_result = vec![(pred, expr)];
             final_result.extend(elseifs);
 
-            Expr::IfThenElseIfExpr(final_result, P(else_expr))
+            Expr::IfThenElseIfExpr(final_result, P(else_expr), span)
         })
         .parse(input)
 }
@@ -1070,8 +1075,8 @@ pub fn parse_fn_call(input: &[Token]) -> Output<Expr> {
     pair(
         parse_identifier(),
         one_or_more(parse_fn_arg))
-        .map(|(func_name, params)| {
-            Expr::FnCallExpr(func_name, params)
+        .map(|(func_name, params), span| {
+            Expr::FnCallExpr(func_name, params, span)
         })
         .parse(input)
 }
@@ -1081,9 +1086,22 @@ pub fn parse_fn_arg(input: &[Token]) -> Output<Expr> {
         BoxedParser::new(parse_parenthesized_expression()),
         BoxedParser::new(parse_set_literal()),
         BoxedParser::new(parse_set_array()),
-        BoxedParser::new(parse_literal().map(|l| Expr::LitExpr(l))),
+        BoxedParser::new(parse_literal().map(|l, s| Expr::LitExpr(l, s))),
         BoxedParser::new(parse_member_expr()),
-        BoxedParser::new(parse_identifier().map(|i| Expr::IdentExpr(i))),
-    ])
+        BoxedParser::new(parse_fn_arg_identifier())])
         .parse(input)
+}
+
+pub fn parse_fn_arg_identifier<'a>() -> impl Parser<'a, Expr> {
+    left(
+        parse_identifier().map(|(i), span| Expr::IdentExpr(i, span)),
+        not(
+            or_n(vec![
+                BoxedParser::new(match_token(TokenKind::Comma)),
+                BoxedParser::new(match_token(TokenKind::InferredEquals)),
+                BoxedParser::new(match_token(TokenKind::Colon)),
+                BoxedParser::new(match_token(TokenKind::ColonColon)),
+                BoxedParser::new(match_token(TokenKind::Equals)),
+            ])
+        ))
 }

@@ -4,6 +4,8 @@ mod jace_file;
 mod lexer;
 mod parser;
 
+mod typecheck;
+
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -23,77 +25,13 @@ fn main() {
     //    Command::Build { path } => println!("Building: {path:?}"),
     //}
 
-    let jcf = JaceFile::new("test.jc", 
-        r#"
-            type Result a b :: (Ok a) | (Err b)
-            type Bool :: True | False
 
-            type Option a :: (Some a) | None
 
-            type ContextError a :: (SomethingWentWrong a) | NoContextError
-
-            const MATH_PI :: 3.14
-
-            class Monad m ::
-                bind :: (m a), (a => (m b)) => (m b)
-                return :: a => (m a)
-
-            instance Monad Option ::
-                bind :: case
-                    None, _ => None;
-                    (Some x), f => f x;
-                return :: a => Some a;
-
-            type Sheep ::
-                father : (Option Sheep)
-                mother : (Option Sheep)
-
-            def father :: Sheep => (Option Sheep)
-                s => s.father;
-
-            def mother :: Sheep => (Option Sheep)
-                s => s.mother;
-
-            def materialGrandFather :: Sheep => (Option Sheep)
-                s => bind (bind (return s) mother) father;
-
-            def paternalGrandFather :: Sheep => (Option Sheep)
-                s => bind (bind (return s) father) father;
-
-            type List a :: Nil | (Cons a (List a))
-
-            def join :: (List (List a)) => (List a)
-            case
-                Nil => Nil;
-                (Cons xs xss) => cat xs (join xss);
-
-            def cat :: (List a), (List a) => (List a)
-            case
-                Nil, ls => ls;
-                (Cons x xs), ys => Cons x (cat xs ys);
-
-            def somthin :: a, b => ()
-                a, b => print a b;
-
-            def main :: ()
-                list := Cons 5 (Cons 10 Nil);
-                a,b := 1+2*3^5, 6*7^5/2;
-                c,d : Integer, Integer = 1+2,3*6;
-                e,f := Cons 5, Cons (Cons (2*2) Nil);
-
-                grandpa := { father = None, mother = None };
-                father := { father = grandpa, mother = None };
-                sheep := { father = father, mother = None };
-
-                grandpa_result := paternalGrandFather sheep;
-
-                foo := case grandpa_result
-                    (Some x) => print "sheep has a grandpa!" x;
-                    None => 10;;
-
-                print "hello world!";
-                my_proc;
-        "#);
+    let jcf = JaceFile::new("test.jc",
+                            r#"
+        def main :: ()
+            a := 2 + 2
+            b := 5 * 5"#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
     let toks: Vec<Token> = lexer

@@ -35,23 +35,7 @@ where
     }
 }
 
-//pub fn seq<'a, P, R>(parsers: Vec<P>) -> impl Parser<'a, Vec<R>> 
-//where
-//    P : Parser<'a, R>,
-//{
-//    move |input| {
-//        parsers.iter().fold(Ok((input, Vec::new(), Vec::new())), |prev_results, parser| {
-//            prev_results.and_then(|(next_inputs, mut parser_outputs, next_span)| {
-//                parser.parse(next_inputs).map(|(next_inputs, result, span)| {
-//                    parser_outputs.push(result);
-//                    (next_inputs, parser_outputs)
-//                })
-//            })
-//        })
-//    }
-//}
-
-pub fn or_n<'a, Out>(parsers: Vec<BoxedParser<'a, Out>>) -> impl Parser<'a, Out> 
+pub fn or_n<'a, Out>(parsers: Vec<BoxedParser<'a, Out>>) -> impl Parser<'a, Out>
 where
     Out: 'a,
 {
@@ -70,11 +54,11 @@ where
 pub fn map<'a, P, F, A, B>(parser: P, map_fn: F) -> impl Parser<'a, B>
 where
     P: Parser<'a, A> + 'a,
-    F: Fn(A) -> B + 'a,
+    F: Fn(A, Span) -> B + 'a,
 {
     move |input|
         parser.parse(input)
-            .map(|(next, result, span)| (next, map_fn(result), span))
+            .map(|(next, result, span)| (next, map_fn(result, span.clone()), span))
 }
 
 pub fn left<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R1>
@@ -84,7 +68,7 @@ where
     R1: 'a,
     R2: 'a,
 {
-    pair(p1, p2).map(|(left, _)| left)
+    pair(p1, p2).map(|(left, _), _| left)
 }
 
 pub fn right<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R2>
@@ -94,7 +78,7 @@ where
     R1: 'a,
     R2: 'a,
 {
-    pair(p1, p2).map( |(_, r)| r)
+    pair(p1, p2).map( |(_, r), _| r)
 }
 
 // cuts result in that branch erroring immediately.  
@@ -134,10 +118,16 @@ where
                 Err(_) => break,
             }
         }
-        let st = spans.first().cloned().unwrap_or_else(|| Span(0, 0));
-        let ed = spans.last().cloned().unwrap_or_else(|| Span(0, 0));
+        let mut final_span = Span(0, 0);
+        if spans.len() > 1 {
+            final_span =
+                spans.first().cloned().unwrap()
+                    .combine(spans.last().cloned().unwrap());
+        } else if spans.len() == 1 {
+            final_span = spans.first().cloned().unwrap();
+        }
 
-        Ok((input, results, st.combine(ed)))
+        Ok((input, results, final_span))
     })
 }
 
@@ -170,11 +160,16 @@ where
                 Err(_) => break,
             }
         }
+        let mut final_span = Span(0, 0);
+        if spans.len() > 1 {
+            final_span =
+                spans.first().cloned().unwrap()
+                    .combine(spans.last().cloned().unwrap());
+        } else if spans.len() == 1 {
+            final_span = spans.first().cloned().unwrap();
+        }
 
-        let st = spans.first().cloned().unwrap_or_else(|| Span(0, 0));
-        let ed = spans.last().cloned().unwrap_or_else(|| Span(0, 0));
-
-        Ok((input, results, st.combine(ed)))
+        Ok((input, results, final_span))
     })
 }
 
