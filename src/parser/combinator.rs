@@ -1,11 +1,7 @@
-use std::ops::Deref;
-use mlua::ffi::lua_WarnFunction;
-use crate::err::Span;
-use crate::lexer::token::TokenKind;
 use super::{error::*, POut, Parser};
-use crate::parser::BoxedParser;
+use crate::err::Span;
 use crate::parser::error::ParserError::UnexpectedParse;
-use crate::parser::parser::match_token;
+use crate::parser::BoxedParser;
 
 pub fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
 where
@@ -43,7 +39,7 @@ where
         for p in &parsers {
             match p.parse(input) {
                 Ok(result) => return Ok(result),
-                Err(_) => {},
+                Err(_) => {}
             }
         }
 
@@ -78,7 +74,7 @@ where
     R1: 'a,
     R2: 'a,
 {
-    pair(p1, p2).map( |(_, r), _| r)
+    pair(p1, p2).map(|(_, r), _| r)
 }
 
 // cuts result in that branch erroring immediately.  
@@ -145,7 +141,7 @@ where
                 spans.push(span);
                 input = next;
                 results.push(first);
-            },
+            }
             Err(err) => return Err(err)
         }
 

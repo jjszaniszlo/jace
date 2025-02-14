@@ -126,7 +126,7 @@ impl<T> From<P<[T]>> for Vec<T> {
 }
 
 impl<T> FromIterator<T> for P<[T]> {
-    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> P<[T]> {
+    fn from_iter<I: IntoIterator<Item=T>>(iter: I) -> P<[T]> {
         P::from_vec(iter.into_iter().collect())
     }
 }

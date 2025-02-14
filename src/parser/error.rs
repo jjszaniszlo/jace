@@ -1,8 +1,7 @@
-use miette::{Diagnostic, SourceSpan};
-use thiserror::Error;
+use miette::SourceSpan;
 
-use crate::TokenKind;
 use crate::Token;
+use crate::TokenKind;
 
 #[derive(thiserror::Error, miette::Diagnostic, Debug)]
 pub enum ParserError {
@@ -15,7 +14,7 @@ pub enum ParserError {
         got: TokenKind,
 
         #[label("Here")]
-        span: SourceSpan
+        span: SourceSpan,
     },
 
     #[error("Unexpected Token: {tok}")]
@@ -39,11 +38,11 @@ impl ParserError {
     }
 
     pub fn unexpected_tok(tok: &Token) -> Self {
-        ParserError::UnexpectedToken { tok: tok.kind(), span: tok.span().into() } 
+        ParserError::UnexpectedToken { tok: tok.kind(), span: tok.span().into() }
     }
 
     pub fn expected_got(expected: &'static str, got: &Token) -> Self {
-        ParserError::ExpectedGot { expected: expected.to_string() , got: got.kind(), span: got.span().into() }
+        ParserError::ExpectedGot { expected: expected.to_string(), got: got.kind(), span: got.span().into() }
     }
 }
 

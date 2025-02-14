@@ -1,10 +1,10 @@
-use crate::err::Span;
 use super::ptr::*;
+use crate::err::Span;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String);
 
-impl Into<Identifier> for & str {
+impl Into<Identifier> for &str {
     fn into(self) -> Identifier {
         Identifier(self.to_string())
     }
