@@ -57,6 +57,7 @@ pub enum TokenKind {
     // other operators 
     Equals,             // =
     InferredEquals,     // :=
+    SemiColon,          // ;
     Colon,              // :
     ColonColon,         // ::
     Union,              // |

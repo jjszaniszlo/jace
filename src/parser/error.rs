@@ -25,6 +25,12 @@ pub enum ParserError {
         #[label("Here")]
         span: SourceSpan,
     },
+
+    #[error("Unexpected Parse")]
+    UnexpectedParse {
+        #[label("Here")]
+        span: SourceSpan,
+    },
 }
 
 impl ParserError {

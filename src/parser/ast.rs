@@ -184,10 +184,13 @@ pub enum FnExpr {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
+    Empty,
     // Option of type_name
     AssignStmt(Identifier, Option<Identifier>, Expr),
     FnCallStmt(Identifier, Vec<Expr>),
     ProcCallStmt(Identifier),
+
+    CaseStmt(Identifier, Vec<(Vec<FnParam>, Stmt)>),
 
     // Vec of type_name
     MultiAssignStmt(Vec<Identifier>, Option<Vec<Identifier>>, Vec<Expr>),

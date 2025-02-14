@@ -4,6 +4,7 @@ use crate::err::Span;
 use crate::lexer::token::TokenKind;
 use super::{error::*, POut, Parser};
 use crate::parser::BoxedParser;
+use crate::parser::error::ParserError::UnexpectedParse;
 use crate::parser::parser::match_token;
 
 pub fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
@@ -217,4 +218,17 @@ where
             parser_begin,
             parser_take),
         parser_end)
+}
+
+pub fn not<'a, P, Out>(p: P) -> impl Parser<'a, ()>
+where
+    P: Parser<'a, Out> + 'a,
+    Out: 'a,
+{
+    move |input| {
+        match p.parse(input) {
+            Ok((_, _, span)) => Err(UnexpectedParse { span: span.into() }.into()),
+            Err(_) => Ok((input, (), Span(0, 0))),
+        }
+    }
 }

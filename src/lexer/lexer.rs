@@ -67,7 +67,7 @@ impl<'a> LexerIterator<'a> {
                 '0'..='9'                                   => self.eat_number(ch, start_pos),
                 '=' | '>' | '<' | '!' | '&' | '|' |
                 '+' | '-' | '*' | '/' | '^' | ':' | 
-                ',' | '.'                                   => self.eat_symbol(ch, start_pos),
+                ',' | '.' | ';'                             => self.eat_symbol(ch, start_pos),
                 '(' | ')' | '[' | ']' | '{' | '}'           => self.eat_brackets(ch, start_pos),
                 '"'                                         => self.eat_string_literal(ch, start_pos),
                 c if c.is_whitespace()                => return self.next(),
@@ -241,6 +241,7 @@ impl<'a> LexerIterator<'a> {
             ":" => Ok(Token::new(TokenKind::Colon, start_pos, bytes)),
             "::" => Ok(Token::new(TokenKind::ColonColon, start_pos, bytes)),
             ":=" => Ok(Token::new(TokenKind::InferredEquals, start_pos, bytes)),
+            ";" => Ok(Token::new(TokenKind::SemiColon, start_pos, bytes)),
             "," => Ok(Token::new(TokenKind::Comma, start_pos, bytes)),
             "." => Ok(Token::new(TokenKind::Dot, start_pos, bytes)),
             op => Err(MalformedOperator{
