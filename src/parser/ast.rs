@@ -1,18 +1,19 @@
+use std::fmt::Display;
 use super::ptr::*;
 use crate::err::Span;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String);
 
-impl Into<Identifier> for &str {
-    fn into(self) -> Identifier {
-        Identifier(self.to_string())
+impl From<Identifier> for String {
+    fn from(value: Identifier) -> Self {
+        value.0
     }
 }
 
-impl Into<Identifier> for String {
-    fn into(self) -> Identifier {
-        Identifier(self)
+impl Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
