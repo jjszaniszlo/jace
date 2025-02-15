@@ -5,6 +5,7 @@ mod lexer;
 mod parser;
 
 mod typecheck;
+mod codegen;
 
 use std::fs::File;
 use std::io::Read;
@@ -14,6 +15,7 @@ use clap::Parser;
 use cli::Cli;
 use cli::Command;
 use jace_file::JaceFile;
+use crate::codegen::codegen;
 use crate::lexer::prelude::*;
 use crate::parser::prelude::*;
 
@@ -30,8 +32,7 @@ fn main() {
     let jcf = JaceFile::new("test.jc",
                             r#"
         def main :: ()
-            a := 2 + 2
-            b := 5 * 5"#);
+            a := 2"#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
     let toks: Vec<Token> = lexer
@@ -41,7 +42,7 @@ fn main() {
     println!("{toks:?}");
 
     match parser::parse(&toks) {
-        Ok((r, t, _)) => println!("{t:#?}"),
+        Ok((r, t, _)) => println!("{}", codegen(t)),
         Err(e) =>
             println!("{:?}", e.with_source_code(jcf.contents())),
         _ => {},
