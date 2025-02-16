@@ -27,26 +27,26 @@ pub fn parse_definition<'a>() -> impl Parser<'a, Def> {
     ])
 }
 
-pub fn parse_fn_def(input: TokenStream) -> Output<Def> {
+pub fn parse_fn_def<'a>(input: TokenStream<'a>) -> Output<'a, Def> {
     pair(
         pair(
             parse_fn_def_header,
             parse_fn_def_types()),
         pair(
             zero_or_one(parse_fn_type_constraints()),
-            parse_fn_expr(),
+            parse_fn_expr,
         ))
         .map(|((i, (tp, rt)), (cons, exp)), span| Def::FnDef(i, tp, rt, cons, exp, span))
-        .parse(input)
+        .parse_next(input)
 }
 
-pub fn parse_fn_def_header(input: TokenStream) -> Output<Identifier> {
+pub fn parse_fn_def_header<'a>(input: TokenStream<'a>) -> Output<'a, Identifier> {
     left(
         right(
             match_token(TokenKind::DefKeyword),
             parse_identifier()),
         match_token(TokenKind::ColonColon))
-        .parse(input)
+        .parse_next(input)
 }
 
 pub fn parse_fn_def_types<'a>() -> impl Parser<'a, (Vec<TypeParam>, TypeParam)> {
@@ -102,7 +102,7 @@ pub fn parse_array_type_param<'a>() -> impl Parser<'a, TypeParam> {
         .map(|(i, l), span| TypeParam::ArrayType(i, l, span))
 }
 
-pub fn parse_fn_func_type_param(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_fn_func_type_param<'a>(input: TokenStream<'a>) -> Output<'a, TypeParam> {
     pair(
         right(
             match_token(TokenKind::LeftParen),
@@ -113,10 +113,10 @@ pub fn parse_fn_func_type_param(input: TokenStream) -> Output<TypeParam> {
                 parse_fn_type_param(),
                 match_token(TokenKind::RightParen))))
         .map(|(params, ret), span| TypeParam::FuncType(params, P(ret), span))
-        .parse(input)
+        .parse_next(input)
 }
 
-pub fn parse_type_union_payload_type(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_type_union_payload_type<'a>(input: TokenStream<'a>) -> Output<'a, TypeParam> {
     surrounded(
         match_token(TokenKind::LeftParen),
         pair(
@@ -125,7 +125,7 @@ pub fn parse_type_union_payload_type(input: TokenStream) -> Output<TypeParam> {
         match_token(TokenKind::RightParen),
     )
         .map(|(i, params), span| TypeParam::PayloadType(i, params, span))
-        .parse(input)
+        .parse_next(input)
 }
 
 pub fn parse_fn_type_constraints<'a>() -> impl Parser<'a, Vec<TypeConstraint>> {
@@ -293,7 +293,7 @@ pub fn parse_class_method_type_params<'a>() -> impl Parser<'a, Vec<Identifier>> 
         })
 }
 
-pub fn parse_method_operator(input: TokenStream) -> Output<MethodOperator> {
+pub fn parse_method_operator<'a>(input: TokenStream<'a>) -> Output<'a, MethodOperator> {
     match input.next() {
         Some((res, next_input)) => {
             let op = match res.kind() {
@@ -307,18 +307,17 @@ pub fn parse_method_operator(input: TokenStream) -> Output<MethodOperator> {
                 TokenKind::WrappedMinus => MethodOperator::Minus,
                 TokenKind::WrappedDivide => MethodOperator::Divide,
                 TokenKind::WrappedMultiply => MethodOperator::Multiply,
-                _ => return Err(ParserError::new()
-                    .message(format!("expected method operator, got {:?}", res.kind()))
-                    .span(res.span())
-                    .build()
+                _ => return Err(
+                    ErrorType::Recoverable(
+                        ParserError::new()
+                        .message(format!("expected method operator, got {:?}", res.kind()))
+                        .span(res.span())
+                        .build())
                 ),
             };
             Ok((next_input, op, res.span()))
         },
-        None => Err(ParserError::new()
-            .message("unexpected eof".to_string())
-            .span(input.last_span())
-            .build()),
+        None => Err(ErrorType::Incomplete)
     }
 }
 
@@ -336,7 +335,7 @@ pub fn parse_class_method_def_named<'a>() -> impl Parser<'a, MethodDef> {
             MethodDef::Named(ident, params, ret, span))
 }
 
-pub fn parse_instance_def(input: TokenStream) -> Output<Def> {
+pub fn parse_instance_def<'a>(input: TokenStream<'a>) -> Output<'a, Def> {
     pair(
         left(
             parse_instance_header(),
@@ -344,7 +343,7 @@ pub fn parse_instance_def(input: TokenStream) -> Output<Def> {
         parse_instance_method_impls())
         .map(|((cls, typ), impls), span|
             Def::InstanceDef(cls, typ, impls, span))
-        .parse(input)
+        .parse_next(input)
 }
 
 pub fn parse_instance_header<'a>() -> impl Parser<'a, (Identifier, Identifier)> {
@@ -371,7 +370,7 @@ pub fn parse_instance_method_impl_op<'a>() -> impl Parser<'a, MethodImpl> {
         left(
             parse_method_operator,
             match_token(TokenKind::ColonColon)),
-        parse_fn_expr())
+        parse_fn_expr)
         .map(|(op, expr), span| MethodImpl::Operator(op, expr, span))
 }
 
@@ -380,6 +379,6 @@ pub fn parse_instance_method_impl_named<'a>() -> impl Parser<'a, MethodImpl> {
         left(
             parse_identifier(),
             match_token(TokenKind::ColonColon)),
-        parse_fn_expr())
+        parse_fn_expr)
         .map(|(name, expr), span| MethodImpl::Named(name, expr, span))
 }

@@ -5,10 +5,24 @@ use crate::parser::ast::*;
 use crate::parser::tokenstream::{TokenResult, TokenStream};
 use crate::{lexer::token::TokenKind, parser::{ast, error::*}};
 
-pub type Output<'a, Out> = miette::Result<(TokenStream<'a>, Out, Range<usize>), ParserError>;
+pub type Output<'a, Out> = miette::Result<(TokenStream<'a>, Out, Range<usize>), ErrorType>;
 
 pub trait Parser<'a, Out> {
-    fn parse(&self, input: TokenStream<'a>) -> Output<'a, Out>;
+    fn parse(&self, input: TokenStream<'a>) -> Result<Out, ParserError> {
+        match self.parse_next(input) {
+            Ok((_, out, _)) => Ok(out),
+            Err(e) => match e {
+                ErrorType::Incomplete => todo!(),
+                ErrorType::Unrecoverable(e) => {
+                    println!("{:?}", e);
+                    Err(e)
+                },
+                ErrorType::Recoverable(e) => Err(e),
+            }
+        }
+    }
+
+    fn parse_next(&self, input: TokenStream<'a>) -> Output<'a, Out>;
 
     fn map<Func, NewOut>(self, map_fn: Func) -> BoxedParser<'a, NewOut>
     where
@@ -19,24 +33,13 @@ pub trait Parser<'a, Out> {
     {
         BoxedParser::new(map(self, map_fn))
     }
-
-    fn and_then<Func, NewParser, NewOut>(self, f: Func) -> BoxedParser<'a, NewOut>
-    where
-        Self: Sized + 'a,
-        Out: 'a,
-        NewOut: 'a,
-        NewParser: Parser<'a, NewOut> + 'a,
-        Func: Fn(Out, Range<usize>) -> NewParser + 'a,
-    {
-        BoxedParser::new(and_then(self, f))
-    }
 }
 
 impl<'a, F, Out> Parser<'a, Out> for F
 where
     F: Fn(TokenStream<'a>) -> Output<'a, Out>,
 {
-    fn parse(&self, input: TokenStream<'a>) -> Output<'a, Out> {
+    fn parse_next(&self, input: TokenStream<'a>) -> Output<'a, Out> {
         self(input)
     }
 }
@@ -57,8 +60,8 @@ impl<'a, Out> BoxedParser<'a, Out> {
 }
 
 impl<'a, Out> Parser<'a, Out> for BoxedParser<'a, Out> {
-    fn parse(&self, input: TokenStream<'a>) -> Output<'a, Out> {
-        self.parser.parse(input)
+    fn parse_next(&self, input: TokenStream<'a>) -> Output<'a, Out> {
+        self.parser.parse_next(input)
     }
 }
 
@@ -70,14 +73,12 @@ pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
                 Ok((next_input, (), res.span()))
             }
             Some((res, _)) => Err(
-                ParserError::new()
-                    .message(format!("unexpected token: `{:?}`", res.kind()))
-                    .span(res.span())
-                    .build()),
-            None => Err(ParserError::new()
-                .message("unexpected eof".to_string())
-                .span(input.last_span())
-                .build())
+                ErrorType::Recoverable(
+                    ParserError::new()
+                        .message(format!("unexpected token: `{:?}`", res.kind()))
+                        .span(res.span())
+                        .build())),
+            None => Err(ErrorType::Incomplete)
         }
     }
 }
@@ -90,16 +91,15 @@ pub fn parse_identifier<'a>() -> impl Parser<'a, Identifier> {
                     TokenKind::Identifier(ident) => {
                         Ok((next_input, Identifier(ident), res.span()))
                     }
-                    _ => Err(ParserError::new()
-                        .message(format!("unexpected token: `{:?}`", res.kind()))
-                        .span(res.span())
-                        .build())
+                    _ => Err(
+                        ErrorType::Recoverable(
+                            ParserError::new()
+                            .message(format!("unexpected token: `{:?}`", res.kind()))
+                            .span(res.span())
+                            .build()))
                 }
             }
-            None => Err(ParserError::new()
-                .message("unexpected eof".to_string())
-                .span(input.last_span())
-                .build())
+            None => Err(ErrorType::Incomplete)
         }
     }
 }
@@ -114,18 +114,17 @@ pub fn parse_literal<'a>() -> impl Parser<'a, Literal> {
                     TokenKind::String(s) => Literal::String(s),
                     TokenKind::Float(f) => Literal::Float(f),
 
-                    _ => return Err(ParserError::new()
-                        .message(format!("unexpected token: `{:?}`", res.kind()))
-                        .span(res.span())
-                        .build())
+                    _ => return Err(
+                        ErrorType::Recoverable(
+                            ParserError::new()
+                            .message(format!("unexpected token: `{:?}`", res.kind()))
+                            .span(res.span())
+                            .build()))
                 };
 
                 Ok((next_input, lit, res.span()))
             }
-            None => Err(ParserError::new()
-                .message("unexpected eof".to_string())
-                .span(input.last_span())
-                .build())
+            None => Err(ErrorType::Incomplete)
         }
     }
 }
@@ -137,15 +136,14 @@ pub fn parse_literal_integer<'a>() -> impl Parser<'a, usize> {
                 TokenKind::Integer(i) => {
                     Ok((next_input, i, res.span()))
                 }
-                _ => Err(ParserError::new()
-                    .message(format!("unexpected token: `{:?}`", res.kind()))
-                    .span(res.span())
-                    .build())
+                _ => Err(
+                    ErrorType::Recoverable(
+                        ParserError::new()
+                        .message(format!("unexpected token: `{:?}`", res.kind()))
+                        .span(res.span())
+                        .build()))
             },
-            None => Err(ParserError::new()
-                .message("unexpected eof".to_string())
-                .span(input.last_span())
-                .build())
+            None => Err(ErrorType::Incomplete)
         }
     }
 }
@@ -169,18 +167,17 @@ pub fn parse_operator<'a>() -> impl Parser<'a, BinOperator> {
                     TokenKind::Greater => BinOperator::Greater,
                     TokenKind::GreaterEquals => BinOperator::GreaterEquals,
                     TokenKind::Colon => BinOperator::AppendSet,
-                    _ => return Err(ParserError::new()
-                        .message(format!("unexpected token: `{:?}`", res.kind()))
-                        .span(res.span())
-                        .build())
+                    _ => return Err(
+                        ErrorType::Recoverable(
+                            ParserError::new()
+                            .message(format!("unexpected token: `{:?}`", res.kind()))
+                            .span(res.span())
+                            .build()))
                 };
 
                 Ok((next_input, op, res.span()))
             }
-            None => Err(ParserError::new()
-                .message("unexpected eof".to_string())
-                .span(input.last_span())
-                .build())
+            None => Err(ErrorType::Incomplete)
         }
     }
 }

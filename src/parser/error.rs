@@ -1,7 +1,47 @@
 use std::ops::Range;
 use std::sync::Arc;
-use miette::{Severity, SourceSpan};
+use miette::{Diagnostic, Severity, SourceSpan};
+use crate::parser::error::ErrorType::{Recoverable, Unrecoverable};
 
+#[derive(Debug, Clone)]
+pub enum ErrorType {
+    // incomplete means that the parser needs additional information
+    // to complete error.
+    Incomplete,
+
+    // unrecoverable means that a branch has parsed far enough to determine what
+    // kind of structure is being parsed for sure, and that the parser shouldn't
+    // try other branches.
+    Unrecoverable(ParserError),
+
+    // recoverable means that a branch has not parsed, so try another branch.
+    Recoverable(ParserError),
+}
+
+impl ErrorType {
+    pub fn unrecoverable(self) -> Option<ErrorType> {
+        match self {
+            ErrorType::Incomplete => None,
+            Unrecoverable(e) | Recoverable(e) => Some(Unrecoverable(e)),
+        }
+    }
+
+    pub fn recoverable(self) -> Option<ErrorType> {
+        match self {
+            ErrorType::Incomplete => None,
+            Unrecoverable(e) | Recoverable(e) => Some(Recoverable(e)),
+        }
+    }
+
+    pub fn inner(err: ErrorType) -> Option<ParserError> {
+        match err {
+            Recoverable(err) | Unrecoverable(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ParserError {
     pub message: Option<String>,
     pub label: Option<String>,

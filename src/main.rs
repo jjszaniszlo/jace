@@ -28,11 +28,8 @@ fn main() {
 
     let jcf = JaceFile::new("test.jc",
                             r#"
-                                def sum :: a, a => a
-                                    x, y => x + y
-
                                 def main :: ()
-                                    a := a + b
+                                    b := a
                             "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
@@ -44,7 +41,10 @@ fn main() {
 
     match parser::parse(&toks, jcf) {
         Ok(m) => println!("{m:#?}"),
-        Err(e) => println!("{e:?}"),
+        Err(e) => {
+            let err = Report::from(e);
+            println!("{err:?}");
+        },
     }
 }
 

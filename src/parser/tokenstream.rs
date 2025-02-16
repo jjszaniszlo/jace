@@ -1,6 +1,5 @@
 use std::ops::Range;
 use crate::lexer::token::{Token, TokenKind};
-use miette::{SourceOffset, SourceSpan};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TokenStream<'a> {
@@ -34,7 +33,10 @@ impl<'a> TokenStream<'a> {
     pub fn next(self) -> Option<((TokenKind, Range<usize>), TokenStream<'a>)> {
         let (tok, rest) = self.toks.split_first()?;
         let (kind, span) = tok.clone().into_inner();
-        Some(((kind, span.clone()), Self { toks: rest, last_span: (span.start, span.end)}))
+        Some(((kind, span.clone()), Self {
+            toks: rest,
+            last_span: (span.start, span.end),
+        }))
     }
 
     pub fn peek(&self) -> Option<(TokenKind, Range<usize>)> {
