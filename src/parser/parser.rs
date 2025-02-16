@@ -62,131 +62,125 @@ impl<'a, Out> Parser<'a, Out> for BoxedParser<'a, Out> {
     }
 }
 
-pub fn match_token<'a>(expected: TokenKind) -> BoxedParser<'a, ()> {
-    BoxedParser::new(
-        move |input: TokenStream<'a>| {
-            match input.next() {
-                Some((res, next_input))
-                if res.kind() == expected => {
-                    Ok((next_input, (), res.span()))
-                }
-                Some((res, _)) => Err(
-                    ParserError::new()
-                        .message(format!("unexpected token: `{:?}`", res.kind()))
-                        .span(res.span())
-                        .build()),
-                None => Err(ParserError::new()
-                    .message("unexpected eof".to_string())
-                    .span(input.last_span())
-                    .build())
+pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
+    move |input: TokenStream<'a>| {
+        match input.next() {
+            Some((res, next_input))
+            if res.kind() == expected => {
+                Ok((next_input, (), res.span()))
             }
-        })
+            Some((res, _)) => Err(
+                ParserError::new()
+                    .message(format!("unexpected token: `{:?}`", res.kind()))
+                    .span(res.span())
+                    .build()),
+            None => Err(ParserError::new()
+                .message("unexpected eof".to_string())
+                .span(input.last_span())
+                .build())
+        }
+    }
 }
 
-pub fn parse_identifier<'a>() -> BoxedParser<'a, Identifier> {
-    BoxedParser::new(
-        move |input: TokenStream<'a>| {
-            match input.next() {
-                Some((res, next_input)) => {
-                    match res.kind() {
-                        TokenKind::Identifier(ident) => {
-                            Ok((next_input, Identifier(ident), res.span()))
-                        }
-                        _ => Err(ParserError::new()
-                            .message(format!("unexpected token: `{:?}`", res.kind()))
-                            .span(res.span())
-                            .build())
-                    }
-                }
-                None => Err(ParserError::new()
-                    .message("unexpected eof".to_string())
-                    .span(input.last_span())
-                    .build())
-            }
-        })
-}
-
-pub fn parse_literal<'a>() -> BoxedParser<'a, Literal> {
-    BoxedParser::new(
-        move |input: TokenStream<'a>| {
-            match input.next() {
-                Some((res, next_input)) => {
-                    let lit = match res.kind() {
-                        TokenKind::Bool(b) => Literal::Bool(b),
-                        TokenKind::Integer(i) => Literal::Integer(i),
-                        TokenKind::String(s) => Literal::String(s),
-                        TokenKind::Float(f) => Literal::Float(f),
-
-                        _ => return Err(ParserError::new()
-                            .message(format!("unexpected token: `{:?}`", res.kind()))
-                            .span(res.span())
-                            .build())
-                    };
-
-                    Ok((next_input, lit, res.span()))
-                }
-                None => Err(ParserError::new()
-                    .message("unexpected eof".to_string())
-                    .span(input.last_span())
-                    .build())
-            }
-        })
-}
-
-pub fn parse_literal_integer<'a>() -> BoxedParser<'a, usize> {
-    BoxedParser::new(
-        move |input: TokenStream<'a>| {
-            match input.next() {
-                Some((res, next_input)) => match res.kind() {
-                    TokenKind::Integer(i) => {
-                        Ok((next_input, i, res.span()))
+pub fn parse_identifier<'a>() -> impl Parser<'a, Identifier> {
+    move |input: TokenStream<'a>| {
+        match input.next() {
+            Some((res, next_input)) => {
+                match res.kind() {
+                    TokenKind::Identifier(ident) => {
+                        Ok((next_input, Identifier(ident), res.span()))
                     }
                     _ => Err(ParserError::new()
                         .message(format!("unexpected token: `{:?}`", res.kind()))
                         .span(res.span())
                         .build())
-                },
-                None => Err(ParserError::new()
-                    .message("unexpected eof".to_string())
-                    .span(input.last_span())
-                    .build())
+                }
             }
-        })
+            None => Err(ParserError::new()
+                .message("unexpected eof".to_string())
+                .span(input.last_span())
+                .build())
+        }
+    }
 }
 
-pub fn parse_operator<'a>() -> BoxedParser<'a, BinOperator> {
-    use ast::BinOperator;
-    BoxedParser::new(
-        move |input: TokenStream<'a>| {
-            match input.next() {
-                Some((res, next_input)) => {
-                    let op = match res.kind() {
-                        TokenKind::Plus => BinOperator::Plus,
-                        TokenKind::Minus => BinOperator::Minus,
-                        TokenKind::Multiply => BinOperator::Multiply,
-                        TokenKind::Divide => BinOperator::Divide,
-                        TokenKind::Exp => BinOperator::Exp,
-                        TokenKind::And => BinOperator::And,
-                        TokenKind::Or => BinOperator::Or,
-                        TokenKind::EqualsEquals => BinOperator::EqualsEquals,
-                        TokenKind::NotEquals => BinOperator::NotEquals,
-                        TokenKind::Less => BinOperator::Less,
-                        TokenKind::LessEquals => BinOperator::LessEquals,
-                        TokenKind::Greater => BinOperator::Greater,
-                        TokenKind::GreaterEquals => BinOperator::GreaterEquals,
-                        TokenKind::Colon => BinOperator::AppendSet,
-                        _ => return Err(ParserError::new()
-                            .message(format!("unexpected token: `{:?}`", res.kind()))
-                            .span(res.span())
-                            .build())
-                    };
+pub fn parse_literal<'a>() -> impl Parser<'a, Literal> {
+    move |input: TokenStream<'a>| {
+        match input.next() {
+            Some((res, next_input)) => {
+                let lit = match res.kind() {
+                    TokenKind::Bool(b) => Literal::Bool(b),
+                    TokenKind::Integer(i) => Literal::Integer(i),
+                    TokenKind::String(s) => Literal::String(s),
+                    TokenKind::Float(f) => Literal::Float(f),
 
-                    Ok((next_input, op, res.span()))
-                }
-                None => Err(ParserError::new()
-                    .message("unexpected eof".to_string())
-                    .span(input.last_span())
-                    .build())
+                    _ => return Err(ParserError::new()
+                        .message(format!("unexpected token: `{:?}`", res.kind()))
+                        .span(res.span())
+                        .build())
+                };
+
+                Ok((next_input, lit, res.span()))
             }
-        })
+            None => Err(ParserError::new()
+                .message("unexpected eof".to_string())
+                .span(input.last_span())
+                .build())
+        }
+    }
+}
+
+pub fn parse_literal_integer<'a>() -> impl Parser<'a, usize> {
+    move |input: TokenStream<'a>| {
+        match input.next() {
+            Some((res, next_input)) => match res.kind() {
+                TokenKind::Integer(i) => {
+                    Ok((next_input, i, res.span()))
+                }
+                _ => Err(ParserError::new()
+                    .message(format!("unexpected token: `{:?}`", res.kind()))
+                    .span(res.span())
+                    .build())
+            },
+            None => Err(ParserError::new()
+                .message("unexpected eof".to_string())
+                .span(input.last_span())
+                .build())
+        }
+    }
+}
+
+pub fn parse_operator<'a>() -> impl Parser<'a, BinOperator> {
+    move |input: TokenStream<'a>| {
+        match input.next() {
+            Some((res, next_input)) => {
+                let op = match res.kind() {
+                    TokenKind::Plus => BinOperator::Plus,
+                    TokenKind::Minus => BinOperator::Minus,
+                    TokenKind::Multiply => BinOperator::Multiply,
+                    TokenKind::Divide => BinOperator::Divide,
+                    TokenKind::Exp => BinOperator::Exp,
+                    TokenKind::And => BinOperator::And,
+                    TokenKind::Or => BinOperator::Or,
+                    TokenKind::EqualsEquals => BinOperator::EqualsEquals,
+                    TokenKind::NotEquals => BinOperator::NotEquals,
+                    TokenKind::Less => BinOperator::Less,
+                    TokenKind::LessEquals => BinOperator::LessEquals,
+                    TokenKind::Greater => BinOperator::Greater,
+                    TokenKind::GreaterEquals => BinOperator::GreaterEquals,
+                    TokenKind::Colon => BinOperator::AppendSet,
+                    _ => return Err(ParserError::new()
+                        .message(format!("unexpected token: `{:?}`", res.kind()))
+                        .span(res.span())
+                        .build())
+                };
+
+                Ok((next_input, op, res.span()))
+            }
+            None => Err(ParserError::new()
+                .message("unexpected eof".to_string())
+                .span(input.last_span())
+                .build())
+        }
+    }
 }
