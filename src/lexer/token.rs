@@ -1,20 +1,25 @@
 use std::fmt::Display;
-use crate::err::Span;
+use std::ops::Range;
+use miette::SourceSpan;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Token(pub TokenKind, pub Span);
+pub struct Token(pub TokenKind, pub Range<usize>);
 
 impl Token {
     pub fn new(kind: TokenKind, start: usize, length: usize) -> Token {
-        Self(kind, Span(start, length))
+        Self(kind, start..(start + length))
     }
 
     pub fn kind(&self) -> TokenKind {
         self.0.clone()
     }
 
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> Range<usize> {
         self.1.clone()
+    }
+
+    pub fn into_inner(self) -> (TokenKind, Range<usize>) {
+        (self.0, self.1)
     }
 }
 

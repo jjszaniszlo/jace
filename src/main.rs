@@ -11,6 +11,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use clap::Parser;
+use miette::Report;
 use cli::Cli;
 use cli::Command;
 use jace_file::JaceFile;
@@ -25,13 +26,14 @@ fn main() {
     //    Command::Build { path } => println!("Building: {path:?}"),
     //}
 
-
-
     let jcf = JaceFile::new("test.jc",
                             r#"
-        def main :: ()
-            a := 2 + 2
-            b := 5 * 5"#);
+                                def sum :: a, a => a
+                                    x, y => x + y
+
+                                def main :: ()
+                                    a := a + b
+                            "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
     let toks: Vec<Token> = lexer
@@ -40,11 +42,9 @@ fn main() {
 
     println!("{toks:?}");
 
-    match parser::parse(&toks) {
-        Ok((r, t, _)) => println!("{t:#?}"),
-        Err(e) =>
-            println!("{:?}", e.with_source_code(jcf.contents())),
-        _ => {},
+    match parser::parse(&toks, jcf) {
+        Ok(m) => println!("{m:#?}"),
+        Err(e) => println!("{e:?}"),
     }
 }
 
