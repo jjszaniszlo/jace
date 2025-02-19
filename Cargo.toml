@@ -1,10 +1,14 @@
+cargo-features = ["edition2024"]
+
 [package]
 name = "jace"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+authors = ["John Szaniszlo <Johnszaniszlo@gmail.com>"]
 
-[dependencies]
-thiserror = "2"
-mlua = { version = "0.10", features = ["lua54", "vendored"] }
-clap = { version = "4.5.28", features = ["derive"] }
-miette = { version = "7.5.0", features = ["fancy"] }
+[workspace]
+members = [
+  "combinator",
+  "jace",
+]
+resolver = "2"
