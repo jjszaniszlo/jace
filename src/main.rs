@@ -3,7 +3,6 @@ mod err;
 mod jace_file;
 mod lexer;
 mod parser;
-
 mod typecheck;
 mod codegen;
 
@@ -11,14 +10,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use clap::Parser;
 use miette::Report;
-use cli::Cli;
-use cli::Command;
 use jace_file::JaceFile;
-use crate::codegen::codegen;
 use crate::lexer::prelude::*;
-use crate::parser::prelude::*;
 
 fn main() {
     //let args = Cli::parse();
