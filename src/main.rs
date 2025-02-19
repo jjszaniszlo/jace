@@ -12,6 +12,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use clap::Parser;
+use miette::Report;
 use cli::Cli;
 use cli::Command;
 use jace_file::JaceFile;
@@ -27,8 +28,6 @@ fn main() {
     //    Command::Build { path } => println!("Building: {path:?}"),
     //}
 
-
-
     let jcf = JaceFile::new("test.jc",
                             r#"
         def main :: ()
@@ -41,11 +40,12 @@ fn main() {
 
     println!("{toks:?}");
 
-    match parser::parse(&toks) {
-        Ok((r, t, _)) => println!("{}", codegen(t)),
-        Err(e) =>
-            println!("{:?}", e.with_source_code(jcf.contents())),
-        _ => {},
+    match parser::parse(&toks, jcf) {
+        Ok(m) => println!("{m:#?}"),
+        Err(e) => {
+            let err = Report::from(e);
+            println!("{err:?}");
+        },
     }
 }
 
