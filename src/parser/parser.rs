@@ -8,7 +8,7 @@ use crate::{lexer::token::TokenKind, parser::{ast, error::*}};
 pub type Output<'a, Out> = miette::Result<(TokenStream<'a>, Out, Range<usize>), ErrorType>;
 
 pub trait Parser<'a, Out> {
-    fn parse(&self, input: TokenStream<'a>) -> Result<Out, ParserError> {
+    fn parse(&mut self, input: TokenStream<'a>) -> Result<Out, ParserError> {
         match self.parse_next(input) {
             Ok((_, out, _)) => Ok(out),
             Err(e) => match e {
@@ -22,7 +22,7 @@ pub trait Parser<'a, Out> {
         }
     }
 
-    fn parse_next(&self, input: TokenStream<'a>) -> Output<'a, Out>;
+    fn parse_next(&mut self, input: TokenStream<'a>) -> Output<'a, Out>;
 
     fn map<Func, NewOut>(self, map_fn: Func) -> BoxedParser<'a, NewOut>
     where
@@ -37,9 +37,9 @@ pub trait Parser<'a, Out> {
 
 impl<'a, F, Out> Parser<'a, Out> for F
 where
-    F: Fn(TokenStream<'a>) -> Output<'a, Out>,
+    F: FnMut(TokenStream<'a>) -> Output<'a, Out>,
 {
-    fn parse_next(&self, input: TokenStream<'a>) -> Output<'a, Out> {
+    fn parse_next(&mut self, input: TokenStream<'a>) -> Output<'a, Out> {
         self(input)
     }
 }
@@ -60,7 +60,7 @@ impl<'a, Out> BoxedParser<'a, Out> {
 }
 
 impl<'a, Out> Parser<'a, Out> for BoxedParser<'a, Out> {
-    fn parse_next(&self, input: TokenStream<'a>) -> Output<'a, Out> {
+    fn parse_next(&mut self, input: TokenStream<'a>) -> Output<'a, Out> {
         self.parser.parse_next(input)
     }
 }

@@ -1,13 +1,13 @@
 use std::fmt::Debug;
 use std::ops::Range;
-use miette::SourceSpan;
-use crate::err::CombineSourceSpan;
-use crate::parser::ast::AstSpan;
 use super::{error::*, Parser};
 use crate::parser::BoxedParser;
+use crate::parser::Output;
 use crate::parser::tokenstream::TokenStream;
+use crate::Token;
+use crate::TokenKind;
 
-pub fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
+pub fn pair<'a, P1, P2, R1, R2>(mut p1: P1, mut p2: P2) -> impl Parser<'a, (R1, R2)>
 where
     P1: Parser<'a, R1>,
     P2: Parser<'a, R2>,
@@ -27,12 +27,12 @@ where
     }
 }
 
-pub fn or_n<'a, Out>(parsers: Vec<BoxedParser<'a, Out>>) -> impl Parser<'a, Out>
+pub fn or_n<'a, Out, P: Parser<'a, Out>>(mut parsers: Vec<P>) -> impl Parser<'a, Out>
 where
     Out: 'a,
 {
     move |input: TokenStream<'a>| {
-        for p in &parsers {
+        for p in &mut parsers {
             match p.parse_next(input) {
                 Ok((next, o, s)) => {
                     return Ok((next, o, s))
@@ -50,7 +50,7 @@ where
     }
 }
 
-pub fn map<'a, P, F, A, B>(parser: P, map_fn: F) -> impl Parser<'a, B>
+pub fn map<'a, P, F, A, B>(mut parser: P, map_fn: F) -> impl Parser<'a, B>
 where
     P: Parser<'a, A> + 'a,
     F: Fn(A, Range<usize>) -> B + 'a,
@@ -83,7 +83,7 @@ where
 // cuts result in that branch erroring immediately.  
 // This is for when we know in a parser that the input should parse,
 // but there is a user error.
-pub fn or<'a, P1, P2, R>(p1: P1, p2: P2) -> impl Parser<'a, R>
+pub fn or<'a, P1, P2, R>(mut p1: P1, mut p2: P2) -> impl Parser<'a, R>
 where
     P1: Parser<'a, R>,
     P2: Parser<'a, R>,
@@ -101,7 +101,7 @@ where
     }
 }
 
-pub fn zero_or_more<'a, P, A>(p: P) -> BoxedParser<'a, Vec<A>>
+pub fn zero_or_more<'a, P, A>(mut p: P) -> BoxedParser<'a, Vec<A>>
 where
     P: Parser<'a, A> + 'a,
     A: 'a,
@@ -129,7 +129,7 @@ where
     })
 }
 
-pub fn one_or_more<'a, P, A>(p: P) -> BoxedParser<'a, Vec<A>>
+pub fn one_or_more<'a, P, A>(mut p: P) -> BoxedParser<'a, Vec<A>>
 where
     P: Parser<'a, A> + 'a,
     A: 'a,
@@ -168,7 +168,7 @@ where
     })
 }
 
-pub fn zero_or_one<'a, P, A>(p: P) -> BoxedParser<'a, Option<A>>
+pub fn zero_or_one<'a, P, A>(mut p: P) -> BoxedParser<'a, Option<A>>
 where
     P: Parser<'a, A> + 'a,
     A: 'a,
@@ -211,7 +211,7 @@ where
         parser_end)
 }
 
-pub fn not<'a, P, Out>(p: P) -> impl Parser<'a, ()>
+pub fn not<'a, P, Out>(mut p: P) -> impl Parser<'a, ()>
 where
     P: Parser<'a, Out> + 'a,
     Out: Debug + 'a,
@@ -231,7 +231,7 @@ where
 }
 
 // transforms recoverable errors into unrecoverable errors.
-pub fn cut<'a, P, A>(p: P) -> impl Parser<'a, A>
+pub fn cut<'a, P, A>(mut p: P) -> impl Parser<'a, A>
 where
     P: Parser<'a, A> + 'a,
     A: 'a
@@ -242,5 +242,30 @@ where
             Err(ErrorType::Recoverable(err)) => Err(ErrorType::Unrecoverable(err)),
             Err(e) => Err(e),
         }
+    }
+}
+
+pub trait Choice<'a, Out> {
+    fn choice(&mut self, input: TokenStream<'a>) -> Output<'a, Out>;
+}
+
+pub fn choice<'a, C: Choice<'a, O>, O>(mut choice: C) -> impl Parser<'a, O> {
+    move |i: TokenStream<'a>| choice.choice(i)
+}
+
+// (parse_expr(), parse_expr2()).choice(input)
+impl<'a, O, P: Parser<'a, O>> Choice<'a, O> for (P, P) {
+    fn choice(&mut self, input: TokenStream<'a>) -> Output<'a, O> {
+        match self.0.parse_next(input) {
+            ok @ Ok(_) => ok,
+            Err(_) => self.1.parse_next(input),
+        }
+    }
+}
+
+// vec![parse_expr(), parse_expr2(), parse_expr3()].choice(input)
+impl<'a, O, P: Parser<'a, O>> Choice<'a, O> for Vec<P> {
+    fn choice(&mut self, input: TokenStream<'a>) -> Output<'a, O> {
+        todo!()
     }
 }
