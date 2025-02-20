@@ -83,7 +83,7 @@ pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
         };
 
         match result {
-            ok @ Ok(_) => ok,
+            Ok(ok) => Ok(ok),
             Err(e) => {
                 input.restore_checkpoint(start);
                 Err(e)
@@ -114,7 +114,7 @@ pub fn parse_identifier<'a>() -> impl Parser<'a, Identifier> {
         };
 
         match result {
-            ok @ Ok(_) => ok,
+            Ok(ok) => Ok(ok),
             Err(e) => {
                 input.restore_checkpoint(start);
                 Err(e)
@@ -149,7 +149,7 @@ pub fn parse_literal<'a>() -> impl Parser<'a, Literal> {
         };
 
         match result {
-            ok @ Ok(_) => ok,
+            Ok(ok) => Ok(ok),
             Err(e) => {
                 input.restore_checkpoint(start);
                 Err(e)
@@ -178,7 +178,7 @@ pub fn parse_literal_integer<'a>() -> impl Parser<'a, usize> {
         };
 
         match result {
-            ok @ Ok(_) => ok,
+            Ok(ok) => Ok(ok),
             Err(e) => {
                 input.restore_checkpoint(start);
                 Err(e)
@@ -187,49 +187,47 @@ pub fn parse_literal_integer<'a>() -> impl Parser<'a, usize> {
     }
 }
 
-pub fn parse_operator<'a>() -> impl Parser<'a, BinOperator> {
-    move |input: &mut TokenStream<'a>| {
-        let start = input.checkpoint();
+pub fn parse_operator<'a>(input: &mut TokenStream<'a>) -> Output<'a, BinOperator> {
+    let start = input.checkpoint();
 
-        let result = match input.next() {
-            Some(res) => {
-                let op = match res.kind() {
-                    TokenKind::Plus => Ok(BinOperator::Plus),
-                    TokenKind::Minus => Ok(BinOperator::Minus),
-                    TokenKind::Multiply => Ok(BinOperator::Multiply),
-                    TokenKind::Divide => Ok(BinOperator::Divide),
-                    TokenKind::Exp => Ok(BinOperator::Exp),
-                    TokenKind::And => Ok(BinOperator::And),
-                    TokenKind::Or => Ok(BinOperator::Or),
-                    TokenKind::EqualsEquals => Ok(BinOperator::EqualsEquals),
-                    TokenKind::NotEquals => Ok(BinOperator::NotEquals),
-                    TokenKind::Less => Ok(BinOperator::Less),
-                    TokenKind::LessEquals => Ok(BinOperator::LessEquals),
-                    TokenKind::Greater => Ok(BinOperator::Greater),
-                    TokenKind::GreaterEquals => Ok(BinOperator::GreaterEquals),
-                    TokenKind::Colon => Ok(BinOperator::AppendSet),
-                    _ => Err(
-                        ErrorType::Recoverable(
-                            ParserError::new()
-                            .message(format!("unexpected token: `{:?}`", res.kind()))
-                            .span(res.span())
-                            .build()))
-                };
+    let result = match input.next() {
+        Some(res) => {
+            let op = match res.kind() {
+                TokenKind::Plus => Ok(BinOperator::Plus),
+                TokenKind::Minus => Ok(BinOperator::Minus),
+                TokenKind::Multiply => Ok(BinOperator::Multiply),
+                TokenKind::Divide => Ok(BinOperator::Divide),
+                TokenKind::Exp => Ok(BinOperator::Exp),
+                TokenKind::And => Ok(BinOperator::And),
+                TokenKind::Or => Ok(BinOperator::Or),
+                TokenKind::EqualsEquals => Ok(BinOperator::EqualsEquals),
+                TokenKind::NotEquals => Ok(BinOperator::NotEquals),
+                TokenKind::Less => Ok(BinOperator::Less),
+                TokenKind::LessEquals => Ok(BinOperator::LessEquals),
+                TokenKind::Greater => Ok(BinOperator::Greater),
+                TokenKind::GreaterEquals => Ok(BinOperator::GreaterEquals),
+                TokenKind::Colon => Ok(BinOperator::AppendSet),
+                _ => Err(
+                    ErrorType::Recoverable(
+                        ParserError::new()
+                        .message(format!("unexpected token: `{:?}`", res.kind()))
+                        .span(res.span())
+                        .build()))
+            };
 
-                match op {
-                    Ok(op) => Ok((op, res.span())),
-                    Err(e) => Err(e),
-                }
+            match op {
+                Ok(op) => Ok((op, res.span())),
+                Err(e) => Err(e),
             }
-            None => Err(ErrorType::Incomplete)
-        };
+        }
+        None => Err(ErrorType::Incomplete)
+    };
 
-        match result {
-            ok @ Ok(_) => ok,
-            Err(e) => {
-                input.restore_checkpoint(start);
-                Err(e)
-            }
+    match result {
+        Ok(ok) => Ok(ok),
+        Err(e) => {
+            input.restore_checkpoint(start);
+            Err(e)
         }
     }
 }

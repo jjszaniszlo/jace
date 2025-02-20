@@ -2,7 +2,7 @@ use std::ops::Range;
 use std::sync::Arc;
 use miette::{Diagnostic, Severity, SourceSpan};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ErrorType {
     // incomplete means that the parser needs additional information
     // to complete error.
@@ -40,7 +40,7 @@ impl ErrorType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ParserError {
     pub message: Option<String>,
     pub label: Option<String>,

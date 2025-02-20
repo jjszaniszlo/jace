@@ -10,7 +10,7 @@ mod stmt;
 mod tokenstream;
 
 pub mod prelude {
-    pub use crate::{parser::ast::*, parser::parser::*};
+    pub use crate::{parser::ast::*, parser::parser::*, parser::expr::*, parser::def::*, parser::stmt::*, parser::tokenstream::*};
 }
 
 use std::sync::Arc;

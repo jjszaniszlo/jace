@@ -57,6 +57,7 @@ impl<'a> TokenStream<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Checkpoint<'a> {
     input: &'a [Token],
 }

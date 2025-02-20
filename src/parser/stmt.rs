@@ -20,7 +20,9 @@ pub fn parse_statement<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt> {
 }
 
 pub fn parse_fn_call_stmt<'a>() -> BoxedParser<'a, Stmt> {
-    parse_fn_call_expr
+    left(
+        parse_fn_call_expr,
+        match_token(TokenKind::Bang))
         .map(|expr, _| match expr {
             Expr::FnCallExpr(ident, args, span) => Stmt::FnCallStmt(ident, args, span),
             _ => unreachable!(),

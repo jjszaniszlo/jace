@@ -170,7 +170,7 @@ pub fn parse_proc_def<'a>(input: &mut TokenStream) -> Output<'a, Def> {
             pair(
                 match_token(TokenKind::LeftParen),
                 match_token(TokenKind::RightParen))),
-        zero_or_more(parse_statement()))
+        zero_or_more(parse_statement))
         .map(|(ident, stmts), span| Def::ProcDef(ident, stmts, span))
         .parse_next(input)
 }

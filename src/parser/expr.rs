@@ -131,21 +131,22 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, Expr> {
         let (mut lhs, mut span) = parse_primary.parse_next(input)?;
 
         loop {
-            let (op, op_span) = match parse_operator().parse_next(input) {
+            let (op, op_span) = match parse_operator(input) {
                 Ok((o, sp)) => (o, sp),
                 Err(_) => break,
             };
             span = span.start..op_span.end;
 
             let (_, r_bp) = match get_infix_binding_power(op.clone()) {
-                bp if bp.0 >= min_bp => bp,
-                _ => break,
+                bp if bp.0 < min_bp => break,
+                bp => bp,
             };
 
             let (rhs, sp2) = parse_bin_op(r_bp).parse_next(input)?;
             span = span.start..sp2.end;
 
-            lhs = Expr::BinOpExpr(op, P(lhs), P(rhs), span.clone())
+            let new_lhs = Expr::BinOpExpr(op, P(lhs), P(rhs), span.clone());
+            lhs = new_lhs;
         }
 
         Ok((lhs, span))
@@ -339,7 +340,7 @@ pub fn parse_let_in_expr<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
     pair(
         surrounded(
             match_token(TokenKind::LetKeyword),
-            zero_or_more(parse_statement()),
+            zero_or_more(parse_statement),
             match_token(TokenKind::InKeyword)),
         parse_expression)
         .map(|(v, e), span| Expr::LetInExpr(v, P(e), span))

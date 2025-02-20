@@ -49,14 +49,14 @@ where
                     return Ok((out, span))
                 },
                 Err(ErrorType::Unrecoverable(err)) => {
-                    input.restore_checkpoint(start);
+                    input.restore_checkpoint(start.clone());
                     return Err(ErrorType::Unrecoverable(err));
                 }
-                Err(_) => {}
+                Err(_) => {
+                    input.restore_checkpoint(start.clone());
+                }
             }
         }
-
-        input.restore_checkpoint(start);
         Err(
             ErrorType::Recoverable(
                 ParserError::new()
@@ -109,10 +109,13 @@ where
         let result = match p1.parse_next(input) {
             Ok(result) => Ok(result),
             Err(ErrorType::Unrecoverable(err)) => Err(ErrorType::Unrecoverable(err)),
-            Err(_) => match p2.parse_next(input) {
-                Ok(result) => Ok(result),
-                Err(ErrorType::Unrecoverable(err)) => Err(ErrorType::Unrecoverable(err)),
-                Err(err2) => Err(err2),
+            Err(_) =>  {
+                input.restore_checkpoint(start.clone());
+                match p2.parse_next(input) {
+                    Ok(result) => Ok(result),
+                    Err(ErrorType::Unrecoverable(err)) => Err(ErrorType::Unrecoverable(err)),
+                    Err(err2) => Err(err2),
+                }
             }
         };
 
@@ -134,6 +137,7 @@ where
     move |input: &mut TokenStream<'a>| {
         let mut results = vec![];
         let mut spans = vec![];
+        let mut start = input.checkpoint();
 
         loop {
             let parse_result = p.parse_next(input);
@@ -141,11 +145,13 @@ where
                 Ok((result, s)) => {
                     spans.push(s);
                     results.push(result);
+                    start = input.checkpoint();
                 }
                 Err(ErrorType::Unrecoverable(err)) => {
                     return Err(ErrorType::Unrecoverable(err));
                 }
                 Err(_) => {
+                    input.restore_checkpoint(start);
                     break;
                 }
             }
@@ -165,12 +171,13 @@ where
     move |input: &mut TokenStream<'a>| {
         let mut results = vec![];
         let mut spans = vec![];
-        let start = input.checkpoint();
+        let mut start = input.checkpoint();
 
         match p.parse_next(input) {
             Ok((first, s)) => {
                 spans.push(s);
                 results.push(first);
+                start = input.checkpoint();
             }
             Err(ErrorType::Unrecoverable(err)) => {
                 return Err(ErrorType::Unrecoverable(err))
@@ -187,9 +194,13 @@ where
                 Ok((result, s)) => {
                     spans.push(s);
                     results.push(result);
+                    start = input.checkpoint();
                 }
                 Err(ErrorType::Unrecoverable(err)) => return Err(ErrorType::Unrecoverable(err)),
-                Err(_) => break,
+                Err(_) => {
+                    input.restore_checkpoint(start);
+                    break
+                },
             }
         }
 
