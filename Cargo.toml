@@ -1,14 +1,11 @@
-cargo-features = ["edition2024"]
-
-[package]
-name = "jace"
-version = "0.1.0"
-edition = "2024"
-authors = ["John Szaniszlo <Johnszaniszlo@gmail.com>"]
-
 [workspace]
 members = [
-  "combinator",
   "jace",
+  "combinator"
 ]
 resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["John Szaniszlo <Johnszaniszlo@gmail.com>"]
+description = "The compiler for the jace programming language."
