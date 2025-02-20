@@ -16,7 +16,6 @@ use cli::Cli;
 use cli::Command;
 use jace_file::JaceFile;
 use crate::lexer::prelude::*;
-use crate::parser::prelude::*;
 
 fn main() {
     //let args = Cli::parse();
@@ -38,14 +37,6 @@ fn main() {
         .collect();
 
     println!("{toks:?}");
-
-    match parser::parse(&toks, jcf) {
-        Ok(m) => println!("{m:#?}"),
-        Err(e) => {
-            let err = Report::from(e);
-            println!("{err:?}");
-        },
-    }
 }
 
 fn compiler_pipeline(path: PathBuf) {
