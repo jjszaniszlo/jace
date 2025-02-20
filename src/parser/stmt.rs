@@ -5,17 +5,18 @@ use crate::parser::expr::{parse_comma_seperated_expressions, parse_expression, p
 use crate::parser::parser::{match_token, parse_identifier, BoxedParser, Output, Parser};
 use crate::parser::tokenstream::TokenStream;
 
-pub fn parse_statement<'a>() -> impl Parser<'a, Stmt> {
+pub fn parse_statement<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt> {
     or_n(vec![
         BoxedParser::new(parse_inferred_assignment),
         BoxedParser::new(parse_type_assignment),
-        BoxedParser::new(parse_inferred_multi_assign_statement()),
-        BoxedParser::new(parse_typed_multi_assign_statement()),
+        BoxedParser::new(parse_inferred_multi_assign_statement),
+        BoxedParser::new(parse_typed_multi_assign_statement),
         BoxedParser::new(parse_set_deconstruct_assignment),
         BoxedParser::new(parse_proc_call),
         BoxedParser::new(parse_case_statement),
         parse_fn_call_stmt(),
     ])
+        .parse_next(input)
 }
 
 pub fn parse_fn_call_stmt<'a>() -> BoxedParser<'a, Stmt> {
@@ -59,7 +60,7 @@ pub fn parse_inferred_assignment<'a>(input: &mut TokenStream<'a>) -> Output<'a, 
         .parse_next(input)
 }
 
-pub fn parse_inferred_multi_assign_statement<'a>() -> impl Parser<'a, Stmt> {
+pub fn parse_inferred_multi_assign_statement<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt> {
     pair(
         left(
             surrounded(
@@ -72,9 +73,10 @@ pub fn parse_inferred_multi_assign_statement<'a>() -> impl Parser<'a, Stmt> {
             parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
             match_token(TokenKind::RightParen)))
         .map(|(idents, exprs), span| Stmt::MultiAssignStmt(idents, None, exprs, span))
+        .parse_next(input)
 }
 
-pub fn parse_typed_multi_assign_statement<'a>() -> impl Parser<'a, Stmt> {
+pub fn parse_typed_multi_assign_statement<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt> {
     pair(
         pair(
             surrounded(
@@ -94,6 +96,7 @@ pub fn parse_typed_multi_assign_statement<'a>() -> impl Parser<'a, Stmt> {
                 parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
                 match_token(TokenKind::RightParen))))
         .map(|((idents, types), exprs), span| Stmt::MultiAssignStmt(idents, Some(types), exprs, span))
+        .parse_next(input)
 }
 pub fn parse_comma_seperated_identifiers<'a>(input: &mut TokenStream<'a>) -> Output<'a, Vec<Identifier>> {
     pair(
@@ -135,7 +138,7 @@ pub fn parse_case_statement<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt>
 pub fn parse_case_stmt_branch<'a>(input: &mut TokenStream<'a>) -> Output<'a, (Vec<FnParam>, Stmt)> {
     pair(
         left(
-            parse_fn_expr_case_params(),
+            parse_fn_expr_case_params,
             match_token(TokenKind::FatArrow)),
         left(
             or_n(vec![

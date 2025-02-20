@@ -25,7 +25,7 @@ use crate::parser::tokenstream::TokenStream;
 // Parser entry point.
 pub fn parse(input: &[Token], src: JaceFile) -> Result<ast::Module, JaceError> {
     let binding = TokenStream::new(input);
-    let x = match parse_module().parse(binding) {
+    let x = match parse_module.parse(binding) {
         Ok(res) => Ok(res),
         Err(_) => Err(JaceError {
             src: Arc::new(src.contents().to_string()),
