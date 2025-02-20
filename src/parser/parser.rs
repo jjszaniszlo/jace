@@ -1,5 +1,4 @@
 use std::ops::Range;
-use miette::SourceSpan;
 use super::combinator::*;
 use crate::parser::ast::*;
 use crate::parser::tokenstream::{TokenResult, TokenStream};

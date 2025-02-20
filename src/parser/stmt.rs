@@ -54,7 +54,7 @@ pub fn parse_inferred_assignment<'a>(input: &mut TokenStream<'a>) -> Output<'a, 
         parse_identifier(),
         right(
             match_token(TokenKind::InferredEquals),
-            cut(parse_expression)))
+            parse_expression))
         .map(|(id, e), span| Stmt::AssignStmt(id, None, e, span))
         .parse_next(input)
 }

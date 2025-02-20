@@ -138,7 +138,7 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, Expr> {
                 _ => break,
             };
 
-            let (rhs, sp2) = cut(parse_bin_op(r_bp)).parse_next(input)?;
+            let (rhs, sp2) = parse_bin_op(r_bp).parse_next(input)?;
             span = span.start..sp2.end;
 
             lhs = Expr::BinOpExpr(op, P(lhs), P(rhs), span.clone())
@@ -257,7 +257,7 @@ pub fn parse_fn_arg<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
         BoxedParser::new(parse_set_array()),
         BoxedParser::new(parse_literal().map(|l, s| Expr::LitExpr(l, s))),
         BoxedParser::new(parse_member_expr()),
-        BoxedParser::new(parse_fn_arg_identifier())])
+        BoxedParser::new(parse_identifier().map(|(i), span| Expr::IdentExpr(i, span)))])
         .parse_next(input)
 }
 
@@ -447,7 +447,7 @@ pub fn parse_fn_expr_case_deconstruct_union_type<'a>() -> impl Parser<'a, FnPara
         match_token(TokenKind::LeftParen),
         pair(
             parse_identifier(),
-            one_or_more(parse_identifier())),
+            zero_or_more(parse_identifier())),
         match_token(TokenKind::RightParen))
         .map(|(first, rest), s| FnParam::TypeUnionParam(first, rest, s))
 }

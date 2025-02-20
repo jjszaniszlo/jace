@@ -28,8 +28,10 @@ fn main() {
 
     let jcf = JaceFile::new("test.jc",
                             r#"
-                                def main :: ()
-                                    b := a
+                            def default_int :: (Option Integer) => Integer
+                            case
+                                (Some a) => a;
+                                (None)   => 0;
                             "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
