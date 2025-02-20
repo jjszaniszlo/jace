@@ -1,5 +1,4 @@
-use crate::err::CombineSourceSpan;
-use crate::lexer::prelude::{Token, TokenKind};
+use crate::lexer::prelude::TokenKind;
 use crate::parser::ast::*;
 use crate::parser::combinator::*;
 use crate::parser::error::*;
@@ -8,7 +7,7 @@ use crate::parser::ptr::*;
 use crate::parser::stmt::*;
 use crate::parser::tokenstream::{TokenResult, TokenStream};
 
-pub fn parse_expression<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
+pub fn parse_expression<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
     or_n(vec![
         BoxedParser::new(parse_fn_expr_as_expr),
         BoxedParser::new(parse_let_in_expr),
@@ -20,7 +19,7 @@ pub fn parse_expression<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
 }
 
 // ****************** FN EXPR ***************************
-pub fn parse_fn_expr_as_expr<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
+pub fn parse_fn_expr_as_expr<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
     or(
         parse_fn_expr_single,
         parse_fn_expr_case)
@@ -28,14 +27,14 @@ pub fn parse_fn_expr_as_expr<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
         .parse_next(input)
 }
 
-pub fn parse_fn_expr<'a>(input: TokenStream<'a>) -> Output<'a, FnExpr> {
+pub fn parse_fn_expr<'a>(input: &mut TokenStream<'a>) -> Output<'a, FnExpr> {
     or(
         parse_fn_expr_single,
         parse_fn_expr_case)
         .parse_next(input)
 }
 
-pub fn parse_fn_expr_single<'a>(input: TokenStream<'a>) -> Output<'a, FnExpr> {
+pub fn parse_fn_expr_single<'a>(input: &mut TokenStream<'a>) -> Output<'a, FnExpr> {
     pair(
         left(
             parse_fn_expr_params(),
@@ -50,7 +49,7 @@ pub fn parse_fn_expr_single<'a>(input: TokenStream<'a>) -> Output<'a, FnExpr> {
         .parse_next(input)
 }
 
-pub fn parse_fn_expr_case<'a>(input: TokenStream<'a>) -> Output<'a, FnExpr> {
+pub fn parse_fn_expr_case<'a>(input: &mut TokenStream<'a>) -> Output<'a, FnExpr> {
     right(
         match_token(TokenKind::CaseKeyword),
         one_or_more(parse_fn_expr_case_branch))
@@ -58,7 +57,7 @@ pub fn parse_fn_expr_case<'a>(input: TokenStream<'a>) -> Output<'a, FnExpr> {
         .parse_next(input)
 }
 
-pub fn parse_fn_expr_case_branch<'a>(input: TokenStream<'a>) -> Output<'a, FnExpr> {
+pub fn parse_fn_expr_case_branch<'a>(input: &mut TokenStream<'a>) -> Output<'a, FnExpr> {
     pair(
         left(
             parse_fn_expr_case_params(),
@@ -92,7 +91,7 @@ pub fn parse_fn_expr_params<'a>() -> impl Parser<'a, Vec<FnParam>> {
 pub fn parse_fn_expr_param<'a>() -> impl Parser<'a, FnParam> {
     or_n(vec![
         parse_identifier().map(|i, s| FnParam::IdentParam(i, s)),
-        BoxedParser::new(parse_set_deconstruct().map(|idents, s| FnParam::SetDeconstructParam(idents, s))),
+        BoxedParser::new(parse_set_deconstruct.map(|idents, s| FnParam::SetDeconstructParam(idents, s))),
         BoxedParser::new(parse_fn_param_set_selector()),
         BoxedParser::new(parse_empty_set.map(|_, s| FnParam::SetDeconstructParam(vec![], s))),
     ])
@@ -124,12 +123,12 @@ pub fn parse_fn_expr_case_param<'a>() -> impl Parser<'a, FnParam> {
 
 // PRATT parser for binary expressions
 pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, Expr> {
-    move |input: TokenStream<'a>| {
-        let (mut input, mut lhs, mut span) = parse_primary().parse_next(input)?;
+    move |input: &mut TokenStream<'a>| {
+        let (mut lhs, mut span) = parse_primary().parse_next(input)?;
 
         loop {
-            let (mut rest, op, op_span) = match parse_operator().parse_next(input) {
-                Ok((i, o, sp)) => (i, o, sp),
+            let (op, op_span) = match parse_operator().parse_next(input) {
+                Ok((o, sp)) => (o, sp),
                 Err(_) => break,
             };
             span = span.start..op_span.end;
@@ -139,14 +138,13 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, Expr> {
                 _ => break,
             };
 
-            let (rest, rhs, sp2) = parse_bin_op(r_bp).parse_next(rest)?;
-            input = rest;
+            let (rhs, sp2) = cut(parse_bin_op(r_bp)).parse_next(input)?;
             span = span.start..sp2.end;
 
             lhs = Expr::BinOpExpr(op, P(lhs), P(rhs), span.clone())
         }
 
-        Ok((input, lhs, span))
+        Ok((lhs, span))
     }
 }
 
@@ -171,7 +169,7 @@ pub fn parse_parenthesized_expression<'a>() -> impl Parser<'a, Expr> {
             match_token(TokenKind::RightParen)))
 }
 
-pub fn parse_unary_op<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
+pub fn parse_unary_op<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
     pair(
         parse_unary_operator_from_token,
         parse_primary())
@@ -179,9 +177,9 @@ pub fn parse_unary_op<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
         .parse_next(input)
 }
 
-pub fn parse_unary_operator_from_token<'a>(input: TokenStream<'a>) -> Output<'a, UnaryOperator> {
+pub fn parse_unary_operator_from_token<'a>(input: &mut TokenStream<'a>) -> Output<'a, UnaryOperator> {
     match input.next() {
-        Some((res, next_input)) => {
+        Some(res) => {
             let op = match res.kind() {
                 TokenKind::Minus => UnaryOperator::Negative,
                 TokenKind::Bang => UnaryOperator::Not,
@@ -192,7 +190,7 @@ pub fn parse_unary_operator_from_token<'a>(input: TokenStream<'a>) -> Output<'a,
                         .span(res.span())
                         .build()))
             };
-            Ok((next_input, op, res.span()))
+            Ok((op, res.span()))
         },
         None => Err(ErrorType::Incomplete),
     }
@@ -242,7 +240,7 @@ pub fn parse_primary<'a>() -> impl Parser<'a, Expr> {
 
 // **************** FN_CALL ***************************
 
-pub fn parse_fn_call_expr<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
+pub fn parse_fn_call_expr<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
     pair(
         parse_identifier(),
         one_or_more(parse_fn_arg))
@@ -252,7 +250,7 @@ pub fn parse_fn_call_expr<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
         .parse_next(input)
 }
 
-pub fn parse_fn_arg<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
+pub fn parse_fn_arg<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
     or_n(vec![
         BoxedParser::new(parse_parenthesized_expression()),
         BoxedParser::new(parse_set_literal()),
@@ -279,7 +277,7 @@ pub fn parse_fn_arg_identifier<'a>() -> impl Parser<'a, Expr> {
 
 // *********** IF THEN ELSE *******************
 
-pub fn parse_if_then_else<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
+pub fn parse_if_then_else<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
     pair(
         right(
             match_token(TokenKind::IfKeyword),
@@ -302,7 +300,7 @@ pub fn parse_if_then_else<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
         .parse_next(input)
 }
 
-pub fn parse_elseif_p_then_e<'a>(input: TokenStream<'a>) -> Output<'a, (Expr, Expr)> {
+pub fn parse_elseif_p_then_e<'a>(input: &mut TokenStream<'a>) -> Output<'a, (Expr, Expr)> {
     pair(
         right(
             match_token(TokenKind::ElseIfKeyword),
@@ -313,7 +311,7 @@ pub fn parse_elseif_p_then_e<'a>(input: TokenStream<'a>) -> Output<'a, (Expr, Ex
         .parse_next(input)
 }
 
-pub fn parse_comma_seperated_expressions<'a>(input: TokenStream<'a>) -> Output<'a, Vec<Expr>> {
+pub fn parse_comma_seperated_expressions<'a>(input: &mut TokenStream<'a>) -> Output<'a, Vec<Expr>> {
     pair(
         parse_expression,
         zero_or_more(
@@ -329,7 +327,7 @@ pub fn parse_comma_seperated_expressions<'a>(input: TokenStream<'a>) -> Output<'
 }
 
 // **************** LET IN ******************
-pub fn parse_let_in_expr<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
+pub fn parse_let_in_expr<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
     pair(
         surrounded(
             match_token(TokenKind::LetKeyword),
@@ -342,7 +340,7 @@ pub fn parse_let_in_expr<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
 
 // ***************** CASE EXPRESSION *****************
 
-pub fn parse_case_expr<'a>(input: TokenStream<'a>) -> Output<'a, Expr> {
+pub fn parse_case_expr<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
     right(
         match_token(TokenKind::CaseKeyword),
         pair(
@@ -373,7 +371,7 @@ pub fn parse_set_array<'a>() -> impl Parser<'a, Expr> {
             .map(|exprs, s| Expr::ArrayExpr(exprs, s)))
 }
 
-pub fn parse_empty_set<'a>(input: TokenStream<'a>) -> Output<'a, ()> {
+pub fn parse_empty_set<'a>(input: &mut TokenStream<'a>) -> Output<'a, ()> {
     pair(
         match_token(TokenKind::LeftBrace),
         match_token(TokenKind::RightBrace))
@@ -413,7 +411,7 @@ pub fn parse_set_literal_comma_seperated_fields<'a>() -> impl Parser<'a, Vec<(Id
         })
 }
 
-pub fn parse_set_literal_field<'a>(input: TokenStream<'a>) -> Output<'a, (Identifier, Expr)> {
+pub fn parse_set_literal_field<'a>(input: &mut TokenStream<'a>) -> Output<'a, (Identifier, Expr)> {
     pair(
         left(
             parse_identifier(),
@@ -422,12 +420,13 @@ pub fn parse_set_literal_field<'a>(input: TokenStream<'a>) -> Output<'a, (Identi
         .parse_next(input)
 }
 
-pub fn parse_set_deconstruct<'a>() -> impl Parser<'a, Vec<Identifier>> {
+pub fn parse_set_deconstruct<'a>(input: &mut TokenStream<'a>) -> Output<'a, Vec<Identifier>> {
     right(
         match_token(TokenKind::LeftBrace),
         left(
             parse_comma_seperated_identifiers,
             match_token(TokenKind::RightBrace)))
+        .parse_next(input)
 }
 
 pub fn parse_fn_param_set_selector<'a>() -> impl Parser<'a, FnParam> {

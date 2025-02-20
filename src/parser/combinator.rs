@@ -14,15 +14,24 @@ where
     R1: 'a,
     R2: 'a,
 {
-    move |input: TokenStream<'a>| {
-        match p1.parse_next(input) {
-            Ok((next, r1, s1)) => {
-                match p2.parse_next(next) {
-                    Ok((last, r2, s2)) => Ok((last, (r1, r2), s1.start..s2.end)),
+    move |input: &mut TokenStream<'a>| {
+        let start = input.checkpoint();
+        let result = match p1.parse_next(input) {
+            Ok((r1, s1)) => {
+                match p2.parse_next(input) {
+                    Ok((r2, s2)) => Ok(((r1, r2), s1.start..s2.end)),
                     Err(err) => Err(err),
                 }
             }
             Err(err) => Err(err),
+        };
+
+        match result {
+            ok @ Ok(_) => ok,
+            Err(e) => {
+                input.restore_checkpoint(start);
+                Err(e)
+            }
         }
     }
 }
@@ -31,17 +40,23 @@ pub fn or_n<'a, Out, P: Parser<'a, Out>>(mut parsers: Vec<P>) -> impl Parser<'a,
 where
     Out: 'a,
 {
-    move |input: TokenStream<'a>| {
+    move |input: &mut TokenStream<'a>| {
+        let start = input.checkpoint();
+
         for p in &mut parsers {
             match p.parse_next(input) {
-                Ok((next, o, s)) => {
-                    return Ok((next, o, s))
+                Ok((out, span)) => {
+                    return Ok((out, span))
                 },
-                Err(ErrorType::Unrecoverable(err)) => return Err(ErrorType::Unrecoverable(err)),
+                Err(ErrorType::Unrecoverable(err)) => {
+                    input.restore_checkpoint(start);
+                    return Err(ErrorType::Unrecoverable(err));
+                }
                 Err(_) => {}
             }
         }
 
+        input.restore_checkpoint(start);
         Err(
             ErrorType::Recoverable(
                 ParserError::new()
@@ -55,9 +70,9 @@ where
     P: Parser<'a, A> + 'a,
     F: Fn(A, Range<usize>) -> B + 'a,
 {
-    move |input: TokenStream<'a>|
+    move |input: &mut TokenStream<'a>|
         parser.parse_next(input)
-            .map(|(next, result, s)| (next, map_fn(result, s.clone()), s))
+            .map(|(result, s)| (map_fn(result, s.clone()), s))
 }
 
 pub fn left<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, R1>
@@ -88,71 +103,88 @@ where
     P1: Parser<'a, R>,
     P2: Parser<'a, R>,
 {
-    move |input: TokenStream<'a>| {
-        match p1.parse_next(input) {
+    move |input: &mut TokenStream<'a>| {
+        let start = input.checkpoint();
+
+        let result = match p1.parse_next(input) {
             Ok(result) => Ok(result),
             Err(ErrorType::Unrecoverable(err)) => Err(ErrorType::Unrecoverable(err)),
-            Err(err1) => match p2.parse_next(input) {
+            Err(_) => match p2.parse_next(input) {
                 Ok(result) => Ok(result),
                 Err(ErrorType::Unrecoverable(err)) => Err(ErrorType::Unrecoverable(err)),
                 Err(err2) => Err(err2),
             }
+        };
+
+        match result {
+            ok @ Ok(_) => ok,
+            Err(e) => {
+                input.restore_checkpoint(start);
+                Err(e)
+            },
         }
     }
 }
 
-pub fn zero_or_more<'a, P, A>(mut p: P) -> BoxedParser<'a, Vec<A>>
+pub fn zero_or_more<'a, P, A>(mut p: P) -> impl Parser<'a, Vec<A>>
 where
     P: Parser<'a, A> + 'a,
     A: 'a,
 {
-    BoxedParser::new(move |mut input: TokenStream<'a>| {
+    move |input: &mut TokenStream<'a>| {
         let mut results = vec![];
         let mut spans = vec![];
 
         loop {
             let parse_result = p.parse_next(input);
             match parse_result {
-                Ok((next, result, s)) => {
+                Ok((result, s)) => {
                     spans.push(s);
                     results.push(result);
-                    input = next;
                 }
-                Err(ErrorType::Unrecoverable(err)) => return Err(ErrorType::Unrecoverable(err)),
-                Err(_) => break,
+                Err(ErrorType::Unrecoverable(err)) => {
+                    return Err(ErrorType::Unrecoverable(err));
+                }
+                Err(_) => {
+                    break;
+                }
             }
         }
         let first = spans.first().cloned().unwrap_or_else(|| 0..0);
         let span = spans.iter().fold(first, |prev, next| prev.start..next.end);
 
-        Ok((input, results, span))
-    })
+        Ok((results, span))
+    }
 }
 
-pub fn one_or_more<'a, P, A>(mut p: P) -> BoxedParser<'a, Vec<A>>
+pub fn one_or_more<'a, P, A>(mut p: P) -> impl Parser<'a, Vec<A>>
 where
     P: Parser<'a, A> + 'a,
     A: 'a,
 {
-    BoxedParser::new(move |mut input: TokenStream<'a>| {
+    move |input: &mut TokenStream<'a>| {
         let mut results = vec![];
         let mut spans = vec![];
+        let start = input.checkpoint();
 
         match p.parse_next(input) {
-            Ok((next, first, s)) => {
+            Ok((first, s)) => {
                 spans.push(s);
-                input = next;
                 results.push(first);
             }
-            Err(ErrorType::Unrecoverable(err)) => return Err(ErrorType::Unrecoverable(err)),
-            Err(err) => return Err(err)
+            Err(ErrorType::Unrecoverable(err)) => {
+                return Err(ErrorType::Unrecoverable(err))
+            },
+            Err(err) => {
+                input.restore_checkpoint(start);
+                return Err(err)
+            }
         }
 
         loop {
             let parse_result = p.parse_next(input);
             match parse_result {
-                Ok((next, result, s)) => {
-                    input = next;
+                Ok((result, s)) => {
                     spans.push(s);
                     results.push(result);
                 }
@@ -164,22 +196,22 @@ where
         let first = spans.first().cloned().unwrap_or_else(|| 0..0);
         let span = spans.iter().fold(first, |prev, next| prev.start..next.end);
 
-        Ok((input, results, span))
-    })
+        Ok((results, span))
+    }
 }
 
-pub fn zero_or_one<'a, P, A>(mut p: P) -> BoxedParser<'a, Option<A>>
+pub fn zero_or_one<'a, P, A>(mut p: P) -> impl Parser<'a, Option<A>>
 where
     P: Parser<'a, A> + 'a,
     A: 'a,
 {
-    BoxedParser::new(move |input: TokenStream<'a>| {
+    move |input: &mut TokenStream<'a>| {
         match p.parse_next(input) {
-            Ok((next, result, s)) => Ok((next, Some(result), s)),
+            Ok((result, s)) => Ok((Some(result), s)),
             Err(ErrorType::Unrecoverable(err)) => return Err(ErrorType::Unrecoverable(err)),
-            Err(_) => Ok((input.clone(), None, input.last_span())),
+            Err(_) => Ok((None, input.last_span())),
         }
-    })
+    }
 }
 
 pub fn terminated<'a, P, A>(parser_take: P, parser_terminator: P) -> impl Parser<'a, A>
@@ -216,16 +248,16 @@ where
     P: Parser<'a, Out> + 'a,
     Out: Debug + 'a,
 {
-    move |input: TokenStream<'a>| {
+    move |input: &mut TokenStream<'a>| {
         match p.parse_next(input) {
-            Ok((next, a, s)) =>
+            Ok((a, s)) =>
                 Err(
                     ErrorType::Recoverable(
                         ParserError::new()
                         .message(format!("unexpected parser output: `{:?}`", a))
                         .span(s)
                         .build())),
-            Err(_) => Ok((input, (), input.last_span())),
+            Err(_) => Ok(((), input.last_span())),
         }
     }
 }
@@ -236,36 +268,11 @@ where
     P: Parser<'a, A> + 'a,
     A: 'a
 {
-    move |input: TokenStream<'a>| {
+    move |input: &mut TokenStream<'a>| {
         match p.parse_next(input) {
-            Ok((next, a, s)) => Ok((next, a, s)),
+            Ok((a, s)) => Ok((a, s)),
             Err(ErrorType::Recoverable(err)) => Err(ErrorType::Unrecoverable(err)),
             Err(e) => Err(e),
         }
-    }
-}
-
-pub trait Choice<'a, Out> {
-    fn choice(&mut self, input: TokenStream<'a>) -> Output<'a, Out>;
-}
-
-pub fn choice<'a, C: Choice<'a, O>, O>(mut choice: C) -> impl Parser<'a, O> {
-    move |i: TokenStream<'a>| choice.choice(i)
-}
-
-// (parse_expr(), parse_expr2()).choice(input)
-impl<'a, O, P: Parser<'a, O>> Choice<'a, O> for (P, P) {
-    fn choice(&mut self, input: TokenStream<'a>) -> Output<'a, O> {
-        match self.0.parse_next(input) {
-            ok @ Ok(_) => ok,
-            Err(_) => self.1.parse_next(input),
-        }
-    }
-}
-
-// vec![parse_expr(), parse_expr2(), parse_expr3()].choice(input)
-impl<'a, O, P: Parser<'a, O>> Choice<'a, O> for Vec<P> {
-    fn choice(&mut self, input: TokenStream<'a>) -> Output<'a, O> {
-        todo!()
     }
 }

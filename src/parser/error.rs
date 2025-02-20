@@ -1,7 +1,6 @@
 use std::ops::Range;
 use std::sync::Arc;
 use miette::{Diagnostic, Severity, SourceSpan};
-use crate::parser::error::ErrorType::{Recoverable, Unrecoverable};
 
 #[derive(Debug, Clone)]
 pub enum ErrorType {
@@ -22,20 +21,20 @@ impl ErrorType {
     pub fn unrecoverable(self) -> Option<ErrorType> {
         match self {
             ErrorType::Incomplete => None,
-            Unrecoverable(e) | Recoverable(e) => Some(Unrecoverable(e)),
+            ErrorType::Unrecoverable(e) | ErrorType::Recoverable(e) => Some(ErrorType::Unrecoverable(e)),
         }
     }
 
     pub fn recoverable(self) -> Option<ErrorType> {
         match self {
             ErrorType::Incomplete => None,
-            Unrecoverable(e) | Recoverable(e) => Some(Recoverable(e)),
+            ErrorType::Unrecoverable(e) | ErrorType::Recoverable(e) => Some(ErrorType::Recoverable(e)),
         }
     }
 
     pub fn inner(err: ErrorType) -> Option<ParserError> {
         match err {
-            Recoverable(err) | Unrecoverable(err) => Some(err),
+            ErrorType::Recoverable(err) | ErrorType::Unrecoverable(err) => Some(err),
             _ => None,
         }
     }

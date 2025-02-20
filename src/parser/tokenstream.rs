@@ -1,10 +1,10 @@
 use std::ops::Range;
 use crate::lexer::token::{Token, TokenKind};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct TokenStream<'a> {
-    toks: &'a [Token],
-    last_span: (usize, usize),
+    input: &'a [Token],
+    last_span: Range<usize>,
 }
 
 pub trait TokenResult {
@@ -25,25 +25,38 @@ impl TokenResult for (TokenKind, Range<usize>) {
 impl<'a> TokenStream<'a> {
     pub fn new(toks: &'a [Token]) -> TokenStream {
         Self {
-            toks,
-            last_span: (0, 0),
+            input: toks,
+            last_span: 0..0,
         }
     }
 
-    pub fn next(self) -> Option<((TokenKind, Range<usize>), TokenStream<'a>)> {
-        let (tok, rest) = self.toks.split_first()?;
+    pub fn next(&mut self) -> Option<(TokenKind, Range<usize>)> {
+        let (tok, rest) = self.input.split_first()?;
         let (kind, span) = tok.clone().into_inner();
-        Some(((kind, span.clone()), Self {
-            toks: rest,
-            last_span: (span.start, span.end),
-        }))
+        self.input = rest;
+        self.last_span = span.clone();
+        Some((kind, span.clone()))
     }
 
     pub fn peek(&self) -> Option<(TokenKind, Range<usize>)> {
-        Some(self.toks.first().cloned()?.into_inner())
+        Some(self.input.first().cloned()?.into_inner())
     }
 
     pub fn last_span(&self) -> Range<usize> {
-        self.last_span.0..self.last_span.1
+        self.last_span.clone()
     }
+
+    pub fn checkpoint(&self) -> Checkpoint<'a> {
+        Checkpoint {
+            input: self.input,
+        }
+    }
+
+    pub fn restore_checkpoint(&mut self, checkpoint: Checkpoint<'a>) {
+        self.input = checkpoint.input;
+    }
+}
+
+pub struct Checkpoint<'a> {
+    input: &'a [Token],
 }

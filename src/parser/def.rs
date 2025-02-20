@@ -27,7 +27,7 @@ pub fn parse_definition<'a>() -> impl Parser<'a, Def> {
     ])
 }
 
-pub fn parse_fn_def<'a>(input: TokenStream<'a>) -> Output<'a, Def> {
+pub fn parse_fn_def<'a>(input: &mut TokenStream<'a>) -> Output<'a, Def> {
     pair(
         pair(
             parse_fn_def_header,
@@ -40,7 +40,7 @@ pub fn parse_fn_def<'a>(input: TokenStream<'a>) -> Output<'a, Def> {
         .parse_next(input)
 }
 
-pub fn parse_fn_def_header<'a>(input: TokenStream<'a>) -> Output<'a, Identifier> {
+pub fn parse_fn_def_header<'a>(input: &mut TokenStream<'a>) -> Output<'a, Identifier> {
     left(
         right(
             match_token(TokenKind::DefKeyword),
@@ -102,7 +102,7 @@ pub fn parse_array_type_param<'a>() -> impl Parser<'a, TypeParam> {
         .map(|(i, l), span| TypeParam::ArrayType(i, l, span))
 }
 
-pub fn parse_fn_func_type_param<'a>(input: TokenStream<'a>) -> Output<'a, TypeParam> {
+pub fn parse_fn_func_type_param<'a>(input: &mut TokenStream<'a>) -> Output<'a, TypeParam> {
     pair(
         right(
             match_token(TokenKind::LeftParen),
@@ -116,7 +116,7 @@ pub fn parse_fn_func_type_param<'a>(input: TokenStream<'a>) -> Output<'a, TypePa
         .parse_next(input)
 }
 
-pub fn parse_type_union_payload_type<'a>(input: TokenStream<'a>) -> Output<'a, TypeParam> {
+pub fn parse_type_union_payload_type<'a>(input: &mut TokenStream<'a>) -> Output<'a, TypeParam> {
     surrounded(
         match_token(TokenKind::LeftParen),
         pair(
@@ -293,21 +293,22 @@ pub fn parse_class_method_type_params<'a>() -> impl Parser<'a, Vec<Identifier>> 
         })
 }
 
-pub fn parse_method_operator<'a>(input: TokenStream<'a>) -> Output<'a, MethodOperator> {
-    match input.next() {
-        Some((res, next_input)) => {
+pub fn parse_method_operator<'a>(input: &mut TokenStream<'a>) -> Output<'a, MethodOperator> {
+    let start = input.checkpoint();
+    let final_res = match input.next() {
+        Some(res) => {
             let op = match res.kind() {
-                TokenKind::WrappedEqualsEquals => MethodOperator::EqualsEquals,
-                TokenKind::WrappedNotEquals => MethodOperator::NotEquals,
-                TokenKind::WrappedLessEquals => MethodOperator::LessEquals,
-                TokenKind::WrappedGreaterEquals => MethodOperator::GreaterEquals,
-                TokenKind::WrappedGreater => MethodOperator::Greater,
-                TokenKind::WrappedLess => MethodOperator::Less,
-                TokenKind::WrappedPlus => MethodOperator::Plus,
-                TokenKind::WrappedMinus => MethodOperator::Minus,
-                TokenKind::WrappedDivide => MethodOperator::Divide,
-                TokenKind::WrappedMultiply => MethodOperator::Multiply,
-                _ => return Err(
+                TokenKind::WrappedEqualsEquals => Ok(MethodOperator::EqualsEquals),
+                TokenKind::WrappedNotEquals => Ok(MethodOperator::NotEquals),
+                TokenKind::WrappedLessEquals => Ok(MethodOperator::LessEquals),
+                TokenKind::WrappedGreaterEquals => Ok(MethodOperator::GreaterEquals),
+                TokenKind::WrappedGreater => Ok(MethodOperator::Greater),
+                TokenKind::WrappedLess => Ok(MethodOperator::Less),
+                TokenKind::WrappedPlus => Ok(MethodOperator::Plus),
+                TokenKind::WrappedMinus => Ok(MethodOperator::Minus),
+                TokenKind::WrappedDivide => Ok(MethodOperator::Divide),
+                TokenKind::WrappedMultiply => Ok(MethodOperator::Multiply),
+                _ => Err(
                     ErrorType::Recoverable(
                         ParserError::new()
                         .message(format!("expected method operator, got {:?}", res.kind()))
@@ -315,9 +316,20 @@ pub fn parse_method_operator<'a>(input: TokenStream<'a>) -> Output<'a, MethodOpe
                         .build())
                 ),
             };
-            Ok((next_input, op, res.span()))
+            match op {
+                Ok(op) => Ok((op, res.span())),
+                Err(err) => Err(err),
+            }
         },
         None => Err(ErrorType::Incomplete)
+    };
+    
+    match final_res {
+        ok @ Ok(_) => ok,
+        Err(e) => {
+            input.restore_checkpoint(start);
+            Err(e)
+        },
     }
 }
 
@@ -335,7 +347,7 @@ pub fn parse_class_method_def_named<'a>() -> impl Parser<'a, MethodDef> {
             MethodDef::Named(ident, params, ret, span))
 }
 
-pub fn parse_instance_def<'a>(input: TokenStream<'a>) -> Output<'a, Def> {
+pub fn parse_instance_def<'a>(input: &mut TokenStream<'a>) -> Output<'a, Def> {
     pair(
         left(
             parse_instance_header(),

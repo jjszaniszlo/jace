@@ -26,7 +26,7 @@ pub fn parse_fn_call_stmt<'a>() -> BoxedParser<'a, Stmt> {
         })
 }
 
-pub fn parse_proc_call<'a>(input: TokenStream<'a>) -> Output<'a, Stmt> {
+pub fn parse_proc_call<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt> {
     left(
         parse_identifier(),
         match_token(TokenKind::Bang))
@@ -35,7 +35,7 @@ pub fn parse_proc_call<'a>(input: TokenStream<'a>) -> Output<'a, Stmt> {
 }
 
 
-pub fn parse_type_assignment<'a>(input: TokenStream<'a>) -> Output<'a, Stmt> {
+pub fn parse_type_assignment<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt> {
     pair(
         pair(
             parse_identifier(),
@@ -49,7 +49,7 @@ pub fn parse_type_assignment<'a>(input: TokenStream<'a>) -> Output<'a, Stmt> {
         .parse_next(input)
 }
 
-pub fn parse_inferred_assignment<'a>(input: TokenStream<'a>) -> Output<'a, Stmt> {
+pub fn parse_inferred_assignment<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt> {
     pair(
         parse_identifier(),
         right(
@@ -95,7 +95,7 @@ pub fn parse_typed_multi_assign_statement<'a>() -> impl Parser<'a, Stmt> {
                 match_token(TokenKind::RightParen))))
         .map(|((idents, types), exprs), span| Stmt::MultiAssignStmt(idents, Some(types), exprs, span))
 }
-pub fn parse_comma_seperated_identifiers<'a>(input: TokenStream<'a>) -> Output<'a, Vec<Identifier>> {
+pub fn parse_comma_seperated_identifiers<'a>(input: &mut TokenStream<'a>) -> Output<'a, Vec<Identifier>> {
     pair(
         parse_identifier(),
         zero_or_more(
@@ -110,9 +110,9 @@ pub fn parse_comma_seperated_identifiers<'a>(input: TokenStream<'a>) -> Output<'
         .parse_next(input)
 }
 
-pub fn parse_set_deconstruct_assignment<'a>(input: TokenStream<'a>) -> Output<'a, Stmt> {
+pub fn parse_set_deconstruct_assignment<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt> {
     pair(
-        parse_set_deconstruct(),
+        parse_set_deconstruct,
         right(
             or(
                 match_token(TokenKind::InferredEquals),
@@ -122,7 +122,7 @@ pub fn parse_set_deconstruct_assignment<'a>(input: TokenStream<'a>) -> Output<'a
         .parse_next(input)
 }
 
-pub fn parse_case_statement<'a>(input: TokenStream<'a>) -> Output<'a, Stmt> {
+pub fn parse_case_statement<'a>(input: &mut TokenStream<'a>) -> Output<'a, Stmt> {
     right(
         match_token(TokenKind::CaseKeyword),
         pair(
@@ -132,7 +132,7 @@ pub fn parse_case_statement<'a>(input: TokenStream<'a>) -> Output<'a, Stmt> {
         .parse_next(input)
 }
 
-pub fn parse_case_stmt_branch<'a>(input: TokenStream<'a>) -> Output<'a, (Vec<FnParam>, Stmt)> {
+pub fn parse_case_stmt_branch<'a>(input: &mut TokenStream<'a>) -> Output<'a, (Vec<FnParam>, Stmt)> {
     pair(
         left(
             parse_fn_expr_case_params(),
