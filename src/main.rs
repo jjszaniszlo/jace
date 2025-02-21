@@ -16,7 +16,6 @@ use cli::Cli;
 use cli::Command;
 use jace_file::JaceFile;
 use crate::lexer::prelude::*;
-use crate::parser::prelude::*;
 
 fn main() {
     //let args = Cli::parse();
@@ -29,7 +28,7 @@ fn main() {
     let jcf = JaceFile::new("test.jc",
                             r#"
                             def main :: ()
-                                a := 1 * 2 + 3
+                                a := -(-2 + 5) >>=
                             "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
@@ -39,13 +38,13 @@ fn main() {
 
     println!("{toks:?}");
 
-    match parser::parse(&toks, jcf) {
-        Ok(m) => println!("{m:#?}"),
-        Err(e) => {
-            let err = Report::from(e);
-            println!("{err:?}");
-        },
-    }
+    //match parser::parse(&toks, jcf) {
+    //    Ok(m) => println!("{m:#?}"),
+    //    Err(e) => {
+    //        let err = Report::from(e);
+    //        println!("{err:?}");
+    //    },
+    //}
 }
 
 fn compiler_pipeline(path: PathBuf) {

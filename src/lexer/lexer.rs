@@ -215,8 +215,9 @@ impl<'a> LexerIterator<'a> {
 
         while let Some(ch) = self.peek_char() {
             match ch {
-                '=' | '>' | '<' | '!' | '&' | '|' |
-                '+' | '-' | '*' | '/' | '^' | ':' => operator.push(self.eat_char()),
+                '+' | '-' | '*' | '/' | '!' | '@'  |'\\' |
+                '#' | '$' | '%' | '^' | '&' | '='  | ':' |
+                '<' | '>' | '?' | '.' | '`' | '~'  | ','    => operator.push(self.eat_char()),
                 _ => break,
             }
         }
@@ -224,89 +225,27 @@ impl<'a> LexerIterator<'a> {
         let bytes = operator.len();
         
         match operator.as_str() {
-            "==" => Ok(Token::new(TokenKind::EqualsEquals, start_pos, bytes)),
-            "!=" => Ok(Token::new(TokenKind::NotEquals, start_pos, bytes)),
-            "&&" => Ok(Token::new(TokenKind::And, start_pos, bytes)),
-            "||" => Ok(Token::new(TokenKind::Or, start_pos, bytes)),
-            ">=" => Ok(Token::new(TokenKind::GreaterEquals, start_pos, bytes)),
-            "<=" => Ok(Token::new(TokenKind::LessEquals, start_pos, bytes)),
-            ">" => Ok(Token::new(TokenKind::Greater, start_pos, bytes)),
-            "<" => Ok(Token::new(TokenKind::Less, start_pos, bytes)),
-            "+" => Ok(Token::new(TokenKind::Plus, start_pos, bytes)),
-            "-" => Ok(Token::new(TokenKind::Minus, start_pos, bytes)),
-            "/" => Ok(Token::new(TokenKind::Divide, start_pos, bytes)),
-            "*" => Ok(Token::new(TokenKind::Multiply, start_pos, bytes)),
-            "^" => Ok(Token::new(TokenKind::Exp, start_pos, bytes)),
             "=" => Ok(Token::new(TokenKind::Equals, start_pos, bytes)),
-            "|" => Ok(Token::new(TokenKind::Union, start_pos, bytes)),
-            "=>" => Ok(Token::new(TokenKind::FatArrow, start_pos, bytes)),
-            "!" => Ok(Token::new(TokenKind::Bang, start_pos, bytes)),
-            ":" => Ok(Token::new(TokenKind::Colon, start_pos, bytes)),
-            "::" => Ok(Token::new(TokenKind::ColonColon, start_pos, bytes)),
             ":=" => Ok(Token::new(TokenKind::InferredEquals, start_pos, bytes)),
             ";" => Ok(Token::new(TokenKind::SemiColon, start_pos, bytes)),
+            "::" => Ok(Token::new(TokenKind::ColonColon, start_pos, bytes)),
+            "=>" => Ok(Token::new(TokenKind::FatArrow, start_pos, bytes)),
             "," => Ok(Token::new(TokenKind::Comma, start_pos, bytes)),
             "." => Ok(Token::new(TokenKind::Dot, start_pos, bytes)),
-            op => Err(MalformedOperator{
-                src: *self.jace_file,
-                error_span: (start_pos, bytes).into(),
-                op: op.to_string(),
-            }.into())
+            str => Ok(Token::new(TokenKind::Operator(str.to_string()), start_pos, bytes)),
         }
     }
 
     fn eat_brackets(&mut self, first_char: char, start_pos: usize) -> miette::Result<Token> {
         let bytes = first_char.len_utf8();
         match first_char {
+            '(' => Ok(Token::new(TokenKind::LeftParen, start_pos, bytes)),
             ')' => Ok(Token::new(TokenKind::RightParen, start_pos, bytes)),
             '[' => Ok(Token::new(TokenKind::LeftBracket, start_pos, bytes)),
             ']' => Ok(Token::new(TokenKind::RightBracket, start_pos, bytes)),
             '{' => Ok(Token::new(TokenKind::LeftBrace, start_pos, bytes)),
             '}' => Ok(Token::new(TokenKind::RightBrace, start_pos, bytes)),
-            '(' => self.eat_wrapped_operator(first_char, start_pos),
             _ => unreachable!(),
-        }
-    }
-
-    fn eat_wrapped_operator(&mut self, first_char: char, start_pos: usize) -> miette::Result<Token> {
-        let mut operator = String::from(first_char);
-        let bytes = operator.len();
-        match self.peek_char() {
-            Some(c @ ('=' | '!' | '<' | '>' | '+' | '-' | '/' | '*')) => {
-                operator.push(self.eat_char());
-                match self.peek_char() {
-                    Some(')') => operator.push(self.eat_char()),
-                    Some('=') => {
-                        operator.push(self.eat_char());
-                        match self.peek_char() {
-                            Some(')') => operator.push(self.eat_char()),
-                            _ => {},
-                        }
-                    },
-                    _ => {},
-                }
-            },
-            _ => return Ok(Token::new(TokenKind::LeftParen, start_pos, operator.len())),
-        }
-
-        let bytes = operator.len();
-
-        match operator.as_str() {
-            "(==)" => Ok(Token::new(TokenKind::WrappedEqualsEquals, start_pos, bytes)),    // (==)
-            "(!=)" => Ok(Token::new(TokenKind::WrappedNotEquals, start_pos, bytes)),       // (!=)
-            "(<=)" => Ok(Token::new(TokenKind::WrappedLessEquals, start_pos, bytes)),      // (<=)
-            "(>=)" => Ok(Token::new(TokenKind::WrappedGreaterEquals, start_pos, bytes)),   // (>=)
-            "(>)" => Ok(Token::new(TokenKind::WrappedGreater, start_pos, bytes)),         // (>)
-            "(<)" => Ok(Token::new(TokenKind::WrappedLess, start_pos, bytes)),            // (<)
-            "(+)" => Ok(Token::new(TokenKind::WrappedPlus, start_pos, bytes)),            // (+)
-            "(-)" => Ok(Token::new(TokenKind::WrappedMinus, start_pos, bytes)),           // (-)
-            "(/)" => Ok(Token::new(TokenKind::WrappedDivide, start_pos, bytes)),          // (/)
-            "(*)" => Ok(Token::new(TokenKind::WrappedMultiply, start_pos, bytes)),        // (*)
-            op => Err(MalformedOperator{
-                src: *self.jace_file,
-                error_span: (start_pos, bytes).into(),
-                op: op.to_string(),
-            }.into())
         }
     }
 
@@ -359,7 +298,7 @@ impl<'a> LexerIterator<'a> {
                         self.eat_until('\n');
                         None
                     },
-                    _ => Some(Token::new(TokenKind::Minus, st, '-'.len_utf8())),
+                    _ => Some(Token::new(TokenKind::Operator("-".to_string()), st, '-'.len_utf8())),
                 }
             },
             _ => None,

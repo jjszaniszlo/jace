@@ -32,40 +32,15 @@ pub enum TokenKind {
     String(String),
     Identifier(String),
 
-    // binary operators
-    EqualsEquals,       // ==
-    NotEquals,          // !=
-    And,                // &&
-    Or,                 // ||
-    GreaterEquals,      // >=
-    LessEquals,         // <=
-    Greater,            // >
-    Less,               // <
-    Plus,               // +
-    Minus,              // -
-    Divide,             // /
-    Multiply,           // *
-    Exp,                // ^
+    // binary or unary operators.
+    // Their semantics are determined by the pratt parser.
+    Operator(String),
 
-    // wrapped operators.
-    WrappedEqualsEquals,    // (==)
-    WrappedNotEquals,       // (!=)
-    WrappedLessEquals,      // (<=)
-    WrappedGreaterEquals,   // (>=)
-    WrappedGreater,         // (>)
-    WrappedLess,            // (<)
-    WrappedPlus,            // (+)
-    WrappedMinus,           // (-)
-    WrappedDivide,          // (/)
-    WrappedMultiply,        // (*)
-
-    // other operators 
+    // symbols
     Equals,             // =
     InferredEquals,     // :=
     SemiColon,          // ;
-    Colon,              // :
     ColonColon,         // ::
-    Union,              // |
     FatArrow,           // =>
     Comma,              // ,
     Dot,                // .
@@ -75,10 +50,7 @@ pub enum TokenKind {
     RightBrace,         // }
     LeftBracket,        // [
     RightBracket,       // ]
-    
-    // Other
-    Bang,               // !
- 
+     
     // reserved words
     TypeKeyword,    // type
     ClassKeyword,   // class
@@ -93,6 +65,9 @@ pub enum TokenKind {
     DefKeyword,     // def
     ConstKeyword,   // const
     WhereKeyword,   // where
+    NotKeyword,     // not
+    OrKeyword,      // or
+    AndKeyword,     // and
 }
 
 impl TokenKind {

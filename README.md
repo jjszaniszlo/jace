@@ -100,14 +100,28 @@ Float, Integer, Bool, String
 
 -- set or record types are be defined as
 type Person ::
-    name : String
-    age : Int
+    Person
+        name : String
+        age : Integer
     
--- union types may be defined as
+-- tagged union types may be defined as
 type Bool :: True | False
 
--- union types may have polymoprhic parameters
-type Either a b :: (Left a) | (Right b)
+-- tagged union types may have polymoprhic parameters
+type Either a b :: Left a | Right b
+
+type Vector a :: Vector3 a a a | Vector2 a a 
+
+-- records may be a part of the type algebra as well.
+type Mammal ::
+    Dog
+        name : String
+        bark_text : String
+    |
+    Cat
+        name : String
+        meow_text : String 
+        
 
 -- types may be aliased as so
 type Vector3 :: [Float 3]   -- array of 3 floats.
@@ -160,5 +174,42 @@ type Vector :: Vector3 Float Float Float
 -- 1) Type 
 -- 2) Variant Constructor
 -- 3) Value constructor
+
+```
+
+## Operator Overloading and custom operators
+
+```Haskell
+
+class Equal a ::
+    (==) :: a, a => Bool 
+
+type Vector a :: Vector3 a a a | Vector2 a a
+
+instance Equal Vector ::
+    a (==) b :: case
+        (Vector3 x1 y1 z1), (Vector3 x2 y2 z2) => x1==x2 && y1==y2 && z1==z2;
+        (Vector2 x1 y1),    (Vector3 x2 y2)    => x1==x2 && y1==y2;
+
+type Person ::
+    Person
+        name : String
+        age : Integer
+
+instance Equal Person ::
+    (==) :: p1, p2 => p1.name == p2.name && p1.age == p2.age
+
+-- custom operator
+class Monad m ::
+    (>==) :: (m a), (a => (m b)) => (m b)
+    return :: a => (m a)
+
+type Option a :: Some(a) | None
+
+instance Monad Option ::
+    a (>==) b :: case
+        None, _ => None;
+        (Some x), f => f x;
+    return :: a => Some a
 
 ```
