@@ -68,6 +68,10 @@ pub fn parse_identifier(input: &mut ParserInput) -> ParserOutput<Identifier> {
 pub fn test1() {
     let toks = vec![
         Token::new(TokenKind::Integer(100), 0, 3),
+        Token::new(TokenKind::Plus, 4, 1),
+        Token::new(TokenKind::Integer(50), 5, 2),
+        Token::new(TokenKind::Minus, 8, 1),
+        Token::new(TokenKind::Integer(2), 10, 1),
     ];
     let res = parse_expression(&mut Recoverable::new(TokenSlice::new(&toks))).unwrap();
     println!("{:#?}", res);

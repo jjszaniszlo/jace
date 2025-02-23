@@ -15,8 +15,8 @@ pub fn parse_expression(input: &mut ParserInput) -> ParserOutput<Expr> {
 
 pub fn parse_primary(input: &mut ParserInput) -> ParserOutput<Expr> {
     alt((
-        parse_identifier.map(|i| Expr::IdentExpr(i.clone(), i.span())),
-        parse_literal.map(|l| Expr::LitExpr(l.clone(), l.span()))
+        parse_literal.map(|l| Expr::LitExpr(l.clone(), l.span())),
+        parse_identifier.map(|i| Expr::IdentExpr(i.clone(), i.span()))
     ))
         .parse_next(input)
 }
@@ -30,8 +30,16 @@ fn parse_bin_op_inner(input: &mut ParserInput, min_bp: u8) ->  ParserOutput<Expr
     let mut lhs = parse_primary(input)?;
     let mut span = lhs.span();
 
+    let start = input.checkpoint();
+
     loop {
-        let op = parse_operator(input)?;
+        let op = match parse_operator(input) {
+            Ok(op) => op,
+            Err(_) => {
+                input.reset(&start);
+                break;
+            },
+        };
 
         let (lbp, rbp) = get_infix_binding_power(op.clone());
         if lbp < min_bp {
