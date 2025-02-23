@@ -8,6 +8,12 @@ pub trait AstSpan {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String, pub Range<usize>);
 
+impl AstSpan for Identifier {
+    fn span(&self) -> Range<usize> {
+        self.1.clone()
+    }
+}
+
 //***************Module*********************
 #[derive(Clone, Debug, PartialEq)]
 pub struct Module(pub Vec<Def>, pub Range<usize>);

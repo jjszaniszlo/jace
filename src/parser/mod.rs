@@ -2,10 +2,12 @@ mod token;
 mod error;
 mod ast;
 mod ptr;
+mod expr;
 
+use std::ops::Range;
 use ast::{Expr, Identifier, Literal};
 use error::JaceParseError;
-use winnow::error::ParserError;
+use winnow::error::{FromRecoverableError, ParserError};
 use winnow::prelude::*;
 use winnow::stream::{Location, Recover, Recoverable, Stream, TokenSlice};
 use winnow::Result;
@@ -20,14 +22,16 @@ use winnow::{
     token::any,
     token::one_of,
 };
-
+use crate::parser::ast::AstSpan;
+use crate::parser::expr::parse_expression;
 use crate::Token;
 use crate::TokenKind;
 
 pub type ParserInput<'a> = Recoverable<TokenSlice<'a, Token>, JaceParseError>;
 pub type ParserOutput<T> = winnow::Result<T, JaceParseError>;
 
-pub fn parse_literal(input: &mut ParserInput) -> ParserOutput<Literal> {
+pub fn parse_literal(input: &mut ParserInput) -> ParserOutput<Literal>
+{
     one_of(|t: &Token|
         matches!(
             t.kind(),
@@ -35,12 +39,13 @@ pub fn parse_literal(input: &mut ParserInput) -> ParserOutput<Literal> {
             TokenKind::Float(_) |
             TokenKind::Bool(_) |
             TokenKind::String(_)))
-    .map(|t: &Token|
-        match t.kind() {
-            TokenKind::Integer(i) => Literal::Integer(i),
-            TokenKind::Float(f) => Literal::Float(f),
-            TokenKind::Bool(b) => Literal::Bool(b),
-            TokenKind::String(s) => Literal::String(s),
+        .with_span()
+    .map(|(tok, span): (&Token, Range<usize>)|
+        match tok.kind() {
+            TokenKind::Integer(i) => Literal::Integer(i, span),
+            TokenKind::Float(f) => Literal::Float(f, span),
+            TokenKind::Bool(b) => Literal::Bool(b, span),
+            TokenKind::String(s) => Literal::String(s, span),
             _ => unreachable!()})
     .parse_next(input)
 }
@@ -48,26 +53,20 @@ pub fn parse_literal(input: &mut ParserInput) -> ParserOutput<Literal> {
 pub fn parse_identifier(input: &mut ParserInput) -> ParserOutput<Identifier> {
     one_of(|t: &Token|
         matches!(t.kind(), TokenKind::Identifier(_)))
-    .map(|t: &Token|
-        match t.kind() {
-            TokenKind::Identifier(s) => Identifier(s),
+        .with_span()
+    .map(|(tok, span): (&Token, Range<usize>)|
+        match tok.kind() {
+            TokenKind::Identifier(s) => Identifier(s, span),
             _ => unreachable!()})
-    .parse_next(input)
-}
-
-pub fn parse_expression(input: &mut ParserInput) -> ParserOutput<Expr> {
-    let start = input.checkpoint();
-    alt((
-        parse_identifier.map(|i| Expr::IdentExpr(i, 0..1)),
-        parse_literal.map(|l| Expr::LitExpr(l, 0..1))
-    ))
     .parse_next(input)
 }
 
 #[test]
 pub fn test1() {
-    let toks = vec![Token::new(TokenKind::Integer(10), 0, 2)];
+    let toks = vec![
+        Token::new(TokenKind::Integer(100), 0, 3),
+    ];
     let res = parse_expression(&mut Recoverable::new(TokenSlice::new(&toks)));
-    assert_eq!(res, Ok(Expr::LitExpr(Literal::Integer(10), 0..1)))
+    println!("{:#?}", res);
 }
 
