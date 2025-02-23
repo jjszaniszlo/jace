@@ -1,3 +1,4 @@
+use winnow::prelude::*;
 use winnow::Parser;
 use winnow::combinator::{alt, trace};
 use winnow::error::{FromRecoverableError, ParserError};
@@ -30,13 +31,10 @@ fn parse_bin_op_inner(input: &mut ParserInput, min_bp: u8) ->  ParserOutput<Expr
     let mut lhs = parse_primary(input)?;
     let mut span = lhs.span();
 
-    let start = input.checkpoint();
-
     loop {
         let op = match parse_operator(input) {
             Ok(op) => op,
             Err(_) => {
-                input.reset(&start);
                 break;
             },
         };
