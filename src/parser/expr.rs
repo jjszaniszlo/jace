@@ -1,4 +1,3 @@
-use clap::builder::TypedValueParser;
 use winnow::Parser;
 use winnow::combinator::{alt, trace};
 use winnow::error::{FromRecoverableError, ParserError};
