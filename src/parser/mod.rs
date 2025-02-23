@@ -27,7 +27,7 @@ use crate::TokenKind;
 pub type ParserInput<'a> = Recoverable<TokenSlice<'a, Token>, JaceParseError>;
 pub type ParserOutput<T> = winnow::Result<T, JaceParseError>;
 
-pub fn parse_literal<'a>(input: &mut ParserInput<'a>) -> ParserOutput<Literal> {
+pub fn parse_literal(input: &mut ParserInput) -> ParserOutput<Literal> {
     one_of(|t: &Token|
         matches!(
             t.kind(),
@@ -45,7 +45,7 @@ pub fn parse_literal<'a>(input: &mut ParserInput<'a>) -> ParserOutput<Literal> {
     .parse_next(input)
 }
 
-pub fn parse_identifier<'a>(input: &mut ParserInput<'a>) -> ParserOutput<Identifier> {
+pub fn parse_identifier(input: &mut ParserInput) -> ParserOutput<Identifier> {
     one_of(|t: &Token|
         matches!(t.kind(), TokenKind::Identifier(_)))
     .map(|t: &Token|
@@ -55,7 +55,7 @@ pub fn parse_identifier<'a>(input: &mut ParserInput<'a>) -> ParserOutput<Identif
     .parse_next(input)
 }
 
-pub fn parse_expression<'a>(input: &mut ParserInput<'a>) -> ParserOutput<Expr> {
+pub fn parse_expression(input: &mut ParserInput) -> ParserOutput<Expr> {
     let start = input.checkpoint();
     alt((
         parse_identifier.map(|i| Expr::IdentExpr(i, 0..1)),
