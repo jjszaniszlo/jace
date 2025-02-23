@@ -1,4 +1,3 @@
-use clap::builder::TypedValueParser;
 use winnow::Parser;
 use winnow::combinator::{alt, trace};
 use winnow::error::{FromRecoverableError, ParserError};
@@ -62,29 +61,30 @@ fn get_infix_binding_power(op: BinOperator) -> (u8, u8) {
 
 
 pub fn parse_operator<'a>(input: &mut ParserInput) -> ParserOutput<BinOperator> {
-    one_of(|t: &Token|
-        matches!(t.kind(),
-        TokenKind::Plus | TokenKind::Minus | TokenKind::Multiply |
-        TokenKind::Divide | TokenKind::Exp | TokenKind::And |
-        TokenKind::Or | TokenKind::EqualsEquals | TokenKind::NotEquals |
-        TokenKind::Less | TokenKind::LessEquals | TokenKind::Greater |
-        TokenKind::GreaterEquals | TokenKind::Colon))
-        .map(|t: &Token| match t.kind() {
-            TokenKind::Plus => BinOperator::Plus,
-            TokenKind::Minus => BinOperator::Minus,
-            TokenKind::Multiply => BinOperator::Multiply,
-            TokenKind::Divide => BinOperator::Divide,
-            TokenKind::Exp => BinOperator::Exp,
-            TokenKind::And => BinOperator::And,
-            TokenKind::Or => BinOperator::Or,
-            TokenKind::EqualsEquals => BinOperator::EqualsEquals,
-            TokenKind::NotEquals => BinOperator::NotEquals,
-            TokenKind::Less => BinOperator::Less,
-            TokenKind::LessEquals => BinOperator::LessEquals,
-            TokenKind::Greater => BinOperator::Greater,
-            TokenKind::GreaterEquals => BinOperator::GreaterEquals,
-            TokenKind::Colon => BinOperator::AppendSet,
-            _ => unreachable!(),
-        })
+    trace("parse_operator",
+        one_of(|t: &Token|
+            matches!(t.kind(),
+            TokenKind::Plus | TokenKind::Minus | TokenKind::Multiply |
+            TokenKind::Divide | TokenKind::Exp | TokenKind::And |
+            TokenKind::Or | TokenKind::EqualsEquals | TokenKind::NotEquals |
+            TokenKind::Less | TokenKind::LessEquals | TokenKind::Greater |
+            TokenKind::GreaterEquals | TokenKind::Colon))
+            .map(|t: &Token| match t.kind() {
+                TokenKind::Plus => BinOperator::Plus,
+                TokenKind::Minus => BinOperator::Minus,
+                TokenKind::Multiply => BinOperator::Multiply,
+                TokenKind::Divide => BinOperator::Divide,
+                TokenKind::Exp => BinOperator::Exp,
+                TokenKind::And => BinOperator::And,
+                TokenKind::Or => BinOperator::Or,
+                TokenKind::EqualsEquals => BinOperator::EqualsEquals,
+                TokenKind::NotEquals => BinOperator::NotEquals,
+                TokenKind::Less => BinOperator::Less,
+                TokenKind::LessEquals => BinOperator::LessEquals,
+                TokenKind::Greater => BinOperator::Greater,
+                TokenKind::GreaterEquals => BinOperator::GreaterEquals,
+                TokenKind::Colon => BinOperator::AppendSet,
+                _ => unreachable!(),
+            }))
         .parse_next(input)
 }
