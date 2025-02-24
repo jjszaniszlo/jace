@@ -18,8 +18,8 @@ pub fn parse_module<'a>() -> impl Parser<'a, Module> {
 pub fn parse_definition<'a>() -> impl Parser<'a, Def> {
     or_n(vec![
         BoxedParser::new(parse_instance_def),
-        BoxedParser::new(parse_type_def()),
-        BoxedParser::new(parse_type_union_def()),
+        // BoxedParser::new(parse_type_def()),
+        // BoxedParser::new(parse_type_union_def()),
         BoxedParser::new(parse_class_def()),
         BoxedParser::new(parse_fn_def),
         BoxedParser::new(parse_proc_def()),
@@ -27,20 +27,20 @@ pub fn parse_definition<'a>() -> impl Parser<'a, Def> {
     ])
 }
 
-pub fn parse_fn_def<'a>(input: TokenStream<'a>) -> Output<'a, Def> {
+pub fn parse_fn_def(input: TokenStream) -> Output<Def> {
     pair(
         pair(
             parse_fn_def_header,
             parse_fn_def_types()),
         pair(
-            zero_or_one(parse_fn_type_constraints()),
+            zero_or_one(parse_fn_type_constraints),
             parse_fn_expr,
         ))
         .map(|((i, (tp, rt)), (cons, exp)), span| Def::FnDef(i, tp, rt, cons, exp, span))
         .parse_next(input)
 }
 
-pub fn parse_fn_def_header<'a>(input: TokenStream<'a>) -> Output<'a, Identifier> {
+pub fn parse_fn_def_header(input: TokenStream) -> Output<Identifier> {
     left(
         right(
             match_token(TokenKind::DefKeyword),
@@ -55,14 +55,14 @@ pub fn parse_fn_def_types<'a>() -> impl Parser<'a, (Vec<TypeParam>, TypeParam)> 
         right(
             match_token(TokenKind::FatArrow),
             or_n(vec![
-                BoxedParser::new(parse_fn_type_param()),
+                BoxedParser::new(parse_fn_type_param),
                 pair(
                     match_token(TokenKind::LeftParen),
                     match_token(TokenKind::RightParen))
                     .map(|(_, _), span| TypeParam::Empty(span)),
                 BoxedParser::new(surrounded(
                     match_token(TokenKind::LeftParen),
-                    parse_fn_type_params().map(|(params), span| TypeParam::Tuple(params, span)),
+                    parse_fn_type_params().map(|(params), span| TypeParam::TupleType(params, span)),
                     match_token(TokenKind::RightParen))),
             ])))
         .map(|(type_params, return_type), _| (type_params, return_type))
@@ -70,11 +70,11 @@ pub fn parse_fn_def_types<'a>() -> impl Parser<'a, (Vec<TypeParam>, TypeParam)> 
 
 pub fn parse_fn_type_params<'a>() -> impl Parser<'a, Vec<TypeParam>> {
     pair(
-        parse_fn_type_param(),
+        parse_fn_type_param,
         zero_or_more(
             right(
                 match_token(TokenKind::Comma),
-                parse_fn_type_param())))
+                parse_fn_type_param)))
         .map(|(first_type, types), _| {
             let mut final_types = vec![first_type];
             final_types.extend(types);
@@ -82,27 +82,29 @@ pub fn parse_fn_type_params<'a>() -> impl Parser<'a, Vec<TypeParam>> {
         })
 }
 
-pub fn parse_fn_type_param<'a>() -> impl Parser<'a, TypeParam> {
+pub fn parse_fn_type_param(input: TokenStream) -> Output<TypeParam> {
     or_n(vec![
         parse_identifier().map(|i, span| TypeParam::Type(i, span)),
-        BoxedParser::new(parse_array_type_param()),
+        BoxedParser::new(parse_array_type_param),
         BoxedParser::new(parse_fn_func_type_param),
         BoxedParser::new(parse_type_union_payload_type)
     ])
+        .parse_next(input)
 }
 
-pub fn parse_array_type_param<'a>() -> impl Parser<'a, TypeParam> {
+pub fn parse_array_type_param(input: TokenStream) -> Output<TypeParam> {
     right(
         match_token(TokenKind::LeftBracket),
         left(
             pair(
-                parse_identifier(),
+                parse_fn_type_param,
                 zero_or_one(parse_literal_integer())),
             match_token(TokenKind::RightBracket)))
-        .map(|(i, l), span| TypeParam::ArrayType(i, l, span))
+        .map(|(i, l), span| TypeParam::ArrayType(P(i), l, span))
+        .parse_next(input)
 }
 
-pub fn parse_fn_func_type_param<'a>(input: TokenStream<'a>) -> Output<'a, TypeParam> {
+pub fn parse_fn_func_type_param(input: TokenStream) -> Output<TypeParam> {
     pair(
         right(
             match_token(TokenKind::LeftParen),
@@ -110,31 +112,32 @@ pub fn parse_fn_func_type_param<'a>(input: TokenStream<'a>) -> Output<'a, TypePa
         right(
             match_token(TokenKind::FatArrow),
             left(
-                parse_fn_type_param(),
+                parse_fn_type_param,
                 match_token(TokenKind::RightParen))))
         .map(|(params, ret), span| TypeParam::FuncType(params, P(ret), span))
         .parse_next(input)
 }
 
-pub fn parse_type_union_payload_type<'a>(input: TokenStream<'a>) -> Output<'a, TypeParam> {
+pub fn parse_type_union_payload_type(input: TokenStream) -> Output<TypeParam> {
     surrounded(
         match_token(TokenKind::LeftParen),
         pair(
             parse_identifier(),
-            one_or_more(parse_fn_type_param())),
+            one_or_more(parse_fn_type_param)),
         match_token(TokenKind::RightParen),
     )
-        .map(|(i, params), span| TypeParam::PayloadType(i, params, span))
+        .map(|(i, params), span| TypeParam::TaggedUnionType(i, params, span))
         .parse_next(input)
 }
 
-pub fn parse_fn_type_constraints<'a>() -> impl Parser<'a, Vec<TypeConstraint>> {
+pub fn parse_fn_type_constraints(input: TokenStream) -> Output<Vec<TypeConstraint>> {
     left(
         right(
             match_token(TokenKind::WhereKeyword),
             zero_or_more(
                 parse_fn_type_constraint())),
         match_token(TokenKind::InKeyword))
+        .parse_next(input)
 }
 
 pub fn parse_fn_type_constraint<'a>() -> impl Parser<'a, TypeConstraint> {
@@ -177,42 +180,42 @@ pub fn parse_const_def<'a>() -> impl Parser<'a, Def> {
         .map(|(i, l), span| Def::ConstDef(i, l, span))
 }
 
-pub fn parse_type_def<'a>() -> impl Parser<'a, Def> {
-    pair(
-        right(
-            match_token(TokenKind::TypeKeyword),
-            left(
-                parse_identifier(),
-                match_token(TokenKind::ColonColon))),
-        one_or_more(
-            pair(
-                parse_identifier(),
-                right(
-                    match_token(TokenKind::Colon),
-                    parse_fn_type_param()))))
-        .map(|(i, v), span| Def::TypeDef(i, v, span))
-}
+// pub fn parse_type_def<'a>() -> impl Parser<'a, Def> {
+//     pair(
+//         right(
+//             match_token(TokenKind::TypeKeyword),
+//             left(
+//                 parse_identifier(),
+//                 match_token(TokenKind::ColonColon))),
+//         one_or_more(
+//             pair(
+//                 parse_identifier(),
+//                 right(
+//                     match_token(TokenKind::Colon),
+//                     parse_fn_type_param))))
+//         .map(|(i, v), span| Def::TypeDef(i, v, span))
+// }
 
-pub fn parse_type_union_def<'a>() -> impl Parser<'a, Def> {
-    pair(
-        right(
-            match_token(TokenKind::TypeKeyword),
-            left(
-                pair(
-                    parse_identifier(),
-                    zero_or_more(parse_identifier())),
-                match_token(TokenKind::ColonColon))),
-        parse_type_union())
-        .map(|((type_name, poly_types), members), span| Def::TypeUnion(type_name, poly_types, members, span))
-}
+// pub fn parse_type_union_def<'a>() -> impl Parser<'a, Def> {
+//     pair(
+//         right(
+//             match_token(TokenKind::TypeKeyword),
+//             left(
+//                 pair(
+//                     parse_identifier(),
+//                     zero_or_more(parse_identifier())),
+//                 match_token(TokenKind::ColonColon))),
+//         parse_type_union())
+//         .map(|((type_name, poly_types), members), span| Def::TypeUnion(type_name, poly_types, members, span))
+// }
 
 pub fn parse_type_union<'a>() -> impl Parser<'a, Vec<TypeParam>> {
     pair(
-        parse_fn_type_param(),
+        parse_fn_type_param,
         zero_or_more(
             right(
                 match_token(TokenKind::Union),
-                parse_fn_type_param())))
+                parse_fn_type_param)))
         .map(|(first, rest), _| {
             let mut types = vec![first];
             types.extend(rest);
@@ -268,10 +271,10 @@ pub fn parse_class_method_def_operator<'a>() -> impl Parser<'a, MethodDef> {
             right(
                 match_token(TokenKind::FatArrow),
                 or(
-                    parse_fn_type_param(),
+                    parse_fn_type_param,
                     surrounded(
                         match_token(TokenKind::LeftParen),
-                        parse_fn_type_params().map(|params, span| TypeParam::Tuple(params, span)),
+                        parse_fn_type_params().map(|params, span| TypeParam::TupleType(params, span)),
                         match_token(TokenKind::RightParen))))))
         .map(|(op, (params, ret)), span|
             MethodDef::Operator(op, params, ret, span))
@@ -293,7 +296,7 @@ pub fn parse_class_method_type_params<'a>() -> impl Parser<'a, Vec<Identifier>> 
         })
 }
 
-pub fn parse_method_operator<'a>(input: TokenStream<'a>) -> Output<'a, MethodOperator> {
+pub fn parse_method_operator(input: TokenStream) -> Output<MethodOperator> {
     match input.next() {
         Some((res, next_input)) => {
             let op = match res.kind() {
@@ -330,12 +333,12 @@ pub fn parse_class_method_def_named<'a>() -> impl Parser<'a, MethodDef> {
             parse_fn_type_params(),
             right(
                 match_token(TokenKind::FatArrow),
-                parse_fn_type_param())))
+                parse_fn_type_param)))
         .map(|(ident, (params, ret)), span|
             MethodDef::Named(ident, params, ret, span))
 }
 
-pub fn parse_instance_def<'a>(input: TokenStream<'a>) -> Output<'a, Def> {
+pub fn parse_instance_def(input: TokenStream) -> Output<Def> {
     pair(
         left(
             parse_instance_header(),

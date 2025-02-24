@@ -89,7 +89,7 @@ pub fn parse_identifier<'a>() -> impl Parser<'a, Identifier> {
             Some((res, next_input)) => {
                 match res.kind() {
                     TokenKind::Identifier(ident) => {
-                        Ok((next_input, Identifier(ident), res.span()))
+                        Ok((next_input, Identifier(ident, res.span()), res.span()))
                     }
                     _ => Err(
                         ErrorType::Recoverable(
@@ -109,10 +109,10 @@ pub fn parse_literal<'a>() -> impl Parser<'a, Literal> {
         match input.next() {
             Some((res, next_input)) => {
                 let lit = match res.kind() {
-                    TokenKind::Bool(b) => Literal::Bool(b),
-                    TokenKind::Integer(i) => Literal::Integer(i),
-                    TokenKind::String(s) => Literal::String(s),
-                    TokenKind::Float(f) => Literal::Float(f),
+                    TokenKind::Bool(b) => Literal::Bool(b, res.span()),
+                    TokenKind::Integer(i) => Literal::Integer(i, res.span()),
+                    TokenKind::String(s) => Literal::String(s, res.span()),
+                    TokenKind::Float(f) => Literal::Float(f, res.span()),
 
                     _ => return Err(
                         ErrorType::Recoverable(
