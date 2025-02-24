@@ -1,11 +1,11 @@
-use crate::lexer::prelude::{Token, TokenKind};
+use crate::lexer::prelude::TokenKind;
 use crate::parser::ast::{Expr, FnPatternParam, Identifier, Stmt};
 use crate::parser::combinator::{cut, left, one_or_more, or, or_n, pair, right, surrounded, zero_or_more};
 use crate::parser::expr::{parse_comma_seperated_expressions, parse_expression, parse_fn_call_expr, parse_fn_expr_case_params, parse_set_deconstruct};
 use crate::parser::parser::{match_token, parse_identifier, BoxedParser, Output, Parser};
 use crate::parser::tokenstream::TokenStream;
 
-pub fn parse_statement<'a>() -> impl Parser<'a, Stmt> {
+pub fn parse_statement(input: TokenStream) -> Output<Stmt> {
     or_n(vec![
         BoxedParser::new(parse_inferred_assignment),
         BoxedParser::new(parse_type_assignment),
@@ -16,6 +16,7 @@ pub fn parse_statement<'a>() -> impl Parser<'a, Stmt> {
         BoxedParser::new(parse_case_statement),
         parse_fn_call_stmt(),
     ])
+        .parse_next(input)
 }
 
 pub fn parse_fn_call_stmt<'a>() -> BoxedParser<'a, Stmt> {

@@ -1,6 +1,5 @@
 use std::fmt::Display;
 use std::ops::Range;
-use miette::SourceSpan;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token(pub TokenKind, pub Range<usize>);
@@ -75,14 +74,14 @@ pub enum TokenKind {
     RightBrace,         // }
     LeftBracket,        // [
     RightBracket,       // ]
-    
+
     // Other
     Bang,               // !
- 
+
     // reserved words
     TypeKeyword,    // type
     ClassKeyword,   // class
-    InstanceKeyword,// instance
+    InstanceKeyword, // instance
     CaseKeyword,    // case
     LetKeyword,     // let
     InKeyword,      // in
@@ -93,6 +92,7 @@ pub enum TokenKind {
     DefKeyword,     // def
     ConstKeyword,   // const
     WhereKeyword,   // where
+    DoKeyword,   // do
 }
 
 impl TokenKind {

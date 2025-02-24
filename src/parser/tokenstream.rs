@@ -1,5 +1,5 @@
-use std::ops::Range;
 use crate::lexer::token::{Token, TokenKind};
+use std::ops::Range;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TokenStream<'a> {

@@ -1,7 +1,6 @@
-use std::ops::Range;
-use std::sync::Arc;
-use miette::{Diagnostic, Severity, SourceSpan};
 use crate::parser::error::ErrorType::{Recoverable, Unrecoverable};
+use miette::Severity;
+use std::ops::Range;
 
 #[derive(Debug, Clone)]
 pub enum ErrorType {
@@ -45,7 +44,7 @@ impl ErrorType {
 pub struct ParserError {
     pub message: Option<String>,
     pub label: Option<String>,
-    pub help : Option<String>,
+    pub help: Option<String>,
     pub severity: Option<Severity>,
     pub span: Option<Range<usize>>,
 }

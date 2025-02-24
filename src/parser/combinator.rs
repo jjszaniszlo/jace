@@ -1,11 +1,9 @@
+use super::{error::*, Parser};
+use crate::parser::ast::AstSpan;
+use crate::parser::tokenstream::TokenStream;
+use crate::parser::BoxedParser;
 use std::fmt::Debug;
 use std::ops::Range;
-use miette::SourceSpan;
-use crate::err::CombineSourceSpan;
-use crate::parser::ast::AstSpan;
-use super::{error::*, Parser};
-use crate::parser::BoxedParser;
-use crate::parser::tokenstream::TokenStream;
 
 pub fn pair<'a, P1, P2, R1, R2>(p1: P1, p2: P2) -> impl Parser<'a, (R1, R2)>
 where
@@ -36,7 +34,7 @@ where
             match p.parse_next(input) {
                 Ok((next, o, s)) => {
                     return Ok((next, o, s))
-                },
+                }
                 Err(ErrorType::Unrecoverable(err)) => return Err(ErrorType::Unrecoverable(err)),
                 Err(_) => {}
             }
@@ -192,17 +190,15 @@ where
         parser_terminator)
 }
 
-pub fn surrounded<'a, Sur1, Take, Sur2, IgnRes1, Res, IgnRes2>(
-    parser_begin: Sur1,
-    parser_take: Take,
-    parser_end: Sur2) -> impl Parser<'a, Res>
+pub fn surrounded<'a, P1, P2, P3, R>(
+    parser_begin: P1,
+    parser_take: P2,
+    parser_end: P3) -> impl Parser<'a, R>
 where
-    Sur1: Parser<'a, IgnRes1> + 'a,
-    Take: Parser<'a, Res> + 'a,
-    Sur2: Parser<'a, IgnRes2> + 'a,
-    IgnRes1: 'a,
-    Res: 'a,
-    IgnRes2: 'a,
+    P1: Parser<'a, ()> + 'a,
+    P2: Parser<'a, R> + 'a,
+    P3: Parser<'a, ()> + 'a,
+    R: 'a,
 {
     left(
         right(
@@ -222,9 +218,9 @@ where
                 Err(
                     ErrorType::Recoverable(
                         ParserError::new()
-                        .message(format!("unexpected parser output: `{:?}`", a))
-                        .span(s)
-                        .build())),
+                            .message(format!("unexpected parser output: `{:?}`", a))
+                            .span(s)
+                            .build())),
             Err(_) => Ok((input, (), input.last_span())),
         }
     }
@@ -234,7 +230,7 @@ where
 pub fn cut<'a, P, A>(p: P) -> impl Parser<'a, A>
 where
     P: Parser<'a, A> + 'a,
-    A: 'a
+    A: 'a,
 {
     move |input: TokenStream<'a>| {
         match p.parse_next(input) {

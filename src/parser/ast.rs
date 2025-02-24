@@ -1,5 +1,5 @@
-use std::ops::Range;
 use super::ptr::*;
+use std::ops::Range;
 
 pub trait AstSpan {
     fn span(&self) -> Range<usize>;
@@ -86,7 +86,7 @@ pub enum TypeParam {
     FuncType(Vec<TypeParam>, P<TypeParam>, Range<usize>),
 
     // <ident> <type_param>*
-    TaggedUnionType(Identifier, Vec<TypeParam>, Range<usize>),
+    ProductType(Identifier, Vec<TypeParam>, Range<usize>),
 }
 
 impl AstSpan for TypeParam {
@@ -97,7 +97,7 @@ impl AstSpan for TypeParam {
             TypeParam::TupleType(_, s) => s,
             TypeParam::ArrayType(_, _, s) => s,
             TypeParam::FuncType(_, _, s) => s,
-            TypeParam::TaggedUnionType(_, _, s) => s,
+            TypeParam::ProductType(_, _, s) => s,
         };
         s.clone()
     }
@@ -116,14 +116,13 @@ pub enum TaggedUnionType {
     // <ident> <tagged_union_type>*
     ProductType(Identifier, Vec<TaggedUnionType>, Range<usize>),
 
-
     // <ident> <type_param>*
     ConstructedType(Identifier, Vec<TypeParam>, Range<usize>),
 
     // <ident>
     ParametricType(Identifier, Range<usize>),                   // the type checker will convert
-                                                                // recognized parametric types to
-                                                                // this node
+    // recognized parametric types to
+    // this node
 }
 
 // type List a :: Nil | Cons a (List a)
@@ -144,7 +143,7 @@ impl AstSpan for TaggedUnionType {
 #[derive(Clone, Debug, PartialEq)]
 pub enum FnPatternParam {
     // <literal>
-    LiteralParam(Literal, Range<usize>),
+    BindToLiteralParam(Literal, Range<usize>),
 
     // <ident>
     BindToIdentParam(Identifier, Range<usize>),
@@ -162,7 +161,7 @@ pub enum FnPatternParam {
 impl AstSpan for FnPatternParam {
     fn span(&self) -> Range<usize> {
         let s = match self {
-            FnPatternParam::LiteralParam(_, s) => s,
+            FnPatternParam::BindToLiteralParam(_, s) => s,
             FnPatternParam::BindToIdentParam(_, s) => s,
             FnPatternParam::BindToSetDeconstructParam(_, s) => s,
             FnPatternParam::BindToSetSelectorParam(_, _, s) => s,
@@ -269,8 +268,8 @@ pub enum Expr {
 
     // <ident> <expr>+
     TypeConstructor(Identifier, Vec<Expr>, Range<usize>),               // the type checker
-                                                                        // converts FnCallExpr to
-                                                                        // this type
+    // converts FnCallExpr to
+    // this type
 }
 
 impl AstSpan for Expr {

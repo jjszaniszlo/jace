@@ -28,22 +28,15 @@ fn main() {
 
     let jcf = JaceFile::new("test.jc",
                             r#"
-def main :: ()
-    list := Cons 5 (Cons 10 Nil)
-    foo := 5
-    (a, b) := (1+2*3^5, 123)
-    (c, d) := (1+2, 1.23)
-    (e, d) := (Cons 5, Cons 2)
+                            def join :: List (List a) => List a
+                            case
+                                Nil => Nil;
+                                Cons xs xss => cat xs (join xss);
 
-    grandpa := { father = None, mother = None }
-    father := { father = grandpa, mother = None }
-    sheep := { father = father, mother = None }
+                            def sum :: Integer, Integer => Integer
+                            do
+                                a, b => a*(-b)
 
-    grandpa_result := paternalGrandFather sheep
-    foo := 10
-
-    print "hello world!"
-    my_proc!
                             "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
@@ -72,7 +65,7 @@ fn compiler_pipeline(path: PathBuf) {
 
         let _read = err::error_maybe(
             f.read_to_string(&mut buf),
-            format!("Read Error"));
+            "Read Error".to_string());
 
         let file_name = path.file_stem().unwrap().to_str().unwrap();
 
