@@ -1,8 +1,8 @@
 use std::{iter::Peekable, rc::Rc, str::Chars};
 
+use super::token::{Token, TokenKind};
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
-use super::token::{Token, TokenKind};
 
 use crate::jace_file::JaceFile;
 
@@ -15,7 +15,7 @@ impl<'a> SourceIterator<'a> {
     pub fn new(src: &'a str) -> Self {
         Self {
             src: src.chars().peekable(),
-            pos: 0
+            pos: 0,
         }
     }
 
@@ -36,7 +36,7 @@ impl<'a> Iterator for SourceIterator<'a> {
             Some(ch) => {
                 self.pos += ch.len_utf8();
                 Some(ch)
-            },
+            }
             None => None,
         }
     }
@@ -49,7 +49,7 @@ pub struct LexerIterator<'a> {
 
 impl<'a> LexerIterator<'a> {
     pub fn new(jace_file: JaceFile<'static>) -> Self {
-        let jc : Rc<JaceFile<'static>> = jace_file.into();
+        let jc: Rc<JaceFile<'static>> = jace_file.into();
         Self {
             jace_file: jc.clone(),
             src_iter: SourceIterator::new(jc.clone().contents()),
@@ -61,19 +61,19 @@ impl<'a> LexerIterator<'a> {
 
         match self.skip_comment(start_pos) {
             Some(t) => return Some(Ok(t)),
-            _ => {},
+            _ => {}
         }
 
         if let Some(ch) = self.src_iter.next() {
             let tok = match ch {
                 ch if ch.is_alphabetic() || ch == '_' => Ok(self.eat_identifier(ch, start_pos)),
-                '0'..='9'                                   => self.eat_number(ch, start_pos),
+                '0'..='9' => self.eat_number(ch, start_pos),
                 '=' | '>' | '<' | '!' | '&' | '|' |
-                '+' | '-' | '*' | '/' | '^' | ':' | 
-                ',' | '.' | ';'                             => self.eat_symbol(ch, start_pos),
-                '(' | ')' | '[' | ']' | '{' | '}'           => self.eat_brackets(ch, start_pos),
-                '"'                                         => self.eat_string_literal(ch, start_pos),
-                c if c.is_whitespace()                => return self.next(),
+                '+' | '-' | '*' | '/' | '^' | ':' |
+                ',' | '.' | ';' => self.eat_symbol(ch, start_pos),
+                '(' | ')' | '[' | ']' | '{' | '}' => self.eat_brackets(ch, start_pos),
+                '"' => self.eat_string_literal(ch, start_pos),
+                c if c.is_whitespace() => return self.next(),
 
                 _ => Err(UnexpectedChar {
                     src: *self.jace_file,
@@ -114,8 +114,9 @@ impl<'a> LexerIterator<'a> {
             "def" => Token::new(TokenKind::DefKeyword, start_pos, bytes),
             "const" => Token::new(TokenKind::ConstKeyword, start_pos, bytes),
             "where" => Token::new(TokenKind::WhereKeyword, start_pos, bytes),
-            "true" => Token::new(TokenKind::Bool(true), start_pos, bytes),
-            "false" => Token::new(TokenKind::Bool(false), start_pos, bytes),
+            "do" => Token::new(TokenKind::DoKeyword, start_pos, bytes),
+            "True" => Token::new(TokenKind::Bool(true), start_pos, bytes),
+            "False" => Token::new(TokenKind::Bool(false), start_pos, bytes),
             _ => Token::new(TokenKind::Identifier(identifier), start_pos, bytes)
         }
     }
@@ -132,7 +133,7 @@ impl<'a> LexerIterator<'a> {
                     '.' => {
                         found_point = true;
                         number.push(self.eat_char())
-                    },
+                    }
                     '0'..'9' => return Err(UnexpectedChar {
                         src: *self.jace_file,
                         error_span: (start_pos + number.len(), number.len()).into(),
@@ -148,10 +149,10 @@ impl<'a> LexerIterator<'a> {
                 '.' => {
                     if found_point {
                         return Err(UnexpectedChar {
-                                src: *self.jace_file,
-                                error_span: (start_pos + number.len(), ch.len_utf8()).into(),
-                                ch,
-                            }.into())
+                            src: *self.jace_file,
+                            error_span: (start_pos + number.len(), ch.len_utf8()).into(),
+                            ch,
+                        }.into());
                     } else {
                         found_point = true;
                         number.push(self.eat_char());
@@ -174,7 +175,7 @@ impl<'a> LexerIterator<'a> {
                                 help: Some(String::from("try adding digits after the '.'")),
                                 expected: String::from("a digit"),
                                 got: String::from("EOF"),
-                            }.into())
+                            }.into());
                         }
                     }
                 }
@@ -222,7 +223,7 @@ impl<'a> LexerIterator<'a> {
         }
 
         let bytes = operator.len();
-        
+
         match operator.as_str() {
             "==" => Ok(Token::new(TokenKind::EqualsEquals, start_pos, bytes)),
             "!=" => Ok(Token::new(TokenKind::NotEquals, start_pos, bytes)),
@@ -247,7 +248,7 @@ impl<'a> LexerIterator<'a> {
             ";" => Ok(Token::new(TokenKind::SemiColon, start_pos, bytes)),
             "," => Ok(Token::new(TokenKind::Comma, start_pos, bytes)),
             "." => Ok(Token::new(TokenKind::Dot, start_pos, bytes)),
-            op => Err(MalformedOperator{
+            op => Err(MalformedOperator {
                 src: *self.jace_file,
                 error_span: (start_pos, bytes).into(),
                 op: op.to_string(),
@@ -280,12 +281,12 @@ impl<'a> LexerIterator<'a> {
                         operator.push(self.eat_char());
                         match self.peek_char() {
                             Some(')') => operator.push(self.eat_char()),
-                            _ => {},
+                            _ => {}
                         }
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 }
-            },
+            }
             _ => return Ok(Token::new(TokenKind::LeftParen, start_pos, operator.len())),
         }
 
@@ -302,7 +303,7 @@ impl<'a> LexerIterator<'a> {
             "(-)" => Ok(Token::new(TokenKind::WrappedMinus, start_pos, bytes)),           // (-)
             "(/)" => Ok(Token::new(TokenKind::WrappedDivide, start_pos, bytes)),          // (/)
             "(*)" => Ok(Token::new(TokenKind::WrappedMultiply, start_pos, bytes)),        // (*)
-            op => Err(MalformedOperator{
+            op => Err(MalformedOperator {
                 src: *self.jace_file,
                 error_span: (start_pos, bytes).into(),
                 op: op.to_string(),
@@ -312,13 +313,13 @@ impl<'a> LexerIterator<'a> {
 
     fn eat_string_literal(&mut self, _first: char, start_pos: usize) -> Result<Token, miette::Error> {
         let mut string_literal = String::new();
-  
+
         while let Some(ch) = self.peek_char() {
             match ch {
                 '"' => {
                     self.eat_char();
-                    break
-                },
+                    break;
+                }
                 '\\' => {
                     // eat backslash
                     string_literal.push(self.eat_char());
@@ -328,14 +329,14 @@ impl<'a> LexerIterator<'a> {
                             't' | 'n' | 'r' | '"' => {
                                 string_literal.push(self.eat_char());
                             }
-                            _ => return Err(InvalidEscapeSequence{
+                            _ => return Err(InvalidEscapeSequence {
                                 src: *self.jace_file.clone(),
-                                error_span: (start_pos+string_literal.len(), ch.len_utf8()).into(),
+                                error_span: (start_pos + string_literal.len(), ch.len_utf8()).into(),
                                 ch: ch.to_string(),
                             }.into()),
                         };
                     } else {
-                        return Err(UnexpectedEOF{
+                        return Err(UnexpectedEOF {
                             src: *self.jace_file,
                             error_span: (start_pos, string_literal.len()).into(),
                         }.into());
@@ -346,7 +347,7 @@ impl<'a> LexerIterator<'a> {
         }
 
         let bytes = string_literal.len();
-        
+
         Ok(Token::new(TokenKind::String(string_literal), start_pos, bytes + 2 * '"'.len_utf8()))
     }
 
@@ -358,10 +359,10 @@ impl<'a> LexerIterator<'a> {
                     Some('-') => {
                         self.eat_until('\n');
                         None
-                    },
+                    }
                     _ => Some(Token::new(TokenKind::Minus, st, '-'.len_utf8())),
                 }
-            },
+            }
             _ => None,
         }
     }
@@ -471,7 +472,7 @@ pub struct MalformedOperator<'a> {
     #[label("this operator")]
     error_span: SourceSpan,
 
-    op: String
+    op: String,
 }
 
 #[derive(Error, Debug, Diagnostic, PartialEq)]
@@ -483,5 +484,5 @@ pub struct InvalidEscapeSequence<'a> {
     #[label("this escape")]
     error_span: SourceSpan,
 
-    ch: String
+    ch: String,
 }

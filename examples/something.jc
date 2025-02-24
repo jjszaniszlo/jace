@@ -12,10 +12,13 @@ class Monad m ::
     return :: a => (m a)
 
 instance Monad Option ::
-    bind :: case
+    bind ::
+    case
         None, _ => None;
         (Some x), f => f x;
-    return :: a => Some a
+    return ::
+    do
+        a => Some a
 
 type Sheep ::
     father : (Option Sheep)
@@ -32,6 +35,25 @@ def materialGrandFather :: Sheep => (Option Sheep)
 
 def paternalGrandFather :: Sheep => (Option Sheep)
     s => bind (bind (return s) father) father
+
+type BTree a :: Leaf a | Node a (Leaf a) (Leaf a)
+
+def find_value :: (Btree a), a => Option a
+case
+    (Leaf v), c =>
+        if c == v then
+            Some c
+        else
+            None
+    (Node v left right), c =>
+        if v < c then
+            find_value left v
+        elseif v > c then
+            find_value right v
+        elseif v == c then
+            Some c
+        else
+            None
 
 type List a :: Nil | (Cons a (List a))
 

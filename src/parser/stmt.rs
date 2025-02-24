@@ -1,10 +1,11 @@
-use crate::lexer::prelude::{Token, TokenKind};
-use crate::parser::ast::{Expr, FnParam, Identifier, Stmt};
-use crate::parser::combinator::{left, one_or_more, or, or_n, pair, right, surrounded, zero_or_more};
+use crate::lexer::prelude::TokenKind;
+use crate::parser::ast::{Expr, FnPatternParam, Identifier, Stmt};
+use crate::parser::combinator::{cut, left, one_or_more, or, or_n, pair, right, surrounded, zero_or_more};
 use crate::parser::expr::{parse_comma_seperated_expressions, parse_expression, parse_fn_call_expr, parse_fn_expr_case_params, parse_set_deconstruct};
 use crate::parser::parser::{match_token, parse_identifier, BoxedParser, Output, Parser};
+use crate::parser::tokenstream::TokenStream;
 
-pub fn parse_statement<'a>() -> impl Parser<'a, Stmt> {
+pub fn parse_statement(input: TokenStream) -> Output<Stmt> {
     or_n(vec![
         BoxedParser::new(parse_inferred_assignment),
         BoxedParser::new(parse_type_assignment),
@@ -15,6 +16,7 @@ pub fn parse_statement<'a>() -> impl Parser<'a, Stmt> {
         BoxedParser::new(parse_case_statement),
         parse_fn_call_stmt(),
     ])
+        .parse_next(input)
 }
 
 pub fn parse_fn_call_stmt<'a>() -> BoxedParser<'a, Stmt> {
@@ -25,16 +27,16 @@ pub fn parse_fn_call_stmt<'a>() -> BoxedParser<'a, Stmt> {
         })
 }
 
-pub fn parse_proc_call(input: &[Token]) -> Output<Stmt> {
+pub fn parse_proc_call(input: TokenStream) -> Output<Stmt> {
     left(
         parse_identifier(),
         match_token(TokenKind::Bang))
         .map(|ident, span| Stmt::ProcCallStmt(ident, span))
-        .parse(input)
+        .parse_next(input)
 }
 
 
-pub fn parse_type_assignment(input: &[Token]) -> Output<Stmt> {
+pub fn parse_type_assignment(input: TokenStream) -> Output<Stmt> {
     pair(
         pair(
             parse_identifier(),
@@ -43,19 +45,19 @@ pub fn parse_type_assignment(input: &[Token]) -> Output<Stmt> {
                 parse_identifier())),
         right(
             match_token(TokenKind::Equals),
-            parse_expression()))
+            parse_expression))
         .map(|((i, t), e), span| Stmt::AssignStmt(i, Some(t), e, span))
-        .parse(input)
+        .parse_next(input)
 }
 
-pub fn parse_inferred_assignment(input: &[Token]) -> Output<Stmt> {
+pub fn parse_inferred_assignment(input: TokenStream) -> Output<Stmt> {
     pair(
         parse_identifier(),
         right(
             match_token(TokenKind::InferredEquals),
-            parse_expression()))
+            cut(parse_expression)))
         .map(|(id, e), span| Stmt::AssignStmt(id, None, e, span))
-        .parse(input)
+        .parse_next(input)
 }
 
 pub fn parse_inferred_multi_assign_statement<'a>() -> impl Parser<'a, Stmt> {
@@ -94,7 +96,7 @@ pub fn parse_typed_multi_assign_statement<'a>() -> impl Parser<'a, Stmt> {
                 match_token(TokenKind::RightParen))))
         .map(|((idents, types), exprs), span| Stmt::MultiAssignStmt(idents, Some(types), exprs, span))
 }
-pub fn parse_comma_seperated_identifiers(input: &[Token]) -> Output<Vec<Identifier>> {
+pub fn parse_comma_seperated_identifiers(input: TokenStream) -> Output<Vec<Identifier>> {
     pair(
         parse_identifier(),
         zero_or_more(
@@ -106,10 +108,10 @@ pub fn parse_comma_seperated_identifiers(input: &[Token]) -> Output<Vec<Identifi
             final_idents.extend(idents);
             final_idents
         })
-        .parse(input)
+        .parse_next(input)
 }
 
-pub fn parse_set_deconstruct_assignment(input: &[Token]) -> Output<Stmt> {
+pub fn parse_set_deconstruct_assignment(input: TokenStream) -> Output<Stmt> {
     pair(
         parse_set_deconstruct(),
         right(
@@ -118,20 +120,20 @@ pub fn parse_set_deconstruct_assignment(input: &[Token]) -> Output<Stmt> {
                 match_token(TokenKind::Equals)),
             parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span))))
         .map(|(decon_set, exprs), span| Stmt::SetDeconstructAssignStmt(decon_set, exprs, span))
-        .parse(input)
+        .parse_next(input)
 }
 
-pub fn parse_case_statement(input: &[Token]) -> Output<Stmt> {
+pub fn parse_case_statement(input: TokenStream) -> Output<Stmt> {
     right(
         match_token(TokenKind::CaseKeyword),
         pair(
-            parse_identifier(),
+            parse_expression,
             one_or_more(parse_case_stmt_branch)))
-        .map(|(ident, branches), span| Stmt::CaseStmt(ident, branches, span))
-        .parse(input)
+        .map(|(expr, branches), span| Stmt::CaseStmt(expr, branches, span))
+        .parse_next(input)
 }
 
-pub fn parse_case_stmt_branch(input: &[Token]) -> Output<(Vec<FnParam>, Stmt)> {
+pub fn parse_case_stmt_branch(input: TokenStream) -> Output<(Vec<FnPatternParam>, Stmt)> {
     pair(
         left(
             parse_fn_expr_case_params(),
@@ -146,5 +148,5 @@ pub fn parse_case_stmt_branch(input: &[Token]) -> Output<(Vec<FnParam>, Stmt)> {
                 BoxedParser::new(parse_proc_call),
             ]),
             match_token(TokenKind::SemiColon)))
-        .parse(input)
+        .parse_next(input)
 }
