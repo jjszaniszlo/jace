@@ -28,7 +28,11 @@ fn main() {
 
     let jcf = JaceFile::new("test.jc",
                             r#"
-                            def join :: List (List a) => List a
+                            type Option a :: Some a | None
+
+                            type List a :: Nil | Cons a (List a)
+
+                            def join :: (List (List a)) => (List a)
                             case
                                 Nil => Nil;
                                 Cons xs xss => cat xs (join xss);

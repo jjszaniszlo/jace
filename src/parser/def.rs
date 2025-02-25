@@ -20,6 +20,7 @@ pub fn parse_def<'a>() -> impl Parser<'a, Def> {
     or_n(vec![
         BoxedParser::new(parse_fn_def),
         BoxedParser::new(parse_proc_def),
+        BoxedParser::new(parse_type_def),
         // BoxedParser::new(parse_instance_def),
         // BoxedParser::new(parse_type_def()),
         // BoxedParser::new(parse_type_union_def()),
@@ -224,6 +225,45 @@ pub fn parse_proc_def(input: TokenStream) -> Output<Def> {
         .map(|(i, stmts), s| Def::ProcDef(i, stmts, s))
         .parse_next(input)
 }
+
+pub fn parse_type_def(input: TokenStream) -> Output<Def> {
+    pair(
+        parse_type_def_header,
+        pair(
+            parse_type_def_member,
+            zero_or_more(
+                right(
+                    match_token(TokenKind::Union),
+                    parse_type_def_member))))
+        .map(|((ty_name, para_names), (f_ty, rest_ty)), s| {
+            let mut final_types = vec![f_ty];
+            final_types.extend(rest_ty);
+            Def::TypeDef(ty_name, para_names, final_types, s)
+        })
+        .parse_next(input)
+}
+
+pub fn parse_type_def_member(input: TokenStream) -> Output<TypeParam> {
+    parse_type_param
+        .map(|t, s |
+            match t {
+                TypeParam::Type(i, s) => TypeParam::TypeConstructorType(i, vec![], s),
+                _ => t,
+            })
+        .parse_next(input)
+
+}
+
+pub fn parse_type_def_header(input: TokenStream) -> Output<(Identifier, Vec<Identifier>)> {
+    surrounded(
+        match_token(TokenKind::TypeKeyword),
+        pair(
+            parse_identifier(),
+            zero_or_more(parse_identifier())),
+        match_token(TokenKind::ColonColon))
+        .parse_next(input)
+}
+
 
 // pub fn parse_fn_def(input: TokenStream) -> Output<Def> {
 //     pair(

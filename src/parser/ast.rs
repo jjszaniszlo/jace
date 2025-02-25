@@ -30,7 +30,7 @@ pub enum Def {
     FnDef(Identifier, Vec<TypeParam>, TypeParam, Option<Vec<TypeConstraint>>, FnExpr, Range<usize>),
 
     // type_name, parametric types, sum of types.
-    TypeDef(Identifier, Vec<Identifier>, Vec<TaggedUnionType>, Range<usize>),
+    TypeDef(Identifier, Vec<Identifier>, Vec<TypeParam>, Range<usize>),
 
     // class_name, Vec of generic_type_param
     ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>, Range<usize>),
@@ -86,7 +86,10 @@ pub enum TypeParam {
     FuncType(Vec<TypeParam>, P<TypeParam>, Range<usize>),
 
     // <ident> <type_param>*
-    ProductType(Identifier, Vec<TypeParam>, Range<usize>),
+    TypeConstructorType(Identifier, Vec<TypeParam>, Range<usize>),
+
+    // <ident> (<ident> ":" <type_param>)+
+    RecordType(Identifier, Vec<(Identifier, TypeParam)>, Range<usize>),
 }
 
 impl AstSpan for TypeParam {
@@ -97,44 +100,8 @@ impl AstSpan for TypeParam {
             TypeParam::TupleType(_, s) => s,
             TypeParam::ArrayType(_, _, s) => s,
             TypeParam::FuncType(_, _, s) => s,
-            TypeParam::ProductType(_, _, s) => s,
-        };
-        s.clone()
-    }
-}
-
-// this is a seperate type from TypeParam because
-// in a type def, these are the only valid parses.
-#[derive(Clone, Debug, PartialEq)]
-pub enum TaggedUnionType {
-    // <ident>
-    Type(Identifier, Range<usize>),
-
-    // <ident> (<ident> ":" <type_param>)+
-    RecordType(Identifier, Vec<(Identifier, TypeParam)>, Range<usize>),
-
-    // <ident> <tagged_union_type>*
-    ProductType(Identifier, Vec<TaggedUnionType>, Range<usize>),
-
-    // <ident> <type_param>*
-    ConstructedType(Identifier, Vec<TypeParam>, Range<usize>),
-
-    // <ident>
-    ParametricType(Identifier, Range<usize>),                   // the type checker will convert
-    // recognized parametric types to
-    // this node
-}
-
-// type List a :: Nil | Cons a (List a)
-
-impl AstSpan for TaggedUnionType {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            TaggedUnionType::Type(_, s) => s,
-            TaggedUnionType::RecordType(_, _, s) => s,
-            TaggedUnionType::ProductType(_, _, s) => s,
-            TaggedUnionType::ConstructedType(_, _, s) => s,
-            TaggedUnionType::ParametricType(_, s) => s,
+            TypeParam::TypeConstructorType(_, _, s) => s,
+            TypeParam::RecordType(_, _, s) => s,
         };
         s.clone()
     }
