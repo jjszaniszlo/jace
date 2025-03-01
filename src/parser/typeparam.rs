@@ -14,8 +14,8 @@ pub fn parse_type_param(input: TokenStream) -> Output<TypeParam> {
         BoxedParser::new(parse_type_param_tuple),
         BoxedParser::new(parse_type_param_array),
         BoxedParser::new(parse_type_param_func),
+        BoxedParser::new(parse_type_param_type),
         BoxedParser::new(parse_type_param_ident),
-        BoxedParser::new(parse_type_param_type_constructor),
     ])
         .parse_next(input)
 }
@@ -80,15 +80,7 @@ pub fn parse_type_param_func(input: TokenStream) -> Output<TypeParam> {
         .parse_next(input)
 }
 
-pub fn parse_type_param_ident(input: TokenStream) -> Output<TypeParam> {
-    left(
-        parse_identifier(),
-        not(parse_identifier()))
-        .map(|i, s| TypeParam::Type(i, s))
-        .parse_next(input)
-}
-
-pub fn parse_type_param_type_constructor(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_type_param_type(input: TokenStream) -> Output<TypeParam> {
     or(
         surrounded(
             match_token(TokenKind::LeftParen),
@@ -101,5 +93,13 @@ pub fn parse_type_param_type_constructor(input: TokenStream) -> Output<TypeParam
             parse_identifier(),
             one_or_more(parse_type_param)))
         .map(|(i, p), s| TypeParam::TypeConstructorType(i, p, s))
+        .parse_next(input)
+}
+
+pub fn parse_type_param_ident(input: TokenStream) -> Output<TypeParam> {
+    left(
+        parse_identifier(),
+        not(parse_identifier()))
+        .map(|i, s| TypeParam::Type(i, s))
         .parse_next(input)
 }

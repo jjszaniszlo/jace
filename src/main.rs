@@ -32,14 +32,14 @@ fn main() {
 
                             type List a :: Nil | Cons a (List a)
 
-                            def join :: (List (List a)) => (List a)
+                            def join :: List (List a) => List a
                             case
                                 Nil => Nil;
                                 Cons xs xss => cat xs (join xss);
 
                             def sum :: Integer, Integer => Integer
                             do
-                                a, b => a*(-b)
+                                a, b => a * b
 
                             "#);
 
