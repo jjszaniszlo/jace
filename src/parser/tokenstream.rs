@@ -1,10 +1,13 @@
 use crate::lexer::token::{Token, TokenKind};
 use std::ops::Range;
 
-#[derive(Debug, Clone, Copy)]
+use super::state::{IdentCounter, ParserState};
+
+#[derive(Debug)]
 pub struct TokenStream<'a> {
     toks: &'a [Token],
-    last_span: (usize, usize),
+    last_span: Range<usize>,
+    state: ParserState,
 }
 
 pub trait TokenResult {
@@ -26,17 +29,17 @@ impl<'a> TokenStream<'a> {
     pub fn new(toks: &'a [Token]) -> TokenStream {
         Self {
             toks,
-            last_span: (0, 0),
+            last_span: 0..0,
+            state: ParserState::new(),
         }
     }
 
-    pub fn next(self) -> Option<((TokenKind, Range<usize>), TokenStream<'a>)> {
+    pub fn next(&mut self) -> Option<(TokenKind, Range<usize>)> {
         let (tok, rest) = self.toks.split_first()?;
         let (kind, span) = tok.clone().into_inner();
-        Some(((kind, span.clone()), Self {
-            toks: rest,
-            last_span: (span.start, span.end),
-        }))
+        self.toks = rest;
+        self.last_span = span.clone();
+        Some((kind, span))
     }
 
     pub fn peek(&self) -> Option<(TokenKind, Range<usize>)> {
@@ -44,6 +47,26 @@ impl<'a> TokenStream<'a> {
     }
 
     pub fn last_span(&self) -> Range<usize> {
-        self.last_span.0..self.last_span.1
+        self.last_span.clone()
     }
+
+    pub fn checkpoint(&self) -> Checkpoint<'a> {
+        Checkpoint {
+            toks: self.toks,
+        }
+    }
+
+    pub fn reset(&mut self, checkpoint: &Checkpoint<'a>) {
+        self.toks = checkpoint.toks;
+    }
+}
+
+impl<'a> IdentCounter for TokenStream<'a> {
+    fn increment(&mut self) {
+        self.state.increment();
+    }
+}
+
+pub struct Checkpoint<'a> {
+    toks: &'a [Token],
 }

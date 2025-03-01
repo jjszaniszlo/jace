@@ -8,7 +8,7 @@ use crate::parser::tokenstream::TokenStream;
 
 use super::combinator::{left, not};
 
-pub fn parse_type_param(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_type_param<'a>(input: &mut TokenStream<'a>) -> Output<'a, TypeParam> {
     or_n(vec![
         BoxedParser::new(parse_type_param_empty),
         BoxedParser::new(parse_type_param_tuple),
@@ -20,7 +20,7 @@ pub fn parse_type_param(input: TokenStream) -> Output<TypeParam> {
         .parse_next(input)
 }
 
-pub fn parse_type_param_empty(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_type_param_empty<'a>(input: &mut TokenStream<'a>) -> Output<'a, TypeParam> {
     pair(
         match_token(TokenKind::LeftParen),
         match_token(TokenKind::RightParen))
@@ -28,7 +28,7 @@ pub fn parse_type_param_empty(input: TokenStream) -> Output<TypeParam> {
         .parse_next(input)
 }
 
-pub fn parse_type_param_tuple(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_type_param_tuple<'a>(input: &mut TokenStream<'a>) -> Output<'a, TypeParam> {
     surrounded(
         match_token(TokenKind::LeftParen),
         pair(
@@ -46,7 +46,7 @@ pub fn parse_type_param_tuple(input: TokenStream) -> Output<TypeParam> {
         .parse_next(input)
 }
 
-pub fn parse_type_param_array(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_type_param_array<'a>(input: &mut TokenStream<'a>) -> Output<'a, TypeParam> {
     surrounded(
         match_token(TokenKind::LeftBracket),
         pair(
@@ -54,11 +54,10 @@ pub fn parse_type_param_array(input: TokenStream) -> Output<TypeParam> {
             zero_or_one(
                 parse_literal_integer())),
         match_token(TokenKind::RightBracket))
-        .map(|(ty, size), s| TypeParam::ArrayType(P(ty), size, s))
-        .parse_next(input)
+        .map(|(ty, size), s| TypeParam::ArrayType(P(ty), size, s)) .parse_next(input)
 }
 
-pub fn parse_type_param_func(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_type_param_func<'a>(input: &mut TokenStream<'a>) -> Output<'a, TypeParam> {
     surrounded(
         match_token(TokenKind::LeftParen),
         pair(
@@ -80,7 +79,7 @@ pub fn parse_type_param_func(input: TokenStream) -> Output<TypeParam> {
         .parse_next(input)
 }
 
-pub fn parse_type_param_type(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_type_param_type<'a>(input: &mut TokenStream<'a>) -> Output<'a, TypeParam> {
     or(
         surrounded(
             match_token(TokenKind::LeftParen),
@@ -96,7 +95,7 @@ pub fn parse_type_param_type(input: TokenStream) -> Output<TypeParam> {
         .parse_next(input)
 }
 
-pub fn parse_type_param_ident(input: TokenStream) -> Output<TypeParam> {
+pub fn parse_type_param_ident<'a>(input: &mut TokenStream<'a>) -> Output<'a, TypeParam> {
     left(
         parse_identifier(),
         not(parse_identifier()))

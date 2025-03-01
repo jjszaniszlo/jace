@@ -31,43 +31,19 @@ pub enum TokenKind {
     String(String),
     Identifier(String),
 
-    // binary operators
-    EqualsEquals,       // ==
-    NotEquals,          // !=
-    And,                // &&
-    Or,                 // ||
-    GreaterEquals,      // >=
-    LessEquals,         // <=
-    Greater,            // >
-    Less,               // <
-    Plus,               // +
-    Minus,              // -
-    Divide,             // /
-    Multiply,           // *
-    Exp,                // ^
+    Operator(String),
 
-    // wrapped operators.
-    WrappedEqualsEquals,    // (==)
-    WrappedNotEquals,       // (!=)
-    WrappedLessEquals,      // (<=)
-    WrappedGreaterEquals,   // (>=)
-    WrappedGreater,         // (>)
-    WrappedLess,            // (<)
-    WrappedPlus,            // (+)
-    WrappedMinus,           // (-)
-    WrappedDivide,          // (/)
-    WrappedMultiply,        // (*)
-
-    // other operators 
+    // non-overridable operators 
     Equals,             // =
     InferredEquals,     // :=
-    SemiColon,          // ;
     Colon,              // :
     ColonColon,         // ::
-    Union,              // |
     FatArrow,           // =>
     Comma,              // ,
     Dot,                // .
+    Bang,               // !
+
+    // brackets
     LeftParen,          // (
     RightParen,         // )
     LeftBrace,          // {
@@ -75,12 +51,9 @@ pub enum TokenKind {
     LeftBracket,        // [
     RightBracket,       // ]
 
-    // Other
-    Bang,               // !
-
     // reserved words
-    TypeKeyword,    // type
-    ClassKeyword,   // class
+    TypeKeyword,     // type
+    ClassKeyword,    // class
     InstanceKeyword, // instance
     CaseKeyword,    // case
     LetKeyword,     // let
@@ -92,7 +65,10 @@ pub enum TokenKind {
     DefKeyword,     // def
     ConstKeyword,   // const
     WhereKeyword,   // where
-    DoKeyword,   // do
+    DoKeyword,      // do
+    AndKeyword,     // and
+    OrKeyword,      // or
+    NotKeyword,     // not    
 }
 
 impl TokenKind {
