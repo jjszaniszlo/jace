@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 thiserror = "2"
-mlua = { version = "0.10", features = ["lua54", "vendored"] }
+mlua = { version = "0.10", features = ["luajit", "vendored"] }
 clap = { version = "4.5.28", features = ["derive"] }
 miette = { version = "7.5.0", features = ["fancy"] }
