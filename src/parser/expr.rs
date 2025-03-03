@@ -397,3 +397,22 @@ pub fn parse_fn_expr_case_deconstruct_union_type<'a>(input: &mut TokenStream<'a>
         .map(|(first, rest), s| FnPatternParam::BindToTypeConstructorParam(first, rest, s))
         .parse_next(input)
 }
+
+mod test {
+    use crate::{parser::tokenstream::TokenStream, Token, TokenKind};
+
+    use super::{parse_bin_op, Parser};
+
+    
+    #[test]
+    fn test_bin_expr() {
+        let toks = vec![
+            Token::new(TokenKind::Integer(20), 0, 2),
+            Token::new(TokenKind::Operator("+".to_string()), 2, 1),
+            Token::new(TokenKind::Integer(10), 0, 2),
+        ];
+        let mut stream = TokenStream::new(&toks);
+        let r = parse_bin_op(0).parse_next(&mut stream);
+    }
+}
+
