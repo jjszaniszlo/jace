@@ -10,6 +10,7 @@ mod stmt;
 mod tokenstream;
 mod typeparam;
 mod state;
+mod pratt;
 
 pub mod prelude {
     pub use crate::{parser::ast::*, parser::parser::*};
