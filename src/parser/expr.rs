@@ -18,45 +18,6 @@ pub fn parse_expression<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
         .parse_next(input)
 }
 
-// ****************** FN EXPR ***************************
-// pub fn parse_fn_expr_as_expr<'a>(input: &mut TokenStream<'a>) -> Output<'a, Expr> {
-//     or(
-//         parse_fn_expr_single,
-//         parse_fn_expr_case)
-//         .map(|f, s| Expr::FnExpr(P(f), s))
-//         .parse_next(input)
-// }
-//
-// pub fn parse_fn_expr<'a>(input: &mut TokenStream<'a>) -> Output<'a, FnExpr> {
-//     or(
-//         parse_fn_expr_single,
-//         parse_fn_expr_case)
-//         .parse_next(input)
-// }
-//
-// pub fn parse_fn_expr_single<'a>(input: &mut TokenStream<'a>) -> Output<'a, FnExpr> {
-//     pair(
-//         left(
-//             parse_fn_expr_params(),
-//             match_token(TokenKind::FatArrow)),
-//         or(
-//             parse_expression,
-//             surrounded(
-//                 match_token(TokenKind::LeftParen),
-//                 parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
-//                 match_token(TokenKind::RightParen))))
-//         .map(|(params, expr), span| FnExpr::FnExpr(params, expr, span))
-//         .parse_next(input)
-// }
-//
-// pub fn parse_fn_expr_case<'a>(input: &mut TokenStream<'a>) -> Output<'a, FnExpr> {
-//     right(
-//         match_token(TokenKind::CaseKeyword),
-//         one_or_more(parse_fn_expr_case_branch))
-//         .map(|fn_exprs, span| FnExpr::CaseFnExpr(fn_exprs, span))
-//         .parse_next(input)
-// }
-
 pub fn parse_fn_expr_case_branch<'a>(input: &mut TokenStream<'a>) -> Output<'a, FnExpr> {
     pair(
         left(
@@ -73,20 +34,6 @@ pub fn parse_fn_expr_case_branch<'a>(input: &mut TokenStream<'a>) -> Output<'a, 
         .map(|(params, expr), span| FnExpr::FnExpr(params, expr, span))
         .parse_next(input)
 }
-
-// pub fn parse_fn_expr_params<'a>() -> impl Parser<'a, Vec<FnPatternParam>> {
-//     pair(
-//         parse_fn_expr_param(),
-//         zero_or_more(
-//             right(
-//                 match_token(TokenKind::Comma),
-//                 parse_fn_expr_param())))
-//         .map(|(first_param, params), _| {
-//             let mut final_params = vec![first_param];
-//             final_params.extend(params);
-//             final_params
-//         })
-// }
 
 pub fn parse_fn_expr_param<'a>() -> impl Parser<'a, FnPatternParam> {
     or_n(vec![

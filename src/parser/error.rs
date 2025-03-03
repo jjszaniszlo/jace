@@ -2,7 +2,7 @@ use crate::parser::error::ErrorType::{Recoverable, Unrecoverable};
 use miette::Severity;
 use std::ops::Range;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ErrorType {
     // incomplete means that the parser needs additional information
     // to complete error.
@@ -40,7 +40,7 @@ impl ErrorType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ParserError {
     pub message: Option<String>,
     pub label: Option<String>,

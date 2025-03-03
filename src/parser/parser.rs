@@ -67,7 +67,8 @@ impl<'a, Out> Parser<'a, Out> for BoxedParser<'a, Out> {
 
 pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
     move |input: &mut TokenStream<'a>| {
-        match input.next() {
+        let start = input.checkpoint();
+        let result = match input.next() {
             Some(res)
             if res.kind() == expected => {
                 Ok(((), res.span()))
@@ -79,17 +80,25 @@ pub fn match_token<'a>(expected: TokenKind) -> impl Parser<'a, ()> {
                         .span(res.span())
                         .build())),
             None => Err(ErrorType::Incomplete)
+        };
+
+        match result {
+            ok @ Ok(_) => ok,
+            err @ Err(_) => {
+                input.reset(&start);
+                err
+            },
         }
     }
 }
 
 pub fn parse_identifier<'a>() -> impl Parser<'a, Identifier> {
     move |input: &mut TokenStream<'a>| {
-        match input.next() {
+        let start = input.checkpoint();
+        let result = match input.next() {
             Some(res) => {
                 match res.kind() {
                     TokenKind::Identifier(ident) => {
-                        input.increment();
                         Ok((Identifier(ident, res.span()), res.span()))
                     }
                     _ => Err(
@@ -101,13 +110,22 @@ pub fn parse_identifier<'a>() -> impl Parser<'a, Identifier> {
                 }
             }
             None => Err(ErrorType::Incomplete)
+        };
+        
+        match result {
+            ok @ Ok(_) => ok,
+            err @ Err(_) => {
+                input.reset(&start);
+                err
+            },
         }
     }
 }
 
 pub fn parse_literal<'a>() -> impl Parser<'a, Literal> {
     move |input: &mut TokenStream<'a>| {
-        match input.next() {
+        let start = input.checkpoint();
+        let result = match input.next() {
             Some(res) => {
                 let lit = match res.kind() {
                     TokenKind::Bool(b) => Literal::Bool(b, res.span()),
@@ -126,13 +144,21 @@ pub fn parse_literal<'a>() -> impl Parser<'a, Literal> {
                 Ok((lit, res.span()))
             }
             None => Err(ErrorType::Incomplete)
+        };
+        match result {
+            ok @ Ok(_) => ok,
+            err @ Err(_) => {
+                input.reset(&start);
+                err
+            },
         }
     }
 }
 
 pub fn parse_literal_integer<'a>() -> impl Parser<'a, usize> {
     move |input: &mut TokenStream<'a>| {
-        match input.next() {
+        let start = input.checkpoint();
+        let result = match input.next() {
             Some(res) => match res.kind() {
                 TokenKind::Integer(i) => {
                     Ok((i, res.span()))
@@ -145,13 +171,22 @@ pub fn parse_literal_integer<'a>() -> impl Parser<'a, usize> {
                             .build()))
             },
             None => Err(ErrorType::Incomplete)
+        };
+
+        match result {
+            ok @ Ok(_) => ok,
+            err @ Err(_) => {
+                input.reset(&start);
+                err
+            },
         }
     }
 }
 
 pub fn parse_operator<'a>() -> impl Parser<'a, BinOperator> {
     move |input: &mut TokenStream<'a>| {
-        match input.next() {
+        let start = input.checkpoint();
+        let result = match input.next() {
             Some(res) => {
                 let op = match res.kind() {
                     TokenKind::Operator(_) => BinOperator::Plus,
@@ -167,6 +202,14 @@ pub fn parse_operator<'a>() -> impl Parser<'a, BinOperator> {
                 Ok((op, res.span()))
             }
             None => Err(ErrorType::Incomplete)
+        };
+
+        match result {
+            ok @ Ok(_) => ok,
+            err @ Err(_) => {
+                input.reset(&start);
+                err
+            },
         }
     }
 }

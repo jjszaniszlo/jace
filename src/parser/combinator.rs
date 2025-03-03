@@ -1,7 +1,8 @@
-use super::{error::*, Parser};
+use super::{error::*, match_token, parse_identifier, Parser};
 use crate::parser::ast::AstSpan;
 use crate::parser::tokenstream::TokenStream;
 use crate::parser::BoxedParser;
+use crate::{Identifier, Token, TokenKind};
 use std::fmt::Debug;
 use std::ops::Range;
 
@@ -276,4 +277,109 @@ where
             Err(e) => Err(e),
         }
     }
+}
+
+#[test]
+pub fn pair_success1() {
+    let toks = vec![
+        Token::new(TokenKind::TypeKeyword, 0, 4),
+        Token::new(TokenKind::Identifier("hello".to_string()), 5, 5),
+    ];
+
+    let mut stream = TokenStream::new(&toks);
+    let p = right(
+        match_token(TokenKind::TypeKeyword),
+        parse_identifier())
+        .parse_next(&mut stream);
+
+    assert_eq!(Ok((Identifier("hello".to_string(), 5..10), 0..10)), p);
+
+    let mut stream2 = TokenStream::new(&toks);
+    let p2 = right(
+        match_token(TokenKind::DoKeyword),
+        parse_identifier())
+        .parse_next(&mut stream2);
+}
+
+
+#[test]
+pub fn or_test() {
+    let toks = vec![
+        Token::new(TokenKind::TypeKeyword, 0, 4),
+        Token::new(TokenKind::Identifier("hello".to_string()), 5, 5),
+        Token::new(TokenKind::DoKeyword, 10, 2),
+        Token::new(TokenKind::Identifier("world".to_string()), 13, 5),
+    ];
+
+    let mut stream = TokenStream::new(&toks);
+    let p = or(
+        right(
+            match_token(TokenKind::TypeKeyword),
+            parse_identifier()),
+        right(
+            match_token(TokenKind::DoKeyword),
+            parse_identifier()));
+
+    let r1 = p.parse_next(&mut stream);
+    let r2 = p.parse_next(&mut stream);
+
+}
+
+#[test]
+pub fn zero_or_more_test() {
+    let toks = vec![
+        Token::new(TokenKind::DoKeyword, 0, 2),
+        Token::new(TokenKind::DoKeyword, 3, 2),
+        Token::new(TokenKind::DoKeyword, 6, 2),
+        Token::new(TokenKind::TypeKeyword, 7, 4),
+        Token::new(TokenKind::Comma, 8, 1),
+    ];
+
+    let mut stream = TokenStream::new(&toks);
+    let p1 = zero_or_more(match_token(TokenKind::DoKeyword));
+    let p2 = zero_or_more(match_token(TokenKind::TypeKeyword));
+
+    let r1 = p1.parse_next(&mut stream);
+    let r2 = p2.parse_next(&mut stream);
+
+}
+
+
+#[test]
+pub fn one_or_more_test() {
+    let toks = vec![
+        Token::new(TokenKind::DoKeyword, 0, 2),
+        Token::new(TokenKind::TypeKeyword, 8, 4),
+    ];
+
+    let mut stream = TokenStream::new(&toks);
+    let p1 = one_or_more(match_token(TokenKind::DoKeyword));
+    let p2 = one_or_more(match_token(TokenKind::TypeKeyword));
+
+    let r1 = p1.parse_next(&mut stream);
+    let r2 = p2.parse_next(&mut stream);
+
+    assert_eq!(r1, Ok((vec![()], 0..2)));
+    assert_eq!(r2, Ok((vec![()], 8..12)));
+    assert!(stream.toks_remaining() == 0);
+}
+
+
+#[test]
+pub fn not_test() {
+    let toks = vec![
+        Token::new(TokenKind::Comma, 0, 1),
+        Token::new(TokenKind::Comma, 2, 1),
+    ];
+
+    let mut stream = TokenStream::new(&toks);
+    let p1 = not(match_token(TokenKind::TypeKeyword));
+    let p2 = not(match_token(TokenKind::DoKeyword));
+
+    let r1 = p1.parse_next(&mut stream);
+    let r2 = p2.parse_next(&mut stream);
+
+    assert_eq!(r1, Ok(((), 0..1)));
+    assert_eq!(r2, Ok(((), 2..3)));
+    assert!(stream.toks_remaining() == 0);
 }

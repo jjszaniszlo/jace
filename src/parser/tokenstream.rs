@@ -1,13 +1,10 @@
 use crate::lexer::token::{Token, TokenKind};
 use std::ops::Range;
 
-use super::state::{IdentCounter, ParserState};
-
 #[derive(Debug)]
 pub struct TokenStream<'a> {
     toks: &'a [Token],
     last_span: Range<usize>,
-    state: ParserState,
 }
 
 pub trait TokenResult {
@@ -30,7 +27,6 @@ impl<'a> TokenStream<'a> {
         Self {
             toks,
             last_span: 0..0,
-            state: ParserState::new(),
         }
     }
 
@@ -49,6 +45,10 @@ impl<'a> TokenStream<'a> {
     pub fn last_span(&self) -> Range<usize> {
         self.last_span.clone()
     }
+    
+    pub fn toks_remaining(&self) -> usize {
+        self.toks.len()
+    }
 
     pub fn checkpoint(&self) -> Checkpoint<'a> {
         Checkpoint {
@@ -59,12 +59,7 @@ impl<'a> TokenStream<'a> {
     pub fn reset(&mut self, checkpoint: &Checkpoint<'a>) {
         self.toks = checkpoint.toks;
     }
-}
 
-impl<'a> IdentCounter for TokenStream<'a> {
-    fn increment(&mut self) {
-        self.state.increment();
-    }
 }
 
 pub struct Checkpoint<'a> {

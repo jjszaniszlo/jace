@@ -29,18 +29,12 @@ fn main() {
     let jcf = JaceFile::new("test.jc",
                             r#"
                             type Option a :: Some a | None
-
-                            type List a :: Nil | Cons a (List a)
-
-                            def join :: List (List a) => List a
-                            case
-                                Nil => Nil,
-                                Cons xs xss => cat xs (join xss),
-
-                            def sum :: Integer, Integer => Integer
+                             
+                            type Either a b :: Left a | Right a 
+                            
+                            def sum :: Integer a, Integer => Integer
                             do
-                                a, b => a * b
-
+                                a, b => a + b
                             "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
