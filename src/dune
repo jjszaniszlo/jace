@@ -1,0 +1,13 @@
+(include_subdirs unqualified)
+
+(executable
+ (public_name jace)
+ (name main)
+ (libraries jace)
+ (modules main))
+
+(library
+  (name jace)
+  (modules
+    (:standard \ main))
+  (modules_without_implementation token ast))
