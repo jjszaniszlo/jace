@@ -18,7 +18,7 @@ let test string tokens =
 
 let test_keywords _ =
   let open Jace.Token in
-  test "type class instance def where let in case if then else elseif ref"
+  test "type class instance def where let in case if then else elseif ref inherit"
     [ (TypeKeyword, "type")
     ; (ClassKeyword, "class")
     ; (InstanceKeyword, "instance")
@@ -32,6 +32,7 @@ let test_keywords _ =
     ; (ElseKeyword, "else")
     ; (ElseIfKeyword, "elseif")
     ; (RefKeyword, "ref")
+    ; (InheritKeyword, "inherit")
     ; (Eof, "")
     ]
 ;;
@@ -177,7 +178,7 @@ let test_primitive_operators _ =
     ; (StrLenOp, "@strLen")       
     ; (StrAppendOp, "@strAppend") 
     ; (StrConcatOp, "@strConcat") 
-    ; (StrCharAt, "@strCharAt")   
+    ; (StrCharAtOp, "@strCharAt")   
     ; (ListLenOp, "@listLen")        
     ; (ListAppendOp, "@listAppend")  
     ; (ListIndexOp, "@listIndex")    

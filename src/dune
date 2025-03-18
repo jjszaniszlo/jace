@@ -10,4 +10,4 @@
   (name jace)
   (modules
     (:standard \ main))
-  (modules_without_implementation token ast))
+  (modules_without_implementation token ast diagnostic))

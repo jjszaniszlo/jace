@@ -46,7 +46,7 @@ type kind =
   | StrLenOp    (* '@strLen' *)
   | StrAppendOp (* '@strAppend' *)
   | StrConcatOp (* '@strConcat' *)
-  | StrCharAt   (* '@strCharAt' *)
+  | StrCharAtOp   (* '@strCharAt' *)
 
   (* list primitive operations *)
   | ListLenOp     (* '@listLen' *)
@@ -89,6 +89,7 @@ type kind =
   | ElseKeyword
   | ElseIfKeyword
   | RefKeyword
+  | InheritKeyword
 
 type t =
   { kind: kind

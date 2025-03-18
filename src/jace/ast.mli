@@ -27,6 +27,7 @@ type binop =
   (* string primitive operators *)
   | StrAppend (* '@strAppend' *)
   | StrConcat (* '@strConcat' *)
+  | StrCharAt (* '@strCharAt' *)
 
   (* list primitive operations *)
   | ListAppend  (* '@listAppend' *)
@@ -35,7 +36,6 @@ type binop =
   | RecordIndex  (* '@recordIndex' *)
 
   | Op of string
-
 
 type unop =
   | Not (* '@not' *)
@@ -46,11 +46,11 @@ type unop =
 
   (* string primitive operators *)
   | StrLen    (* '@strLen' *)
-  | StrCharAt (* '@strCharAt' *)
 
   (* list primitive operations *)
   | ListLen (* '@listLen' *)
 
+  (* record primitive operations *)
   | RecordLen (* '@recordLen' *)
 
   (* ref and deref *)
@@ -82,49 +82,70 @@ type unop =
 (* a stmt is pretty much an expr with the ZeroExpr type *)
 type stmt =
   | Expr of expr
-  (* ident := expr *)
-  | Bind of identifier * expr t
+
+  (* only identifier expr and tuple expr can be binded to *)
+  (* expr := expr *)
+  | Bind of expr t * expr t
+
+  (* only references can be reassigned *)
+  (* accessing a record implicitly references and using the 'ref' keyword when binding for anything else *)
   (* expr = expr *)
-  | Rebind of expr t * expr t
-  (* can contain a single function body
-     or a polymorphic function body with case *)
-  | Function of identifier * (expr t list * expr t list) list
+  | Reassign of expr t * expr t
 
 and expr =
-  (* infix *)
+  (* expr binop expr *)
   | Binary of binop * expr t * expr t
-  (* prefix or postfix *)
+  (* unop expr *)
   | Unary of unop * expr t * expr t
 
-  (* if then elseif else, etc *)
+  (* 'if' expr 'then' expr ('elseif' expr 'then' expr)* 'else' expr *)
   | IfThen of (expr t * expr t) list * expr t
-  (* case expr branches *)
-  | CaseIn of expr t * (expr t list * expr t list) list
 
-  | LetIn of stmt t list
+  (* 'case' expr 'in' (expr (',' expr)* '=>' expr) *)
+  | CaseIn of expr t * (expr t list * expr t) list
 
-  | Call of expr t * expr t list
-
-  (* TODO constrain record keys to some E *)
-  | RecordEntry of expr t * expr t
+  (* 'let' stmt* 'in' expr *)
+  | LetIn of stmt t list * expr t
+  
+  (* '[' expr (',' expr)* ']' *)
   | List of expr t list
 
-  (* variant constructor,
-     looks similar to a function call, so it will likely be handled by the
-     type checker *)
-  (* TODO constrain identifier to an environment E *)
-  | Variant of identifier * expr t list
+  (* the structure for both pattern matching code
+     and record type construction *)
+  (* inherit is a way of making a record have all the fields of another record *)
+  (* Env is basically just a Map implementation with some extra capabilities *)
+  (* '{' ('inherit' ident ';')? (ident ('=' expr)? )+ '}' *)
+  | Record of expr t Env.t * expr t
 
+  (* expr expr* *)
+  | Application of expr t * expr t list
+
+  (* the parser doesn't construct this, but the type checker will convert
+     applications to this *)
+  (* identifier expr* *)
+  | TypeConstructor of identifier * expr t
+  
+  (* params => expr *)
+  | Lambda of (expr t list * expr t) list
+
+  (* expr (';' expr)+ expr *)
+  | MultiExpr of expr t list * expr t
+
+  (* syntax sugar for multiple assignment and clarity *)
+  (* '(' expr (',' expr)* ') *)
+  | Tuple of expr t list
+
+  | Binding of identifier
   | String of string
   | Integer of int
   | Float of float
 
-  | Fn of identifier list * expr t list
-
-  | Identifier of identifier
-
+  (* {} *)
   | EmptyRecord
+
+  (* () *)
   | EmptyExpr
+
   | Invalid 
 
 type jace_module = stmt t list

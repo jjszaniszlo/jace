@@ -92,6 +92,7 @@ and next_identifier lexer =
     | "else"      -> Token.ElseKeyword
     | "elseif"    -> Token.ElseIfKeyword
     | "ref"       -> Token.RefKeyword
+    | "inherit"   -> Token.InheritKeyword
     | _           -> Token.Identifier
   in
   (lexer, token_from lexer kind)
@@ -164,7 +165,7 @@ and next_primitive_op lexer =
     | "@strLen"     -> Token.StrLenOp    (* '@strLen' *)
     | "@strAppend"  -> Token.StrAppendOp (* '@strAppend' *)
     | "@strConcat"  -> Token.StrConcatOp (* '@strConcat' *)
-    | "@strCharAt"  -> Token.StrCharAt   (* '@strCharAt' *)
+    | "@strCharAt"  -> Token.StrCharAtOp (* '@strCharAt' *)
 
     (* list primitive operations *)
     | "@listLen"    -> Token.ListLenOp    (* '@listLen' *)
