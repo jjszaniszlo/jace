@@ -8,5 +8,6 @@
     ocamlPackages.ounit2
     ocamlPackages.fmt
     ocamlPackages.ocaml-lsp
+    ocamlPackages.base
   ];
 }

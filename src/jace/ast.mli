@@ -135,10 +135,10 @@ and expr =
   (* '(' expr (',' expr)* ') *)
   | Tuple of expr t list
 
-  | Binding of identifier
+  | Binding of identifier 
   | String of string
-  | Integer of int
-  | Float of float
+  | Integer of string
+  | Float of string
 
   (* {} *)
   | EmptyRecord

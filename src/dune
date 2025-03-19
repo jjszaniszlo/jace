@@ -10,4 +10,5 @@
   (name jace)
   (modules
     (:standard \ main))
+  (libraries base)
   (modules_without_implementation token ast diagnostic))

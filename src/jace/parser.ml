@@ -1,3 +1,5 @@
+open Base
+
 type op_precedence =
   { prefix: int Env.t
   ; infix: (int * int) Env.t
@@ -5,21 +7,24 @@ type op_precedence =
   }
 
 type t = 
-  { mutable lexer : Lexer.t
+  { lexer : Lexer.t
   ; code : Code.t
-  ; mutable current_tok : Token.t
-  ; mutable next_two_toks : Token.t * Token.t
-  ; mutable diagnostics : Diagnostic.t list
-  ; mutable error_occured : bool 
+  ; current_tok : Token.t
+  ; next_two_toks : Token.t * Token.t
+  ; diagnostics : Diagnostic.t list
+  ; error_occured : bool 
   ; ops : op_precedence 
   }
 
+let ( let* ) res f = Base.Result.bind res ~f
+
 let add_diagnostic parser msg span =
   if parser.error_occured then
-    ()
+    parser
   else 
-    parser.error_occured <- true;
-    parser.diagnostics <- Diagnostic.{msg; span} :: parser.diagnostics
+    { parser with error_occured = true
+    ; diagnostics = Diagnostic.{msg; span} :: parser.diagnostics
+    }
 
 let init lexer =
   let ops =
@@ -69,23 +74,29 @@ let init lexer =
   ; next_two_toks = (next_fst, next_scd)
   ; diagnostics = []
   ; error_occured = false
-  ; ops }
+  ; ops
+  }
 
+(* get current tok and advance parser *)
 let parser_advance parser =
   let tok = parser.current_tok in
-  parser.current_tok <- fst parser.next_two_toks;
   let lexer, next_snd = Lexer.next parser.lexer in
-  parser.next_two_toks <- (snd parser.next_two_toks, next_snd);
-  parser.lexer <- lexer;
-  tok
+  let parser =
+    { parser with current_tok = fst parser.next_two_toks
+    ; next_two_toks = (snd parser.next_two_toks, next_snd)
+    ; lexer
+    }
+  in
+  parser, tok
 
 let parser_consume parser tok diagnostic_msg =
-  if parser.current_tok = tok then
-    Some (parser_advance parser)
+  let open Base.Poly in
+  if parser.current_tok.kind = tok then
+    let parser, tok = parser_advance parser in
+    parser, Some tok
   else 
-    ( add_diagnostic parser diagnostic_msg parser.current_tok.span
-    ; None
-    )
+    let parser = add_diagnostic parser diagnostic_msg parser.current_tok.span in
+    parser, None
 
 let get_ast_unop parser =
   match parser.current_tok.kind with
@@ -138,37 +149,37 @@ let get_ast_binop parser =
 let rec parse_expr parser = parse_pratt parser 0
 
 and parse_pratt parser min_bp =
-  let lhs = parse_expr parser min_bp in
   parser
 
 and parse_primary parser =
   match parser.current_tok.kind with
-  | Token.Identifier -> parse_binding parser
-  | Token.Integer -> parse_integer parser
-  | Token.Float -> parse_integer parser
-  | Token.String -> parse_integer parser
   | _ ->
-    add_diagnostic parser "expected a primary expression" parser.current_tok.span;
-    Ast.{ kind = Invalid; span = parser.current_tok.span }
+    let parser = add_diagnostic parser "expected a primary expression" parser.current_tok.span in
+    parser, Ast.{ kind = Invalid; span = parser.current_tok.span }
 
-and parse_binding parser =
-  let span = (parser_advance parser).span in
+(* these are helper functions which consume immediately, because it is known what their values is via lookahead in other parts of the parser. *)
+and consume_binding parser =
+  let parser, tok = parser_advance parser in
+  let span = tok.span in
   let integer = Code.read parser.code span in
-  Ast.{ kind = Binding integer; span }
+  Ok (parser, Ast.{ kind = Binding integer; span })
 
-and parse_integer parser =
-  let span = (parser_advance parser).span in
-  let integer = int_of_string (Code.read parser.code span) in
-  Ast.{ kind = Integer integer; span }
+and consume_integer parser =
+  let parser, tok = parser_advance parser in
+  let span = tok.span in
+  let integer = Code.read parser.code span in
+  Ok (parser, Ast.{ kind = Integer integer; span })
 
-and parse_string parser =
-  let span = (parser_advance parser).span in
+and consume_string parser =
+  let parser, tok = parser_advance parser in
+  let span = tok.span in
   let string = Code.read parser.code span in
-  Ast.{ kind = String string; span = span }
+  Ok (parser, Ast.{ kind = String string; span = span })
 
-and parse_float parser =
-  let span = (parser_advance parser).span in
-  let integer = float_of_string (Code.read parser.code span) in
-  Ast.{ kind = Float integer; span }
+and consume_float parser =
+  let parser, tok = parser_advance parser in
+  let span = tok.span in
+  let float = Code.read parser.code span in
+  Ok (parser, Ast.{ kind = Float float; span })
 
 let parse p = []
