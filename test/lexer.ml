@@ -48,6 +48,18 @@ let test_identifiers _ =
     ]
 ;;
 
+let test_generics _ =
+  let open Jace.Token in
+  test "'a 'b 'foo 'bar 'foobar123"
+    [ (Generic, "'a")
+    ; (Generic, "'b")
+    ; (Generic, "'foo")
+    ; (Generic, "'bar")
+    ; (Generic, "'foobar123")
+    ; (Eof, "")
+    ]
+;;
+
 (* TODO handle invalid numbers and test them *)
 let test_numbers _ =
   let open Jace.Token in
@@ -82,6 +94,22 @@ let test_invalid_strings _ =
     ; (InvalidString, {|"Bad string then eof|})
     ; (InvalidString, {|"Invalid escape sequence: \a <- this guy"|})
     ; (Eof, "")
+    ]
+;;
+
+let test_comments _ =
+  let open Jace.Token in
+  test {|
+    let foo := 10 -- my comment
+    -- this is a foo ^
+    print "Hello World!"
+    |}
+    [ (LetKeyword, "let")
+    ; (Identifier, "foo")
+    ; (ColonEqual, ":=")
+    ; (Integer, "10")
+    ; (Identifier, "print")
+    ; (String, {|"Hello World!"|})
     ]
 ;;
 
@@ -159,7 +187,7 @@ let test_primitive_operators _ =
   let open Jace.Token in
   test {| @and @not @or @intAdd @intSub @intMul @intDiv
           @intExp @floatAdd @floatSub @floatMul @floatDiv
-          @floatExp @strLen @strAppend @strConcat @strCharAt
+          @floatExp @intNeg @floatNeg @strLen @strAppend @strConcat @strCharAt
           @listLen @listAppend @listIndex @recordIndex @recordLen 
           @ref @deref|}
     [ (AndOp, "@and")    
@@ -175,6 +203,8 @@ let test_primitive_operators _ =
     ; (FloatMulOp, "@floatMul") 
     ; (FloatDivOp, "@floatDiv") 
     ; (FloatExpOp, "@floatExp") 
+    ; (IntNegOp, "@intNeg") 
+    ; (FloatNegOp, "@floatNeg") 
     ; (StrLenOp, "@strLen")       
     ; (StrAppendOp, "@strAppend") 
     ; (StrConcatOp, "@strConcat") 
@@ -212,7 +242,9 @@ let tests = "Lexer tests"
     ; "invalid_primitive_operators" >:: test_invalid_primitive_operators
     ; "identifiers" >:: test_identifiers
     ; "strings" >:: test_strings
+    ; "comments" >:: test_comments 
     ; "invalid_strings" >:: test_invalid_strings
+    ; "generic" >:: test_generics 
     ]
 ;;
 

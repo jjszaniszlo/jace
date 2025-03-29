@@ -7,8 +7,6 @@ let init code =
 
 let peek lexer off = Code.peek lexer.code (Location.off lexer.curr + off)
 
-let code lexer = lexer.code
-
 (* advance lexer by n *)
 let rec advance lexer n =
   if n <= 0 || Location.off lexer.curr >= Code.length lexer.code then

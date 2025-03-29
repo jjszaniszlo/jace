@@ -8,6 +8,8 @@
     ocamlPackages.ounit2
     ocamlPackages.fmt
     ocamlPackages.ocaml-lsp
+    ocamlPackages.bisect_ppx
+    ocamlPackages.ppxlib
     ocamlPackages.base
   ];
 }
