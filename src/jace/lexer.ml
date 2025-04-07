@@ -5,6 +5,8 @@ let init code =
   { code; st; curr = st }
 ;;
 
+let code lexer = lexer.code
+
 let peek lexer off = Code.peek lexer.code (Location.off lexer.curr + off)
 
 (* advance lexer by n *)

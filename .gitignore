@@ -12,3 +12,4 @@ _build
 target
 zig-out
 _coverage
+.DS_Store

@@ -10,5 +10,6 @@
   (name jace)
   (modules
     (:standard \ main))
+  (libraries base)
   (instrumentation (backend bisect_ppx))
   (modules_without_implementation token ast diagnostic))
