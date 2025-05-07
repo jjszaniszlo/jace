@@ -14,3 +14,6 @@ devenv.local.nix
 
 # pre-commit
 .pre-commit-config.yaml
+_coverage
+_build
+.DS_Store
