@@ -65,6 +65,7 @@ type kind =
  
   (* delimiters *)
   | SemiColon
+  | Colon 
   | Comma
   | BackSlash
   | FatArrow
@@ -78,6 +79,7 @@ type kind =
   (* keywords *)
   | TypeKeyword
   | ClassKeyword
+  | FnKeyword
   | InstanceKeyword
   | DefKeyword
   | WhereKeyword

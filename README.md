@@ -1,20 +1,33 @@
 
 
 ```Haskell
-type Bool :: True | False
+type Bool ::
+    | True
+    | False
 
 -- 'a represents a generic type to be used within the type expression
-type Option 'a :: Some 'a | None
-type Either 'a :: Left 'a | Right 'a
+type Option 'a ::
+    | Some : 'a -- Some constructs Option with type param 'a
+    | None      -- None constructs Option with no type param
 
-type Point 'a :: 'a * 'a
+type Either 'a ::
+    | Left : 'a
+    | Right : 'a
+
+-- type alias.  This says a point is any two of the same two types as a product.
+-- constructed as Point 'a
+type Point_ 'a :: 'a * 'a
 
 type Shape 'a ::
-    | Point Point 'a
-    | Circle Point 'a * 'a
-    | Rect Point 'a * 'a * 'a 
+    | Point : Point_ 'a                -- same as: | Point : (Point_ 'a)
+    | Circle : Point_ 'a * 'a          -- same as: | Circle : (Point_ 'a) * 'a 
+    | Rect : Point_ 'a * 'a * 'a       -- same as: | Rect : (Point_ 'a) * ('a) * ('a)
 
+-- class
+-- "class" identifier param "::" methods*
 class Monad m ::
+    -- method
+    -- identifier "::" type_expr
     bind :: m 'a => ('a => m 'a) => m 'a
     return :: 'a => m 'a
 
@@ -95,90 +108,75 @@ let main := _ =>
 ```
 
 ```
-<program> ::= { <statement> }
+Program         ::= { Declaration | Statement }
 
-<statement> ::= <type_declaration>
-             | <class_declaration>
-             | <instance_declaration>
-             | <function_definition>
-             | <constant_definition>
-             | <comment>
+Declaration     ::= TypeDecl | ClassDecl | InstanceDecl | ConstantDecl
 
-<comment> ::= "--" <text>
+TypeDecl        ::= "type" TypeName [TypeParams] "::" TypeBody
+TypeBody        ::= SumType | TypeExpr
 
-<type_declaration> ::= "type" <type_name> [<type_param>] "::" <type_variant_list>
+SumType         ::= Constructor { "|" Constructor }
+Constructor     ::= ConstrName [ ":" TypeExpr ]
 
-<type_variant_list> ::= <type_variant> { "|" <type_variant> }
+TypeExpr        ::= TypeTerm { "*" TypeTerm }
+TypeTerm        ::= TypeName | "'" Identifier | "(" TypeExpr ")"
 
-<type_variant> ::= <constructor> [<type_expr_list>]
+TypeParams      ::= "'" Identifier { "'" Identifier }
 
-<constructor> ::= <identifier>
+ClassDecl       ::= "class" Identifier Identifier "::" { MethodSig }
 
-<type_expr_list> ::= <type_expr> { "*" <type_expr> }
+MethodSig       ::= Identifier "::" TypeExpr
 
-<type_expr> ::= <type_name>
-             | <type_param>
-             | <constructor> <type_expr>
-             | "(" <type_expr> ")"
+InstanceDecl    ::= "instance" Identifier TypeName "::" { MethodImpl }
 
-<type_name> ::= <identifier>
-<type_param> ::= "'" <identifier>
+MethodImpl      ::= Identifier ":=" Expr
 
-<class_declaration> ::= "class" <identifier> <identifier> "::" { <method_signature> }
+ConstantDecl    ::= Identifier ":=" Literal
 
-<method_signature> ::= <identifier> "::" <type_expr> "=>" <type_expr>
+Statement       ::= LetBinding | Expr
 
-<instance_declaration> ::= "instance" <identifier> <type_expr> "::" { <method_binding> }
+LetBinding      ::= "let" Identifier ":=" Expr
 
-<method_binding> ::= <identifier> ":=" <expression>
+Expr            ::= Lambda | CaseExpr | LetExpr | InfixExpr
 
-<function_definition> ::= <identifier> ":=" <expression>
+Lambda          ::= "let" Identifier ":=" ParamList "=>" Expr
 
-<constant_definition> ::= <identifier> ":=" <literal>
+ParamList       ::= Identifier { "," Identifier } 
+                  | Identifier
+                  | "(" ParamList ")"
 
+CaseExpr        ::= "case" [Expr] "in" { "|" Pattern "=>" Expr }
 
-<expression> ::= <lambda_expression>
-              | <case_expression>
-              | <let_expression>
-              | <application>
-              | <literal>
-              | <tuple>
-              | <list>
-              | <identifier>
+LetExpr         ::= "let" { LetBinding } "in" Expr
 
-<lambda_expression> ::= <parameter_list> "=>" <expression>
+InfixExpr       ::= Application { InfixOp Application }
+Application     ::= Atom { Atom }
 
-<parameter_list> ::= <identifier> { "," <identifier> }
+Atom            ::= Identifier
+                  | Literal
+                  | "(" Expr ")"
+                  | ListExpr
+                  | TupleExpr
 
-<case_expression> ::= "case" [<identifier>] "in" { "\\" <pattern> "=>" <expression> }
+TupleExpr       ::= "(" Expr "," Expr { "," Expr } ")"
+ListExpr        ::= "{" [Expr { ":" Expr }] "}"
 
-<let_expression> ::= "let" { <binding> } "in" <expression>
+Pattern         ::= Identifier
+                  | TupleExpr
+                  | ListExpr
 
-<binding> ::= <identifier> ":=" <expression>
-           | <tuple_pattern> ":=" <tuple_expression>
+InfixOp         ::= "+" | "-" | "*" | "/" | "=>" | "*"
 
-<tuple_pattern> ::= "(" <identifier> { "," <identifier> } ")"
+Literal         ::= Number | String
 
-<application> ::= <expression> <expression>
+Identifier      ::= ? letter followed by letters, digits, or underscores ?
+ConstrName      ::= ? uppercase letter followed by letters/digits/underscores ?
+TypeName        ::= Identifier
 
-<list> ::= "{" [ <expression> { ":" <expression> } ] "}"
+Comment         ::= "--" { ? any character except newline ? } "\n"
 
-<pattern> ::= <constructor> <identifier>
-           | <constructor> "," <identifier>
-           | <constructor>
-           | <list_pattern>
-
-<tuple_expression> ::= "(" <expression> { "," <expression> } ")"
-
-<literal> ::= <number>
-           | <string>
-
-<identifier> ::= <letter> { <letter> | <digit> | "_" }
-<text> ::= { any character except newline }
-<number> ::= { <digit> } ["." <digit> { <digit> }]
-<string> ::= "\"" { any character except "\"" } "\""
-
-<letter> ::= "a" | ... | "z" | "A" | ... | "Z"
-<digit> ::= "0" | ... | "9"
+Number          ::= Digit { Digit } ["." Digit { Digit }]
+String          ::= '"' { ? any character except '"' ? } '"'
+Digit           ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 
 ```

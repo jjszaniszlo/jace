@@ -1,151 +1,109 @@
-
-(* ast node *)
 type 'a t = { kind: 'a; span: Span.t }
 
-type identifier = string
-type generic = string
+type ident = string
 
-type binop =
-  (* primitive bin ops *)
-  | And    (* '@and' *)
-  | Or     (* '@or' *)
+(* Types *)
+type typ =
+  | TypeIdent of ident
+  | TypeApp of ident t * typ t list
+  | RecordType of (ident * typ t) list
+  | TupleType of typ t list
+
+(* Function Types *)
+type func_type =
+  | FuncType of typ t * typ t
+
+(* Operator metadata embedded in class members *)
+type op_fixity = [`Infix | `Prefix | `Postfix]
+
+type class_member =
+  | Method of ident * func_type
+  | Operator of {
+      symbol: string;
+      fixity: op_fixity;
+      precedence: int;
+      signature: func_type;
+    }
+
+(* Variants for ADTs *)
+type variant =
+  | Variant of ident * typ t list
+
+(* Patterns for match and parameters *)
+type pattern =
+  | PVar of ident
+  | PTuple of pattern t list
+  | PConstr of ident * pattern t list
+
+(* Primitive Operators *)
+type primitive_op =
+  (* logical primitives *)
+  | AndOp       (* '@and' *)
+  | NotOp       (* '@not' *)
+  | OrOp        (* '@or' *)
 
   (* integer primitives *)
-  | IntAdd (* '@intAdd' *)
-  | IntSub (* '@intSub' *)
-  | IntMul (* '@intMul' *)
-  | IntDiv (* '@intDiv' *)
-  | IntExp (* '@intExp' *)
+  | IntAddOp    (* '@intAdd' *)
+  | IntSubOp    (* '@intSub' *)
+  | IntMulOp    (* '@intMul' *)
+  | IntDivOp    (* '@intDiv' *)
+  | IntExpOp    (* '@intExp' *)
+  | IntNegOp    (* '@intNeg' *)
 
   (* float primitives *)
-  | FloatAdd (* '@floatAdd' *)
-  | FloatSub (* '@floatSub' *)
-  | FloatMul (* '@floatMul' *)
-  | FloatDiv (* '@floatDiv' *)
-  | FloatExp (* '@floatExp' *)
+  | FloatAddOp  (* '@floatAdd' *)
+  | FloatSubOp  (* '@floatSub' *)
+  | FloatMulOp  (* '@floatMul' *)
+  | FloatDivOp  (* '@floatDiv' *)
+  | FloatExpOp  (* '@floatExp' *)
+  | FloatNegOp  (* '@floatNeg' *)
 
-  (* string primitive operators *)
-  | StrAppend (* '@strAppend' *)
-  | StrConcat (* '@strConcat' *)
-  | StrCharAt (* '@strCharAt' *)
+  (* string primitives *)
+  | StrLenOp      (* '@strLen' *)
+  | StrAppendOp   (* '@strAppend' *)
+  | StrConcatOp   (* '@strConcat' *)
+  | StrCharAtOp   (* '@strCharAt' *)
 
-  (* list primitive operations *)
-  | ListAppend  (* '@listAppend' *)
-  | ListIndex   (* '@listIndex' *)
+  (* list primitives *)
+  | ListLenOp     (* '@listLen' *)
+  | ListAppendOp  (* '@listAppend' *)
+  | ListIndexOp   (* '@listIndex' *)
 
-  | RecordIndex  (* '@recordIndex' *)
+  (* record primitives *)
+  | RecordIndexOp (* '@recordIndex' *)
+  | RecordLenOp   (* '@recordLen' *)
 
-  | Op of string
+  (* references *)
+  | RefOp         (* '@ref' *)
+  | DerefOp       (* '@deref' *)
 
-type unop =
-  | Not (* '@not' *)
+(* Expressions *)
+type expr =
+  | IntLit of int
+  | FloatLit of float
+  | StringLit of string
+  | Var of ident
+  | Apply of expr t * expr t list
+  | Lambda of (ident * typ t option) list * typ t option * expr t
+  | LetIn of ident * expr t * expr t
+  | Match of expr t * (pattern t * expr t) list
+  | If of expr t * expr t * expr t
+  | Return of expr t
+  | Record of record_expr
+  | PrimitiveOp of primitive_op
+  | UnitLit
 
-  (* number primitives *)
-  | IntNeg   (* '@intNeg' *)
-  | FloatNeg (* '@floatNeg' *)
+and record_expr =
+  | RecordOnly of (ident * expr t) list
 
-  (* string primitive operators *)
-  | StrLen    (* '@strLen' *)
+(* Top-Level Declarations *)
+type decl =
+  | LetVal of ident * expr t
+  | LetFun of ident * (ident * typ t option) list * typ t option * expr t
+  | TypeDecl of ident * variant list
+  | ClassDecl of ident * class_member list
+  | InstanceDecl of ident * typ t * (ident * expr t) list
 
-  (* list primitive operations *)
-  | ListLen (* '@listLen' *)
-
-  (* record primitive operations *)
-  | RecordLen (* '@recordLen' *)
-
-  (* ref and deref *)
-  | Ref   (* '@ref' *)
-  | Deref (* '@deref' *)
-
-  | Op of string
-
-(*(*  *)*)
-(*type def =*)
-(*  | Type of (identifier * generic list * ty t list) t*)
-(*  | Class of (identifier * generic * def list) t*)
-(*  | AssignTy of (identifier * ty t) t*)
-(**)
-(*(* type annotation / def *)*)
-(*(* this is a general container used in a variety of places. *)*)
-(*and ty = *)
-(*  | Type of identifier*)
-(*  | Generic of generic*)
-(*  | Variant of identifier * ty t*)
-(*  | Specialization of identifier * ty t*)
-(*  | List of ty t * int option*)
-(*  (* fn are exponential types, but as an annotation they are represented as a product here *)*)
-(*  | Fn of ty t * ty t*)
-(*  | Product of ty t * ty t*)
-(*  | Record of (identifier * ty) t list*)
-
-
-(* a stmt is pretty much an expr with the ZeroExpr type *)
-type stmt =
-  | Expr of expr
-
-  (* only identifier expr and tuple expr can be binded to *)
-  (* expr := expr *)
-  | Bind of expr t * expr t
-
-  (* only references can be reassigned *)
-  (* accessing a record implicitly references and using the 'ref' keyword when binding for anything else *)
-  (* expr = expr *)
-  | Reassign of expr t * expr t
-
-and expr =
-  (* expr binop expr *)
-  | Binary of binop * expr t * expr t
-  (* unop expr *)
-  | Unary of unop * expr t * expr t
-
-  (* 'if' expr 'then' expr ('elseif' expr 'then' expr)* 'else' expr *)
-  | IfThen of (expr t * expr t) list * expr t
-
-  (* 'case' expr 'in' (expr (',' expr)* '=>' expr) *)
-  | CaseIn of expr t * (expr t list * expr t) list
-
-  (* 'let' stmt* 'in' expr *)
-  | LetIn of stmt t list * expr t
-  
-  (* '[' expr (',' expr)* ']' *)
-  | List of expr t list
-
-  (* the structure for both pattern matching code
-     and record type construction *)
-  (* inherit is a way of making a record have all the fields of another record *)
-  (* Env is basically just a Map implementation with some extra capabilities *)
-  (* '{' ('inherit' ident ';')? (ident ('=' expr)? )+ '}' *)
-  | Record of expr t Env.t * expr t
-
-  (* expr expr* *)
-  | Application of expr t * expr t list
-
-  (* the parser doesn't construct this, but the type checker will convert
-     applications to this *)
-  (* identifier expr* *)
-  | TypeConstructor of identifier * expr t
-  
-  (* params => expr *)
-  | Lambda of (expr t list * expr t) list
-
-  (* expr (';' expr)+ expr *)
-  | MultiExpr of expr t list * expr t
-
-  (* syntax sugar for multiple assignment and clarity *)
-  (* '(' expr (',' expr)* ') *)
-  | Tuple of expr t list
-
-  | Binding of identifier 
-  | String of string
-  | Integer of string
-  | Float of string
-
-  (* {} *)
-  | EmptyRecord
-
-  (* () *)
-  | EmptyExpr
-
-  | Invalid 
-
-type jace_module = stmt t list
+(* Program *)
+type program =
+  | Program of decl t list
