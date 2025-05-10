@@ -17,3 +17,4 @@ devenv.local.nix
 _coverage
 _build
 .DS_Store
+tags
