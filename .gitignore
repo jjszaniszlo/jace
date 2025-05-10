@@ -18,3 +18,4 @@ tags
 _build
 _coverage
 .DS_Store
+.idea
