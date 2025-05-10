@@ -1,3 +1,4 @@
+use std::hash::Hash;
 
 use miette::{MietteSpanContents, SourceCode};
 

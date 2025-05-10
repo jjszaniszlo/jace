@@ -21,45 +21,33 @@ The EBNF grammar doesn't take into account operator precedence because the parse
 <bin_expr> ::= <primary> (<bin_op> <primary>)*
 <primary> ::= "(" <expr> ")" | <number> | <ident> | <bool> | "-" <primary> | <set_access>
 
-<fn_call> ::= ( <ident> | <module_access> ) <primary>+
+<pred_expr> ::= <bin_expr> | <bool> | <fn_call>
+
+<fn_call> ::= ( <ident> | <set_access> ) ( <primary> | <bool> )+
 <fn_param> ::= <ident>
              | <set_selector>
              | <set_destructure>
-             | <type_constructor>
 
-<case_expr> ::= <case> <expr>? (<fn_param> ("," <fn_param>")* => <expr>)+
+<case_expr> ::= <case> (<fn_param> ("," <fn_param>")* => <expr>)+
 
 <set_destructure> ::= "{" <ident> ("," <ident>)* "}"
 <set_selector> ::= "{" <ident> ":" <ident> "}
 <set_access> ::= <ident> "." <ident> ("." <ident>)*
-<module_access> ::= <ident> "." <ident> ("." <ident>)*
-
-<type_constructor> ::= <ident> <expr> (<expr>)*
 
 <expr> ::= <bin_expr>
-         | "if" <expr> "then" <expr> ("elseif" <pred_expr> "then" <expr>)* "else" <expr>
+         | "if" <pred_expr> "then" <expr> ("elseif" <pred_expr> "then" <expr>)* "else" <expr>
          | "let" <stmt>* "in" <expr>
          | <fn_call>
          | <fn_param> ("," <fn_param>")* "=>" ( <expr> | <case_expr> )
          | "{" (<ident> "=" <expr>)+ ("," <ident> "=" <expr>)* "}"
-         | <type_constructor>
 
 <stmt> ::= <ident> ":=" <expr>
-         | <ident> ("," <ident>)* ":=" <set_destructure>
-         | <set_destructure> "=" <expr> ("," <expr>)*
-         | <ident> (", <ident>)* "=" <fn_call>
+         | <ident> ("," <ident>)* := <set_destructure>
+         | <set_destructure> = <expr> ("," <expr>)*
          | <ident> "=" <expr>
          | <set_access> "=" <expr>
 
-<type> ::= <sum_type>
-<sum_type> ::= <product_type> ("|" <product_type>)*
-<product_type> :: <primary_type> (<primary_type>)*
-<primary_type> ::= <ident> | "(" <type> ")"
-
-<algebraic_type_def> ::= "type" <ident> <ident>* "::" <type>
-
 <def> ::= "type" <ident> "::" <ident> ":" <ident> (<ident> ":" <ident>)*
-        | <algebraic_type_def>
         | "class" <ident> <ident>+ "::" ( <ident> "::" ( <ident> ( "," <ident> )* "=>" <ident> )+ )+
         | "class" <ident> <ident>+ "::" ( "(" <bin_op> ")" "::" ( <ident> "," <ident> "=>" <ident> )+ )+
         | "instance" <ident> <ident> <ident>* "::" <ident> "=>" ( <expr> | <case_expr> )

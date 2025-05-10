@@ -11,7 +11,6 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use clap::Parser;
-use miette::Report;
 use cli::Cli;
 use cli::Command;
 use jace_file::JaceFile;
@@ -26,22 +25,13 @@ fn main() {
     //    Command::Build { path } => println!("Building: {path:?}"),
     //}
 
+
+
     let jcf = JaceFile::new("test.jc",
                             r#"
-                            type Option a :: Some a | None
-
-                            type List a :: Nil | Cons a (List a)
-
-                            def join :: List (List a) => List a
-                            case
-                                Nil => Nil;
-                                Cons xs xss => cat xs (join xss);
-
-                            def sum :: Integer, Integer => Integer
-                            do
-                                a, b => a * b
-
-                            "#);
+        def main :: ()
+            a := 2 + 2
+            b := 5 * 5"#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
     let toks: Vec<Token> = lexer
@@ -50,12 +40,11 @@ fn main() {
 
     println!("{toks:?}");
 
-    match parser::parse(&toks, jcf) {
-        Ok(m) => println!("{m:#?}"),
-        Err(e) => {
-            let err = Report::from(e);
-            println!("{err:?}");
-        },
+    match parser::parse(&toks) {
+        Ok((r, t, _)) => println!("{t:#?}"),
+        Err(e) =>
+            println!("{:?}", e.with_source_code(jcf.contents())),
+        _ => {},
     }
 }
 
@@ -69,7 +58,7 @@ fn compiler_pipeline(path: PathBuf) {
 
         let _read = err::error_maybe(
             f.read_to_string(&mut buf),
-            "Read Error".to_string());
+            format!("Read Error"));
 
         let file_name = path.file_stem().unwrap().to_str().unwrap();
 
