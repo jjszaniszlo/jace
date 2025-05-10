@@ -3,20 +3,16 @@ mod err;
 mod jace_file;
 mod lexer;
 mod parser;
-
 mod typecheck;
+mod codegen;
 
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-use clap::Parser;
 use miette::Report;
-use cli::Cli;
-use cli::Command;
 use jace_file::JaceFile;
 use crate::lexer::prelude::*;
-use crate::parser::prelude::*;
 
 fn main() {
     //let args = Cli::parse();
@@ -30,16 +26,16 @@ fn main() {
                             r#"
                             type Option a :: Some a | None
 
-                            type List a :: Nil | Cons a (List a)
+                            -- type List a :: Nil | Cons a (List a)
 
-                            def join :: List (List a) => List a
-                            case
-                                Nil => Nil;
-                                Cons xs xss => cat xs (join xss);
+                            -- def join :: List (List a) => List a
+                            -- case
+                            --     Nil => Nil;
+                            --     Cons xs xss => cat xs (join xss);
 
-                            def sum :: Integer, Integer => Integer
-                            do
-                                a, b => a * b
+                            -- def sum :: Integer, Integer => Integer
+                            -- do
+                            --     a, b => a * b
 
                             "#);
 
