@@ -1,9 +1,8 @@
-use std::ops::Range;
-use miette::SourceSpan;
 use super::combinator::*;
 use crate::parser::ast::*;
 use crate::parser::tokenstream::{TokenResult, TokenStream};
-use crate::{lexer::token::TokenKind, parser::{ast, error::*}};
+use crate::{lexer::token::TokenKind, parser::error::*};
+use std::ops::Range;
 
 pub type Output<'a, Out> = miette::Result<(TokenStream<'a>, Out, Range<usize>), ErrorType>;
 
@@ -16,7 +15,7 @@ pub trait Parser<'a, Out> {
                 ErrorType::Unrecoverable(e) => {
                     println!("{:?}", e);
                     Err(e)
-                },
+                }
                 ErrorType::Recoverable(e) => Err(e),
             }
         }
@@ -89,14 +88,14 @@ pub fn parse_identifier<'a>() -> impl Parser<'a, Identifier> {
             Some((res, next_input)) => {
                 match res.kind() {
                     TokenKind::Identifier(ident) => {
-                        Ok((next_input, Identifier(ident), res.span()))
+                        Ok((next_input, Identifier(ident, res.span()), res.span()))
                     }
                     _ => Err(
                         ErrorType::Recoverable(
                             ParserError::new()
-                            .message(format!("unexpected token: `{:?}`", res.kind()))
-                            .span(res.span())
-                            .build()))
+                                .message(format!("unexpected token: `{:?}`", res.kind()))
+                                .span(res.span())
+                                .build()))
                 }
             }
             None => Err(ErrorType::Incomplete)
@@ -109,17 +108,17 @@ pub fn parse_literal<'a>() -> impl Parser<'a, Literal> {
         match input.next() {
             Some((res, next_input)) => {
                 let lit = match res.kind() {
-                    TokenKind::Bool(b) => Literal::Bool(b),
-                    TokenKind::Integer(i) => Literal::Integer(i),
-                    TokenKind::String(s) => Literal::String(s),
-                    TokenKind::Float(f) => Literal::Float(f),
+                    TokenKind::Bool(b) => Literal::Bool(b, res.span()),
+                    TokenKind::Integer(i) => Literal::Integer(i, res.span()),
+                    TokenKind::String(s) => Literal::String(s, res.span()),
+                    TokenKind::Float(f) => Literal::Float(f, res.span()),
 
                     _ => return Err(
                         ErrorType::Recoverable(
                             ParserError::new()
-                            .message(format!("unexpected token: `{:?}`", res.kind()))
-                            .span(res.span())
-                            .build()))
+                                .message(format!("unexpected token: `{:?}`", res.kind()))
+                                .span(res.span())
+                                .build()))
                 };
 
                 Ok((next_input, lit, res.span()))
@@ -139,9 +138,9 @@ pub fn parse_literal_integer<'a>() -> impl Parser<'a, usize> {
                 _ => Err(
                     ErrorType::Recoverable(
                         ParserError::new()
-                        .message(format!("unexpected token: `{:?}`", res.kind()))
-                        .span(res.span())
-                        .build()))
+                            .message(format!("unexpected token: `{:?}`", res.kind()))
+                            .span(res.span())
+                            .build()))
             },
             None => Err(ErrorType::Incomplete)
         }
@@ -170,9 +169,9 @@ pub fn parse_operator<'a>() -> impl Parser<'a, BinOperator> {
                     _ => return Err(
                         ErrorType::Recoverable(
                             ParserError::new()
-                            .message(format!("unexpected token: `{:?}`", res.kind()))
-                            .span(res.span())
-                            .build()))
+                                .message(format!("unexpected token: `{:?}`", res.kind()))
+                                .span(res.span())
+                                .build()))
                 };
 
                 Ok((next_input, op, res.span()))

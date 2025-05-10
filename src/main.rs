@@ -24,8 +24,20 @@ fn main() {
 
     let jcf = JaceFile::new("test.jc",
                             r#"
-        def main :: ()
-            a := 2"#);
+                            type Option a :: Some a | None
+
+                            type List a :: Nil | Cons a (List a)
+
+                            def join :: List (List a) => List a
+                            case
+                                Nil => Nil;
+                                Cons xs xss => cat xs (join xss);
+
+                            def sum :: Integer, Integer => Integer
+                            do
+                                a, b => a * b
+
+                            "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
     let toks: Vec<Token> = lexer
@@ -53,7 +65,7 @@ fn compiler_pipeline(path: PathBuf) {
 
         let _read = err::error_maybe(
             f.read_to_string(&mut buf),
-            format!("Read Error"));
+            "Read Error".to_string());
 
         let file_name = path.file_stem().unwrap().to_str().unwrap();
 
