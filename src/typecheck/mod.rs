@@ -1,4 +1,1 @@
-
-pub enum TypeCheckerError {
-    
-}
+pub enum TypeCheckerError {}
