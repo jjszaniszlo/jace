@@ -1,73 +1,146 @@
-type Result a b :: (Ok a) | (Err b)
+
+-- ADTs may take in 0 or more type parameters.
+-- There is currently no way to restrict the class
+-- of types which may be used with ADTs, but it may
+-- be put on the road block.
+type Result a b :: Ok a | Err b
 type Bool :: True | False
 
-type Option a :: (Some a) | None
+type Option a :: Some a | None
 
-type ContextError a :: (SomethingWentWrong a) | NoContextError
+type ContextError a :: SomethingWentWrong a | NoContextError
 
+-- constants are never mutatable, ever. 
+-- Even if assigned to a mutable value like a set.
 const MATH_PI :: 3.14
 
 class Monad m ::
-    bind :: (m a), (a => (m b)) => (m b)
-    return :: a => (m a)
+  bind :: m a, (a => m b) => m b
+  return :: a => m a
 
 instance Monad Option ::
-    bind :: case
-        None, _ => None;
-        (Some x), f => f x;
-    return :: a => Some a
+  bind ::
+  case
+      None, _ => None,
+      Some x, f => f x,
+  return ::
+  do
+      a => Some a
 
 type Sheep ::
-    father : (Option Sheep)
-    mother : (Option Sheep)
+  Sheep {
+    father : Option Sheep,
+    mother : Option Sheep,
+  }
 
-def father :: Sheep => (Option Sheep)
+def father :: Sheep => Option Sheep
+do
     s => s.father
 
-def mother :: Sheep => (Option Sheep)
+def mother :: Sheep => Option Sheep
+do
     s => s.mother
 
-def materialGrandFather :: Sheep => (Option Sheep)
+def materialGrandFather :: Sheep => Option Sheep
+do
     s => bind (bind (return s) mother) father
 
-def paternalGrandFather :: Sheep => (Option Sheep)
+def paternalGrandFather :: Sheep => Option Sheep
+do
     s => bind (bind (return s) father) father
 
-type List a :: Nil | (Cons a (List a))
+type BTree a :: Leaf a | Node a (Leaf a) (Leaf a)
 
-def join :: (List (List a)) => (List a)
+-- this function tries to find a value within
+-- a binary tree and returns an Option.
+def find_value :: (Btree a), a => Option a
 case
-        Nil => Nil;
-        (Cons xs xss) => cat xs (join xss);
+    Leaf v, c =>
+    -- parenthesis are more or less required
+    -- here to disambiguate the expressions
+    -- within each branch.
+        (if c == v then
+            Some c
+        else
+            None),
+    Node v left right, c =>
+        (if v < c then
+            find_value left v
+        elseif v > c then
+            find_value right v
+        elseif v == c then
+            Some c
+        else
+            None),
 
-def cat :: (List a), (List a) => (List a)
-case
-    Nil, ls => ls;
-    (Cons x xs), ys => Cons x (cat xs ys);
+type List a :: Nil | Cons a (List a)
 
-def somthin :: Integer, Intger => (Integer, Integer)
+def join :: List (List a) => List a
 case
-    (Some a), b => a + b;
-    {a, b}, c => (a-b+c^4*4, a+b-10*2/10^5);
-    {x:xs}, _ => x : xs;
+        Nil => Nil,
+        Cons xs xss => cat xs (join xss),
+
+def cat :: List a, List a => List a
+case
+    Nil, ls => ls,
+    Cons x xs, ys => Cons x (cat xs ys),
+
+def map :: (a => b), [a] => [b]
+case
+  _, {} => {}
+  f, {x:xs} => f x : map f xs
 
 def main :: ()
-    list := Cons 5 (Cons 10 Nil)
-    foo := 5
-    (a, b) := (1+2*3^5, 123)
-    (c, d) := (1+2, 1.23)
-    (e, d) := (Cons 5, Cons 2)
+do
+  -- different types of assignment
+  list := Cons 5 (Cons 10 Nil)
+  (a, b) := (1+2*3^5, 123)
+  {foo, bar} := set
 
-    grandpa := { father = None, mother = None }
-    father := { father = grandpa, mother = None }
-    sheep := { father = father, mother = None }
+  -- the tuple looking syntax above sematically behaves
+  -- as if you assigned each variable to its corresponding
+  -- expression on seperate lines.
 
-    grandpa_result := paternalGrandFather sheep
-    foo := 10
 
-    case grandpa_result
-        (Some x) => print "sheep has a grandpa!" x;
-        None => ();
+  -- the semantics of assignment are that
+  -- identifiers may not be reassigned, but
+  -- they are mutable. Data may be added to them.
+  -- the following is an example of a untyped set.
+  -- untyped sets more or less act like hashmaps.
 
-    print "hello world!"
-    my_proc!
+  set := {}
+  set.foo = "foo"
+  set.bar = "bar"
+
+  -- this is illegal
+  set := {} 
+  -- so is this 
+  set = {} 
+
+  -- case expressions may be used to help deal with ADTs
+  a := case list
+    Cons a _ => Some a,
+    _ => None,
+
+  -- constructing a record type is as simple as typing its name
+  -- before the set body
+  grandpa := Sheep { father = None, mother = None }
+  father := Sheep { father = grandpa, mother = None }
+  sheep := Sheep { father = father, mother = None }
+
+  grandpa_result := paternalGrandFather sheep
+  -- grandpa_result is assigned to the value behind 'grandpa'
+
+  -- case statement
+  -- this is a more sugary way of dealing with
+  -- type constructors
+  case grandpa_result
+    Some x => print "sheep has a grandpa!" x,
+    None => (),
+
+  -- calling functions with no return value doesn't require any kind
+  -- of terminator
+  print "hello world!"
+
+  -- however procs do need a terminator at the end.
+  my_proc!
