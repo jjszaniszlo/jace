@@ -32,17 +32,17 @@ pub enum Def {
     // type_name, parametric types, sum of types.
     TypeDef(Identifier, Vec<Identifier>, Vec<TypeParam>, Range<usize>),
 
-    // class_name, Vec of generic_type_param
-    ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>, Range<usize>),
-    // class_name, type_name
-    InstanceDef(Identifier, Identifier, Vec<MethodImpl>, Range<usize>),
+    // // class_name, Vec of generic_type_param
+    // ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>, Range<usize>),
+    // // class_name, type_name
+    // InstanceDef(Identifier, Identifier, Vec<MethodImpl>, Range<usize>),
     // proc_name, statements
     ProcDef(Identifier, Vec<Stmt>, Range<usize>),
     // module_name
-    ModuleDef(String, Range<usize>),
+    // ModuleDef(String, Range<usize>),
 
-    // const_name, literal
-    ConstDef(Identifier, Literal, Range<usize>),
+    // // const_name, literal
+    // ConstDef(Identifier, Literal, Range<usize>),
 }
 
 impl AstSpan for Def {
@@ -50,11 +50,11 @@ impl AstSpan for Def {
         let s = match self {
             Def::FnDef(_, _, _, _, _, s) => s,
             Def::TypeDef(_, _, _, s) => s,
-            Def::ClassDef(_, _, _, s) => s,
-            Def::InstanceDef(_, _, _, s) => s,
+            // Def::ClassDef(_, _, _, s) => s,
+            // Def::InstanceDef(_, _, _, s) => s,
             Def::ProcDef(_, _, s) => s,
-            Def::ModuleDef(_, s) => s,
-            Def::ConstDef(_, _, s) => s,
+            // Def::ModuleDef(_, s) => s,
+            // Def::ConstDef(_, _, s) => s,
         };
         s.clone()
     }
@@ -88,8 +88,8 @@ pub enum TypeParam {
     // <ident> <type_param>*
     TypeConstructorType(Identifier, Vec<TypeParam>, Range<usize>),
 
-    // <ident> (<ident> ":" <type_param>)+
-    RecordType(Identifier, Vec<(Identifier, TypeParam)>, Range<usize>),
+    // // <ident> (<ident> ":" <type_param>)+
+    // RecordType(Identifier, Vec<(Identifier, TypeParam)>, Range<usize>),
 }
 
 impl AstSpan for TypeParam {
@@ -101,7 +101,7 @@ impl AstSpan for TypeParam {
             TypeParam::ArrayType(_, _, s) => s,
             TypeParam::FuncType(_, _, s) => s,
             TypeParam::TypeConstructorType(_, _, s) => s,
-            TypeParam::RecordType(_, _, s) => s,
+            // TypeParam::RecordType(_, _, s) => s,
         };
         s.clone()
     }
@@ -138,58 +138,58 @@ impl AstSpan for FnPatternParam {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum MethodDef {
-    // Vec of generic_type_param, return type_name
-    // <wrappedop> "::" <type> ("," <type>)* "=>" <type>
-    Operator(MethodOperator, Vec<TypeParam>, TypeParam, Range<usize>),
-    // vec of generic_type_param, return type_name
-    // <ident> "::" <type> ("," <type>)* "=>" <type>
-    Named(Identifier, Vec<TypeParam>, TypeParam, Range<usize>),
-}
+// #[derive(Clone, Debug, PartialEq)]
+// pub enum MethodDef {
+//     // Vec of generic_type_param, return type_name
+//     // <wrappedop> "::" <type> ("," <type>)* "=>" <type>
+//     Operator(MethodOperator, Vec<TypeParam>, TypeParam, Range<usize>),
+//     // vec of generic_type_param, return type_name
+//     // <ident> "::" <type> ("," <type>)* "=>" <type>
+//     Named(Identifier, Vec<TypeParam>, TypeParam, Range<usize>),
+// }
 
-impl AstSpan for MethodDef {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            MethodDef::Operator(_, _, _, s) => s,
-            MethodDef::Named(_, _, _, s) => s,
-        };
-        s.clone()
-    }
-}
+// impl AstSpan for MethodDef {
+//     fn span(&self) -> Range<usize> {
+//         let s = match self {
+//             MethodDef::Operator(_, _, _, s) => s,
+//             MethodDef::Named(_, _, _, s) => s,
+//         };
+//         s.clone()
+//     }
+// }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum MethodOperator {
-    Plus,
-    Minus,
-    Divide,
-    Multiply,
-    Exp,
-    Greater,
-    Less,
-    GreaterEquals,
-    LessEquals,
-    EqualsEquals,
-    NotEquals,
-}
+// #[derive(Clone, Debug, PartialEq)]
+// pub enum MethodOperator {
+//     Plus,
+//     Minus,
+//     Divide,
+//     Multiply,
+//     Exp,
+//     Greater,
+//     Less,
+//     GreaterEquals,
+//     LessEquals,
+//     EqualsEquals,
+//     NotEquals,
+// }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum MethodImpl {
-    // <wrappedop> "::" <fnexpr>
-    Operator(MethodOperator, FnExpr, Range<usize>),
-    // <ident> "::" <fnexpr>
-    Named(Identifier, FnExpr, Range<usize>),
-}
+// #[derive(Clone, Debug, PartialEq)]
+// pub enum MethodImpl {
+//     // <wrappedop> "::" <fnexpr>
+//     Operator(MethodOperator, FnExpr, Range<usize>),
+//     // <ident> "::" <fnexpr>
+//     Named(Identifier, FnExpr, Range<usize>),
+// }
 
-impl AstSpan for MethodImpl {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            MethodImpl::Operator(_, _, s) => s,
-            MethodImpl::Named(_, _, s) => s,
-        };
-        s.clone()
-    }
-}
+// impl AstSpan for MethodImpl {
+//     fn span(&self) -> Range<usize> {
+//         let s = match self {
+//             MethodImpl::Operator(_, _, s) => s,
+//             MethodImpl::Named(_, _, s) => s,
+//         };
+//         s.clone()
+//     }
+// }
 
 //***************Expressions*****************
 #[derive(Clone, Debug, PartialEq)]
@@ -218,7 +218,7 @@ pub enum Expr {
     // "let" <stmt>* "in" <expr>
     LetInExpr(Vec<Stmt>, P<Expr>, Range<usize>),
 
-    // <ident> ("," <ident>)+ "=>" <expr>
+    // // <ident> ("," <ident>)+ "=>" <expr>
     FnExpr(P<FnExpr>, Range<usize>),
 
     // <ident> <expr>+
@@ -234,7 +234,7 @@ pub enum Expr {
     MemberExpr(MemberExpr, Range<usize>),
 
     // <ident> <expr>+
-    TypeConstructor(Identifier, Vec<Expr>, Range<usize>),               // the type checker
+    // TypeConstructor(Identifier, Vec<Expr>, Range<usize>),               // the type checker
     // converts FnCallExpr to
     // this type
 }
@@ -253,7 +253,7 @@ impl AstSpan for Expr {
             Expr::FnExpr(_, s) => s,
             Expr::FnCallExpr(_, _, s) => s,
             Expr::CaseExpr(_, _, s) => s,
-            Expr::TypeConstructor(_, _, s) => s,
+            // Expr::TypeConstructor(_, _, s) => s,
             Expr::IfThenElseIfExpr(_, _, s) => s,
             Expr::MemberExpr(_, s) => s,
         };

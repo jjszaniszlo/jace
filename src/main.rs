@@ -26,16 +26,16 @@ fn main() {
                             r#"
                             type Option a :: Some a | None
 
-                            type List a :: Nil | Cons a (List a)
+                            -- type List a :: Nil | Cons a (List a)
 
-                            def join :: List (List a) => List a
-                            case
-                                Nil => Nil;
-                                Cons xs xss => cat xs (join xss);
+                            -- def join :: List (List a) => List a
+                            -- case
+                            --     Nil => Nil;
+                            --     Cons xs xss => cat xs (join xss);
 
-                            def sum :: Integer, Integer => Integer
-                            do
-                                a, b => a * b
+                            -- def sum :: Integer, Integer => Integer
+                            -- do
+                            --     a, b => a * b
 
                             "#);
 
