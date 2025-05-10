@@ -1,40 +1,27 @@
 use std::fmt::Display;
-use std::sync::Arc;
-use miette::{Diagnostic, Severity, SourceSpan};
-use thiserror::Error;
+use std::ops::Sub;
+use std::usize;
+use miette::{SourceOffset, SourceSpan};
 
-pub trait CombineSourceSpan {
-    fn combine_span(self, span: SourceSpan) -> SourceSpan;
-}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Span(pub usize, pub usize);
 
-impl CombineSourceSpan for SourceSpan {
-    fn combine_span(self, span: SourceSpan) -> SourceSpan {
-        SourceSpan::new(self.offset().into(), self.len() + span.len() + span.offset().max(self.offset() + self.len()) - span.offset().min(self.offset()+ self.len()))
+impl Span {
+    pub fn combine(self, other: Span) -> Span {
+        // this case should never happen, but ill leave this here for debugging.  It sometimes
+        // happens in specific error cases within incorrect combinators.
+        // if self.0 > other.0 {
+        //     Span(self.0, self.1 + other.1 + self.0 - (other.0 + other.1))
+        // } else {
+            Span(self.0, self.1 + other.1 + other.0 - (self.0 + self.1))
+        // }
     }
 }
 
-#[derive(Debug, Diagnostic, Error, Clone, Eq, PartialEq)]
-#[error("Failed to parse jace module")]
-pub struct JaceError {
-    #[source_code]
-    pub src: Arc<String>,
-    #[related]
-    pub diagnostics: Vec<JaceDiagnostic>,
-}
-
-#[derive(Debug, Diagnostic, Error, Clone, Eq, PartialEq)]
-#[error("{}", message.clone().unwrap_or_else(|| "Error occurred".into()))]
-pub struct JaceDiagnostic {
-    pub message: Option<String>,
-    pub label: Option<String>,
-    pub help : Option<String>,
-
-    #[diagnostic(severity)]
-    pub severity: Severity,
-    #[label("{}", label.clone().unwrap_or_else(|| "here".into()))]
-    pub span: SourceSpan,
-    #[source_code]
-    pub src: Arc<String>,
+impl From<Span> for SourceSpan {
+    fn from(value: Span) -> Self {
+        SourceSpan::new(value.0.into(), value.1.into())
+    }
 }
 
 pub fn error_maybe<T>(v: Result<T, impl Display>, msg: String) -> T {

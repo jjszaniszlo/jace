@@ -1,24 +1,20 @@
 use std::fmt::Display;
-use std::ops::Range;
+use crate::err::Span;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Token(pub TokenKind, pub Range<usize>);
+pub struct Token(pub TokenKind, pub Span);
 
 impl Token {
     pub fn new(kind: TokenKind, start: usize, length: usize) -> Token {
-        Self(kind, start..(start + length))
+        Self(kind, Span(start, length))
     }
 
     pub fn kind(&self) -> TokenKind {
         self.0.clone()
     }
 
-    pub fn span(&self) -> Range<usize> {
+    pub fn span(&self) -> Span {
         self.1.clone()
-    }
-
-    pub fn into_inner(self) -> (TokenKind, Range<usize>) {
-        (self.0, self.1)
     }
 }
 
@@ -74,14 +70,14 @@ pub enum TokenKind {
     RightBrace,         // }
     LeftBracket,        // [
     RightBracket,       // ]
-
+    
     // Other
     Bang,               // !
-
+ 
     // reserved words
     TypeKeyword,    // type
     ClassKeyword,   // class
-    InstanceKeyword, // instance
+    InstanceKeyword,// instance
     CaseKeyword,    // case
     LetKeyword,     // let
     InKeyword,      // in
@@ -92,7 +88,6 @@ pub enum TokenKind {
     DefKeyword,     // def
     ConstKeyword,   // const
     WhereKeyword,   // where
-    DoKeyword,   // do
 }
 
 impl TokenKind {
