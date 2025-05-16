@@ -88,8 +88,8 @@ pub enum TypeParam {
     // <ident> <type_param>*
     TypeConstructorType(Identifier, Vec<TypeParam>, Range<usize>),
 
-    // // <ident> (<ident> ":" <type_param>)+
-    // RecordType(Identifier, Vec<(Identifier, TypeParam)>, Range<usize>),
+    // <ident> (<ident> ":" <type_param>)+
+    RecordType(Identifier, Vec<(Identifier, TypeParam)>, Range<usize>),
 }
 
 impl AstSpan for TypeParam {
@@ -101,7 +101,7 @@ impl AstSpan for TypeParam {
             TypeParam::ArrayType(_, _, s) => s,
             TypeParam::FuncType(_, _, s) => s,
             TypeParam::TypeConstructorType(_, _, s) => s,
-            // TypeParam::RecordType(_, _, s) => s,
+            TypeParam::RecordType(_, _, s) => s,
         };
         s.clone()
     }

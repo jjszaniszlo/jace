@@ -25,6 +25,8 @@ fn main() {
     let jcf = JaceFile::new("test.jc",
                             r#"
                             type Option a :: Some a | None
+                            
+                            type Either a b :: Left a | Right b
 
                             -- type List a :: Nil | Cons a (List a)
 
