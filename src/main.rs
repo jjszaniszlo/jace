@@ -34,8 +34,8 @@ fn main() {
 
                             def join :: List (List a) => List a
                             case
-                                Nil => Nil;
-                                Cons xs xss => cat xs (join xss);
+                            | Nil => Nil
+                            | Cons xs xss => cat xs (join xss)
 
                             def sum :: Integer, Integer => Integer
                             do
