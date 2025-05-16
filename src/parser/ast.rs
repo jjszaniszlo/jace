@@ -1,27 +1,13 @@
 use super::ptr::*;
 use std::ops::Range;
 
-pub trait AstSpan {
-    fn span(&self) -> Range<usize>;
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub String, pub Range<usize>);
 
-impl AstSpan for Identifier {
-    fn span(&self) -> Range<usize> {
-        self.1.clone()
-    }
-}
 
 //***************Module*********************
 #[derive(Clone, Debug, PartialEq)]
 pub struct Module(pub Vec<Def>, pub Range<usize>);
-impl AstSpan for Module {
-    fn span(&self) -> Range<usize> {
-        self.1.clone()
-    }
-}
 
 //***************Definitions*****************
 #[derive(Clone, Debug, PartialEq)]
@@ -45,30 +31,9 @@ pub enum Def {
     ConstDef(Identifier, Literal, Range<usize>),
 }
 
-impl AstSpan for Def {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            Def::FnDef(_, _, _, _, _, s) => s,
-            Def::TypeDef(_, _, _, s) => s,
-            Def::ClassDef(_, _, _, s) => s,
-            Def::InstanceDef(_, _, _, s) => s,
-            Def::ProcDef(_, _, s) => s,
-            Def::ModuleDef(_, s) => s,
-            Def::ConstDef(_, _, s) => s,
-        };
-        s.clone()
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 //type_constraint ::= '(' ident (ident | type_constraint)* ')'
 pub struct TypeConstraint(pub Identifier, pub Vec<Identifier>, pub Range<usize>);
-
-impl AstSpan for TypeConstraint {
-    fn span(&self) -> Range<usize> {
-        self.2.clone()
-    }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeParam {
@@ -92,21 +57,6 @@ pub enum TypeParam {
     RecordType(Identifier, Vec<(Identifier, TypeParam)>, Range<usize>),
 }
 
-impl AstSpan for TypeParam {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            TypeParam::Empty(s) => s,
-            TypeParam::Type(_, s) => s,
-            TypeParam::TupleType(_, s) => s,
-            TypeParam::ArrayType(_, _, s) => s,
-            TypeParam::FuncType(_, _, s) => s,
-            TypeParam::TypeConstructorType(_, _, s) => s,
-            TypeParam::RecordType(_, _, s) => s,
-        };
-        s.clone()
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum FnPatternParam {
     // <literal>
@@ -125,19 +75,6 @@ pub enum FnPatternParam {
     BindToTypeConstructorParam(Identifier, Vec<FnPatternParam>, Range<usize>),
 }
 
-impl AstSpan for FnPatternParam {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            FnPatternParam::BindToLiteralParam(_, s) => s,
-            FnPatternParam::BindToIdentParam(_, s) => s,
-            FnPatternParam::BindToSetDeconstructParam(_, s) => s,
-            FnPatternParam::BindToSetSelectorParam(_, _, s) => s,
-            FnPatternParam::BindToTypeConstructorParam(_, _, s) => s,
-        };
-        s.clone()
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum MethodDef {
     // Vec of generic_type_param, return type_name
@@ -146,16 +83,6 @@ pub enum MethodDef {
     // vec of generic_type_param, return type_name
     // <ident> "::" <type> ("," <type>)* "=>" <type>
     Named(Identifier, Vec<TypeParam>, TypeParam, Range<usize>),
-}
-
-impl AstSpan for MethodDef {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            MethodDef::Operator(_, _, _, s) => s,
-            MethodDef::Named(_, _, _, s) => s,
-        };
-        s.clone()
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -179,16 +106,6 @@ pub enum MethodImpl {
     Operator(MethodOperator, FnExpr, Range<usize>),
     // <ident> "::" <fnexpr>
     Named(Identifier, FnExpr, Range<usize>),
-}
-
-impl AstSpan for MethodImpl {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            MethodImpl::Operator(_, _, s) => s,
-            MethodImpl::Named(_, _, s) => s,
-        };
-        s.clone()
-    }
 }
 
 //***************Expressions*****************
@@ -239,27 +156,6 @@ pub enum Expr {
     // this type
 }
 
-impl AstSpan for Expr {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            Expr::IdentExpr(_, s) => s,
-            Expr::LitExpr(_, s) => s,
-            Expr::SetExpr(_, s) => s,
-            Expr::ArrayExpr(_, s) => s,
-            Expr::TupleExpr(_, s) => s,
-            Expr::BinOpExpr(_, _, _, s) => s,
-            Expr::UnaryOp(_, _, s) => s,
-            Expr::LetInExpr(_, _, s) => s,
-            Expr::FnExpr(_, s) => s,
-            Expr::FnCallExpr(_, _, s) => s,
-            Expr::CaseExpr(_, _, s) => s,
-            Expr::TypeConstructor(_, _, s) => s,
-            Expr::IfThenElseIfExpr(_, _, s) => s,
-            Expr::MemberExpr(_, s) => s,
-        };
-        s.clone()
-    }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MemberExpr {
@@ -273,12 +169,6 @@ pub enum MemberExprBase {
     MemberExpr(P<MemberExpr>, Range<usize>),
 }
 
-impl AstSpan for MemberExprBase {
-    fn span(&self) -> Range<usize> {
-        todo!()
-    }
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
     Integer(usize, Range<usize>),
@@ -287,17 +177,6 @@ pub enum Literal {
     Bool(bool, Range<usize>),
 }
 
-impl AstSpan for Literal {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            Literal::Integer(_, s) => s,
-            Literal::Float(_, s) => s,
-            Literal::String(_, s) => s,
-            Literal::Bool(_, s) => s,
-        };
-        s.clone()
-    }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum BinOperator {
@@ -329,15 +208,6 @@ pub enum FnExpr {
     CaseFnExpr(Vec<FnExpr>, Range<usize>),
 }
 
-impl AstSpan for FnExpr {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            FnExpr::FnExpr(_, _, s) => s,
-            FnExpr::CaseFnExpr(_, s) => s,
-        };
-        s.clone()
-    }
-}
 
 //***************Statements*****************
 // There is only one place these go.  Within LetIn blocks.
@@ -364,19 +234,4 @@ pub enum Stmt {
     MultiAssignStmt(Vec<Identifier>, Option<Vec<Identifier>>, Expr, Range<usize>),
     // "{" <ident>  ("," <ident>)* "}" ":=" <expr> ("," <expr>)*
     SetDeconstructAssignStmt(Vec<Identifier>, Expr, Range<usize>),
-}
-
-impl AstSpan for Stmt {
-    fn span(&self) -> Range<usize> {
-        let s = match self {
-            Stmt::Empty(s) => s,
-            Stmt::AssignStmt(_, _, _, s) => s,
-            Stmt::FnCallStmt(_, _, s) => s,
-            Stmt::ProcCallStmt(_, s) => s,
-            Stmt::CaseStmt(_, _, s) => s,
-            Stmt::MultiAssignStmt(_, _, _, s) => s,
-            Stmt::SetDeconstructAssignStmt(_, _, s) => s,
-        };
-        s.clone()
-    }
 }

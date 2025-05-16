@@ -20,19 +20,19 @@ pub fn parse_expression(input: TokenStream) -> Output<Expr> {
 
 pub fn parse_fn_expr_case_branch(input: TokenStream) -> Output<FnExpr> {
     pair(
-        left(
+        surrounded(
+            match_token(TokenKind::Union),
             parse_fn_expr_case_params(),
-            match_token(TokenKind::FatArrow)),
-        left(
-            or(
-                parse_expression,
-                surrounded(
-                    match_token(TokenKind::LeftParen),
-                    parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
-                    match_token(TokenKind::RightParen))),
-            match_token(TokenKind::SemiColon)))
-        .map(|(params, expr), span| FnExpr::FnExpr(params, expr, span))
-        .parse_next(input)
+            match_token(TokenKind::FatArrow),
+        ),
+        or(
+            parse_expression,
+            surrounded(
+                match_token(TokenKind::LeftParen),
+                parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
+                match_token(TokenKind::RightParen))))
+    .map(|(params, expr), span| FnExpr::FnExpr(params, expr, span))
+    .parse_next(input)
 }
 
 pub fn parse_fn_expr_param<'a>() -> impl Parser<'a, FnPatternParam> {
@@ -154,13 +154,18 @@ pub fn parse_member_expr<'a>() -> impl Parser<'a, Expr> {
             let mut iter = rest.into_iter();
             let mut base = MemberExpr {
                 identifier: iter.next().unwrap(),
-                base: MemberExprBase::Member(first.clone(), first.span()),
+                base: MemberExprBase::Member(first.clone(), first.1),
             };
 
             for identifier in iter {
+                let base2_span = match &base.base {
+                                    MemberExprBase::Member(_, s) => s.clone(),
+                                    MemberExprBase::MemberExpr(_, s) => s.clone(),
+                                };
+                
                 base = MemberExpr {
                     identifier,
-                    base: MemberExprBase::MemberExpr(P(base.clone()), base.base.span().clone()),
+                    base: MemberExprBase::MemberExpr(P(base), base2_span),
                 };
             }
 
@@ -421,10 +426,10 @@ mod tests {
     #[test]
     fn test_parse_fn_expr_case_branch() {
         let tokens = vec![
-            create_token(TokenKind::Identifier("x".into()), 0, 1),
-            create_token(TokenKind::FatArrow, 2, 4),
-            create_token(TokenKind::Integer(42), 5, 7),
-            create_token(TokenKind::SemiColon, 8, 9),
+            create_token(TokenKind::Union, 0, 1),
+            create_token(TokenKind::Identifier("x".into()), 2, 1),
+            create_token(TokenKind::FatArrow, 4, 2),
+            create_token(TokenKind::Integer(42), 9, 2),
         ];
         let input = mock_token_stream(&tokens);
         let result = parse_fn_expr_case_branch(input);
@@ -590,10 +595,10 @@ mod tests {
         let tokens = vec![
             create_token(TokenKind::CaseKeyword, 0, 4),
             create_token(TokenKind::Identifier("x".into()), 5, 6),
-            create_token(TokenKind::Identifier("_".into()), 7, 8),
-            create_token(TokenKind::FatArrow, 9, 11),
-            create_token(TokenKind::Integer(42), 12, 14),
-            create_token(TokenKind::SemiColon, 15, 16),
+            create_token(TokenKind::Union, 7, 8),
+            create_token(TokenKind::Identifier("_".into()), 9, 10),
+            create_token(TokenKind::FatArrow, 11, 13),
+            create_token(TokenKind::Integer(42), 14, 16),
         ];
         let input = mock_token_stream(&tokens);
         let result = parse_case_expr(input);

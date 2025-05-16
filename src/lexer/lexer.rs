@@ -486,3 +486,209 @@ pub struct InvalidEscapeSequence<'a> {
 
     ch: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::token::{Token, TokenKind};
+    use super::super::lexer::Lexer;
+    use crate::jace_file::JaceFile;
+
+    #[test]
+    fn test_identifiers() {
+        let input = "foo bar _baz";
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let tokens: Vec<Token> = lexer.into_iter().filter_map(|t| t.ok()).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::Identifier("foo".into()), 0, 3),
+                Token::new(TokenKind::Identifier("bar".into()), 4, 3),
+                Token::new(TokenKind::Identifier("_baz".into()), 8, 4),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_integers_and_floats() {
+        let input = "42 3.14 0";
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let tokens: Vec<Token> = lexer.into_iter().filter_map(|t| t.ok()).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::Integer(42), 0, 2),
+                Token::new(TokenKind::Float(3.14), 3, 4),
+                Token::new(TokenKind::Integer(0), 8, 1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_strings() {
+        let input = r#""hello" "world""#;
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let tokens: Vec<Token> = lexer.into_iter().filter_map(|t| t.ok()).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::String("hello".into()), 0, 7),
+                Token::new(TokenKind::String("world".into()), 8, 7),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_operators() {
+        let input = "== != && || >= <= > < + - * / ^";
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let tokens: Vec<Token> = lexer.into_iter().filter_map(|t| t.ok()).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::EqualsEquals, 0, 2),
+                Token::new(TokenKind::NotEquals, 3, 2),
+                Token::new(TokenKind::And, 6, 2),
+                Token::new(TokenKind::Or, 9, 2),
+                Token::new(TokenKind::GreaterEquals, 12, 2),
+                Token::new(TokenKind::LessEquals, 15, 2),
+                Token::new(TokenKind::Greater, 18, 1),
+                Token::new(TokenKind::Less, 20, 1),
+                Token::new(TokenKind::Plus, 22, 1),
+                Token::new(TokenKind::Minus, 24, 1),
+                Token::new(TokenKind::Multiply, 26, 1),
+                Token::new(TokenKind::Divide, 28, 1),
+                Token::new(TokenKind::Exp, 30, 1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_delimiters() {
+        let input = "= := ; : :: , . | =>";
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let tokens: Vec<Token> = lexer.into_iter().filter_map(|t| t.ok()).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::Equals, 0, 1),
+                Token::new(TokenKind::InferredEquals, 2, 2),
+                Token::new(TokenKind::SemiColon, 5, 1),
+                Token::new(TokenKind::Colon, 7, 1),
+                Token::new(TokenKind::ColonColon, 9, 2),
+                Token::new(TokenKind::Comma, 12, 1),
+                Token::new(TokenKind::Dot, 14, 1),
+                Token::new(TokenKind::Union, 16, 1),
+                Token::new(TokenKind::FatArrow, 18, 2),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_brackets() {
+        let input = "() [] {}";
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let tokens: Vec<Token> = lexer.into_iter().filter_map(|t| t.ok()).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::LeftParen, 0, 1),
+                Token::new(TokenKind::RightParen, 1, 1),
+                Token::new(TokenKind::LeftBracket, 3, 1),
+                Token::new(TokenKind::RightBracket, 4, 1),
+                Token::new(TokenKind::LeftBrace, 6, 1),
+                Token::new(TokenKind::RightBrace, 7, 1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_reserved_keywords() {
+        let input = "type class instance case let in if then else elseif def const where do";
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let tokens: Vec<Token> = lexer.into_iter().filter_map(|t| t.ok()).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::TypeKeyword, 0, 4),
+                Token::new(TokenKind::ClassKeyword, 5, 5),
+                Token::new(TokenKind::InstanceKeyword, 11, 8),
+                Token::new(TokenKind::CaseKeyword, 20, 4),
+                Token::new(TokenKind::LetKeyword, 25, 3),
+                Token::new(TokenKind::InKeyword, 29, 2),
+                Token::new(TokenKind::IfKeyword, 32, 2),
+                Token::new(TokenKind::ThenKeyword, 35, 4),
+                Token::new(TokenKind::ElseKeyword, 40, 4),
+                Token::new(TokenKind::ElseIfKeyword, 45, 6),
+                Token::new(TokenKind::DefKeyword, 52, 3),
+                Token::new(TokenKind::ConstKeyword, 56, 5),
+                Token::new(TokenKind::WhereKeyword, 62, 5),
+                Token::new(TokenKind::DoKeyword, 68, 2),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_comments() {
+        let input = "foo -- this is a comment\nbar";
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let tokens: Vec<Token> = lexer.into_iter().filter_map(|t| t.ok()).collect();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::Identifier("foo".into()), 0, 3),
+                Token::new(TokenKind::Identifier("bar".into()), 25, 3),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_malformed_number() {
+        let input = "42.abc";
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let mut iter = lexer.into_iter();
+
+        // The lexer should return an error for the malformed number.
+        let result = iter.next().unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unexpected_char() {
+        let input = "@";
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let mut iter = lexer.into_iter();
+
+        assert!(iter.next().unwrap().is_err()); // @
+    }
+
+    #[test]
+    fn test_escape_sequences_in_strings() {
+        let input = r#""hello\nworld""#;
+        let jace_file = JaceFile::new("test.jc", input);
+        let lexer = Lexer::new(jace_file);
+        let tokens: Vec<Token> = lexer.into_iter().filter_map(|t| t.ok()).collect();
+
+        assert_eq!(
+            tokens,
+            vec![Token::new(TokenKind::String("hello\\nworld".into()), 0, 14)]
+        );
+    }
+}

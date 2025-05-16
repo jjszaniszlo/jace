@@ -124,9 +124,9 @@ pub fn parse_fn_body_case(input: TokenStream) -> Output<FnExpr> {
     right(
         match_token(TokenKind::CaseKeyword),
         one_or_more(
-            left(
-                parse_fn_body_single,
-                match_token(TokenKind::SemiColon))))
+            right(
+                match_token(TokenKind::Union),
+                parse_fn_body_single)))
         .map(|exprs, s| FnExpr::CaseFnExpr(exprs, s))
         .parse_next(input)
 }
@@ -412,10 +412,10 @@ mod tests {
     fn test_parse_fn_body_case() {
         let tokens = vec![
             create_token(TokenKind::CaseKeyword, 0, 4),
-            create_token(TokenKind::Identifier("x".into()), 4, 1),
-            create_token(TokenKind::FatArrow, 5, 2),
-            create_token(TokenKind::Integer(42), 7, 2),
-            create_token(TokenKind::SemiColon, 9, 1),
+            create_token(TokenKind::Union, 1, 1),
+            create_token(TokenKind::Identifier("x".into()), 3, 1),
+            create_token(TokenKind::FatArrow, 4, 2),
+            create_token(TokenKind::Integer(42), 6, 2),
         ];
         let input = mock_token_stream(&tokens);
         let result = parse_fn_body_case(input);
