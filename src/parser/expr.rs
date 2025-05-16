@@ -18,45 +18,6 @@ pub fn parse_expression(input: TokenStream) -> Output<Expr> {
         .parse_next(input)
 }
 
-// ****************** FN EXPR ***************************
-// pub fn parse_fn_expr_as_expr(input: TokenStream) -> Output<Expr> {
-//     or(
-//         parse_fn_expr_single,
-//         parse_fn_expr_case)
-//         .map(|f, s| Expr::FnExpr(P(f), s))
-//         .parse_next(input)
-// }
-//
-// pub fn parse_fn_expr(input: TokenStream) -> Output<FnExpr> {
-//     or(
-//         parse_fn_expr_single,
-//         parse_fn_expr_case)
-//         .parse_next(input)
-// }
-//
-// pub fn parse_fn_expr_single(input: TokenStream) -> Output<FnExpr> {
-//     pair(
-//         left(
-//             parse_fn_expr_params(),
-//             match_token(TokenKind::FatArrow)),
-//         or(
-//             parse_expression,
-//             surrounded(
-//                 match_token(TokenKind::LeftParen),
-//                 parse_comma_seperated_expressions.map(|exprs, span| Expr::TupleExpr(exprs, span)),
-//                 match_token(TokenKind::RightParen))))
-//         .map(|(params, expr), span| FnExpr::FnExpr(params, expr, span))
-//         .parse_next(input)
-// }
-//
-// pub fn parse_fn_expr_case(input: TokenStream) -> Output<FnExpr> {
-//     right(
-//         match_token(TokenKind::CaseKeyword),
-//         one_or_more(parse_fn_expr_case_branch))
-//         .map(|fn_exprs, span| FnExpr::CaseFnExpr(fn_exprs, span))
-//         .parse_next(input)
-// }
-
 pub fn parse_fn_expr_case_branch(input: TokenStream) -> Output<FnExpr> {
     pair(
         left(
@@ -73,20 +34,6 @@ pub fn parse_fn_expr_case_branch(input: TokenStream) -> Output<FnExpr> {
         .map(|(params, expr), span| FnExpr::FnExpr(params, expr, span))
         .parse_next(input)
 }
-
-// pub fn parse_fn_expr_params<'a>() -> impl Parser<'a, Vec<FnPatternParam>> {
-//     pair(
-//         parse_fn_expr_param(),
-//         zero_or_more(
-//             right(
-//                 match_token(TokenKind::Comma),
-//                 parse_fn_expr_param())))
-//         .map(|(first_param, params), _| {
-//             let mut final_params = vec![first_param];
-//             final_params.extend(params);
-//             final_params
-//         })
-// }
 
 pub fn parse_fn_expr_param<'a>() -> impl Parser<'a, FnPatternParam> {
     or_n(vec![
@@ -113,9 +60,8 @@ pub fn parse_fn_expr_case_params<'a>() -> impl Parser<'a, Vec<FnPatternParam>> {
 
 pub fn parse_fn_expr_case_param<'a>() -> impl Parser<'a, FnPatternParam> {
     or_n(vec![
-        BoxedParser::new(parse_fn_expr_case_deconstruct_union_type),
+        BoxedParser::new(parse_literal().map(|l, s| FnPatternParam::BindToLiteralParam(l, s))),
         BoxedParser::new(parse_fn_expr_param()),
-        parse_literal().map(|l, s| FnPatternParam::BindToLiteralParam(l, s))
     ])
 }
 
@@ -442,13 +388,310 @@ pub fn parse_fn_param_set_selector<'a>() -> impl Parser<'a, FnPatternParam> {
         .map(|(first, rest), s| FnPatternParam::BindToSetSelectorParam(first, rest, s))
 }
 
-pub fn parse_fn_expr_case_deconstruct_union_type(input: TokenStream) -> Output<FnPatternParam> {
-    surrounded(
-        match_token(TokenKind::LeftParen),
-        pair(
-            parse_identifier(),
-            one_or_more(parse_fn_expr_case_deconstruct_union_type)),
-        match_token(TokenKind::RightParen))
-        .map(|(first, rest), s| FnPatternParam::BindToTypeConstructorParam(first, rest, s))
-        .parse_next(input)
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::prelude::{Token, TokenKind};
+    use crate::parser::tokenstream::TokenStream;
+
+    fn mock_token_stream(tokens: &[Token]) -> TokenStream {
+        // Mock implementation to create a TokenStream from a vector of Token
+        TokenStream::new(tokens)
+    }
+
+    fn create_token(kind: TokenKind, start: usize, len: usize) -> Token {
+        Token::new(kind, start, len)
+    }
+
+    #[test]
+    fn test_parse_expression() {
+        let tokens = vec![
+            create_token(TokenKind::LetKeyword, 0, 3),
+            create_token(TokenKind::Identifier("x".into()), 4, 5),
+            create_token(TokenKind::InferredEquals, 6, 7),
+            create_token(TokenKind::Integer(42), 8, 10),
+            create_token(TokenKind::InKeyword, 11, 2),
+            create_token(TokenKind::Identifier("x".into()), 13, 5),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_expression(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fn_expr_case_branch() {
+        let tokens = vec![
+            create_token(TokenKind::Identifier("x".into()), 0, 1),
+            create_token(TokenKind::FatArrow, 2, 4),
+            create_token(TokenKind::Integer(42), 5, 7),
+            create_token(TokenKind::SemiColon, 8, 9),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_fn_expr_case_branch(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fn_expr_param() {
+        let tokens = vec![create_token(TokenKind::Identifier("x".into()), 0, 1)];
+        let input = mock_token_stream(&tokens);
+        let result = parse_fn_expr_param().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fn_expr_case_params() {
+        let tokens = vec![
+            create_token(TokenKind::Identifier("x".into()), 0, 1),
+            create_token(TokenKind::Comma, 2, 3),
+            create_token(TokenKind::Identifier("y".into()), 4, 5),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_fn_expr_case_params().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fn_expr_case_param() {
+        let tokens = vec![create_token(TokenKind::Identifier("x".into()), 0, 1)];
+        let input = mock_token_stream(&tokens);
+        let result = parse_fn_expr_case_param().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_bin_op() {
+        let tokens = vec![
+            create_token(TokenKind::Integer(1), 0, 1),
+            create_token(TokenKind::Plus, 2, 3),
+            create_token(TokenKind::Integer(2), 4, 5),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_bin_op(0).parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_parenthesized_expression() {
+        let tokens = vec![
+            create_token(TokenKind::LeftParen, 0, 1),
+            create_token(TokenKind::Integer(42), 2, 4),
+            create_token(TokenKind::RightParen, 5, 6),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_parenthesized_expression().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_unary_op() {
+        let tokens = vec![
+            create_token(TokenKind::Minus, 0, 1),
+            create_token(TokenKind::Integer(42), 2, 4),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_unary_op(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_member_expr() {
+        let tokens = vec![
+            create_token(TokenKind::Identifier("x".into()), 0, 1),
+            create_token(TokenKind::Dot, 2, 3),
+            create_token(TokenKind::Identifier("y".into()), 4, 5),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_member_expr().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_primary() {
+        let tokens = vec![create_token(TokenKind::Integer(42), 0, 2)];
+        let input = mock_token_stream(&tokens);
+        let result = parse_primary().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fn_call_expr() {
+        let tokens = vec![
+            create_token(TokenKind::Identifier("func".into()), 0, 4),
+            create_token(TokenKind::LeftParen, 5, 6),
+            create_token(TokenKind::Integer(42), 7, 9),
+            create_token(TokenKind::RightParen, 10, 11),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_fn_call_expr(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fn_arg() {
+        let tokens = vec![create_token(TokenKind::Integer(42), 0, 2)];
+        let input = mock_token_stream(&tokens);
+        let result = parse_fn_arg(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fn_arg_identifier() {
+        let tokens = vec![create_token(TokenKind::Identifier("x".into()), 0, 1)];
+        let input = mock_token_stream(&tokens);
+        let result = parse_fn_arg_identifier().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_if_then_else() {
+        let tokens = vec![
+            create_token(TokenKind::IfKeyword, 0, 2),
+            create_token(TokenKind::Bool(true), 3, 7),
+            create_token(TokenKind::ThenKeyword, 8, 12),
+            create_token(TokenKind::Integer(42), 13, 15),
+            create_token(TokenKind::ElseKeyword, 16, 20),
+            create_token(TokenKind::Integer(0), 21, 22),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_if_then_else(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_comma_seperated_expressions() {
+        let tokens = vec![
+            create_token(TokenKind::Integer(1), 0, 1),
+            create_token(TokenKind::Comma, 2, 3),
+            create_token(TokenKind::Integer(2), 4, 5),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_comma_seperated_expressions(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_let_in_expr() {
+        let tokens = vec![
+            create_token(TokenKind::LetKeyword, 0, 3),
+            create_token(TokenKind::Identifier("x".into()), 4, 5),
+            create_token(TokenKind::InferredEquals, 6, 7),
+            create_token(TokenKind::Integer(42), 8, 10),
+            create_token(TokenKind::InKeyword, 11, 13),
+            create_token(TokenKind::Identifier("x".into()), 14, 15),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_let_in_expr(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_case_expr() {
+        let tokens = vec![
+            create_token(TokenKind::CaseKeyword, 0, 4),
+            create_token(TokenKind::Identifier("x".into()), 5, 6),
+            create_token(TokenKind::Identifier("_".into()), 7, 8),
+            create_token(TokenKind::FatArrow, 9, 11),
+            create_token(TokenKind::Integer(42), 12, 14),
+            create_token(TokenKind::SemiColon, 15, 16),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_case_expr(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_set_array() {
+        let tokens = vec![
+            create_token(TokenKind::LeftBrace, 0, 1),
+            create_token(TokenKind::Integer(1), 2, 3),
+            create_token(TokenKind::Comma, 4, 5),
+            create_token(TokenKind::Integer(2), 6, 7),
+            create_token(TokenKind::RightBrace, 8, 9),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_set_array().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_empty_set() {
+        let tokens = vec![
+            create_token(TokenKind::LeftBrace, 0, 1),
+            create_token(TokenKind::RightBrace, 2, 3),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_empty_set(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_set_literal() {
+        let tokens = vec![
+            create_token(TokenKind::LeftBrace, 0, 1),
+            create_token(TokenKind::Identifier("x".into()), 2, 3),
+            create_token(TokenKind::Equals, 4, 5),
+            create_token(TokenKind::Integer(42), 6, 8),
+            create_token(TokenKind::RightBrace, 9, 10),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_set_literal().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_set_literal_comma_seperated_fields() {
+        let tokens = vec![
+            create_token(TokenKind::Identifier("x".into()), 0, 1),
+            create_token(TokenKind::Equals, 2, 3),
+            create_token(TokenKind::Integer(42), 4, 6),
+            create_token(TokenKind::Comma, 7, 8),
+            create_token(TokenKind::Identifier("y".into()), 9, 10),
+            create_token(TokenKind::Equals, 11, 12),
+            create_token(TokenKind::Integer(24), 13, 15),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_set_literal_comma_seperated_fields().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_set_literal_field() {
+        let tokens = vec![
+            create_token(TokenKind::Identifier("x".into()), 0, 1),
+            create_token(TokenKind::Equals, 2, 3),
+            create_token(TokenKind::Integer(42), 4, 6),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_set_literal_field(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_set_deconstruct() {
+        let tokens = vec![
+            create_token(TokenKind::LeftBrace, 0, 1),
+            create_token(TokenKind::Identifier("x".into()), 2, 3),
+            create_token(TokenKind::Comma, 4, 5),
+            create_token(TokenKind::Identifier("y".into()), 6, 7),
+            create_token(TokenKind::RightBrace, 8, 9),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_set_deconstruct().parse_next(input);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_fn_param_set_selector() {
+        let tokens = vec![
+            create_token(TokenKind::LeftBrace, 0, 1),
+            create_token(TokenKind::Identifier("x".into()), 2, 3),
+            create_token(TokenKind::Colon, 4, 5),
+            create_token(TokenKind::Identifier("y".into()), 6, 7),
+            create_token(TokenKind::RightBrace, 8, 9),
+        ];
+        let input = mock_token_stream(&tokens);
+        let result = parse_fn_param_set_selector().parse_next(input);
+        assert!(result.is_ok());
+    }
 }
