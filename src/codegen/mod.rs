@@ -1,1 +1,2 @@
-mod emitter;
+pub mod emitter;
+mod visitor;

@@ -1,3 +1,5 @@
+use std::vec;
+
 use crate::lexer::token::TokenKind;
 use crate::parser::ast::TypeParam;
 use crate::parser::combinator::{one_or_more, or, or_n, pair, right, surrounded, zero_or_one};
@@ -6,18 +8,33 @@ use crate::parser::prelude::match_token;
 use crate::parser::ptr::P;
 use crate::parser::tokenstream::TokenStream;
 
-use super::combinator::{left, not};
+use super::combinator::{left, not, zero_or_more};
 
 pub fn parse_type_param(input: TokenStream) -> Output<TypeParam> {
     or_n(vec![
-        BoxedParser::new(parse_type_param_empty),
+        BoxedParser::new(parse_type_param_type_constructor()),
         BoxedParser::new(parse_type_param_tuple),
         BoxedParser::new(parse_type_param_array),
         BoxedParser::new(parse_type_param_func),
         BoxedParser::new(parse_type_param_type),
-        BoxedParser::new(parse_type_param_ident),
+        BoxedParser::new(parse_type_param_empty),
     ])
-        .parse_next(input)
+    .parse_next(input)
+}
+
+fn parse_type_param_type_constructor<'a>() -> impl Parser<'a, TypeParam> {
+    pair(
+        parse_identifier(),
+        zero_or_more(
+            or_n(vec![
+                BoxedParser::new(parse_type_param_ident),
+                BoxedParser::new(parse_type_param),
+            ])
+        ),
+    )
+    .map(|(ident, params), span| {
+        TypeParam::TypeConstructorType(ident, params, span)
+    })
 }
 
 pub fn parse_type_param_empty(input: TokenStream) -> Output<TypeParam> {
@@ -97,9 +114,7 @@ pub fn parse_type_param_type(input: TokenStream) -> Output<TypeParam> {
 }
 
 pub fn parse_type_param_ident(input: TokenStream) -> Output<TypeParam> {
-    left(
-        parse_identifier(),
-        not(parse_identifier()))
+        parse_identifier()
         .map(|i, s| TypeParam::Type(i, s))
         .parse_next(input)
 }

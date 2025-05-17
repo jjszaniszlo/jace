@@ -10,9 +10,12 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
+use codegen::emitter;
 use miette::Report;
 use jace_file::JaceFile;
 use crate::lexer::prelude::*;
+
+use crate::codegen::emitter::*;
 
 fn main() {
     //let args = Cli::parse();
@@ -25,20 +28,13 @@ fn main() {
     let jcf = JaceFile::new("test.jc",
                             r#"
                             type Option a :: Some a | None
-                            
-                            type Either a b :: Left a | Right b
 
-                            -- type List a :: Nil | Cons a (List a)
+                            def sum :: Int, Int => Int
+                            do 
+                                a, b => a + b
 
-                            -- def join :: List (List a) => List a
-                            -- case
-                            --     Nil => Nil;
-                            --     Cons xs xss => cat xs (join xss);
-
-                            -- def sum :: Integer, Integer => Integer
-                            -- do
-                            --     a, b => a * b
-
+                            def main :: ()
+                                print "Hello, World!"
                             "#);
 
     let mut lexer = Lexer::new(jcf).into_iter();
@@ -49,7 +45,12 @@ fn main() {
     println!("{toks:?}");
 
     match parser::parse(&toks, jcf) {
-        Ok(m) => println!("{m:#?}"),
+        Ok(m) => {
+            println!("{m:#?}");
+            let mut emitter = LuaEmitter::new();
+            let lua_code = m.accept(&mut emitter);
+            println!("{lua_code}");
+        },
         Err(e) => {
             let err = Report::from(e);
             println!("{err:?}");
