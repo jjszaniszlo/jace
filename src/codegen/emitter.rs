@@ -372,7 +372,6 @@ impl Visitor for LuaEmitter {
                     }
                 }
 
-                result.push_str(&format!("{}-- Case logic\n", self.indent()));
                 for (i, branch) in branches.iter().enumerate() {
                     if let FnExpr::FnExpr(params, _, _) = branch {
                         let branch_name = format!("_b{}", i + 1);
