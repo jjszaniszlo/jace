@@ -43,7 +43,6 @@ impl<'a> Iterator for SourceIterator<'a> {
 }
 
 pub struct LexerIterator<'a> {
-    jace_file: Rc<JaceFile<'a>>,
     src_iter: SourceIterator<'a>,
 }
 
@@ -52,7 +51,6 @@ impl<'a> LexerIterator<'a> {
         let jc = Rc::new(jace_file);
         Self {
             src_iter: SourceIterator::new(jc.clone().contents()),
-            jace_file: jc,
         }
     }
 

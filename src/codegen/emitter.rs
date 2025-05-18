@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use crate::parser::prelude::*;
 
 use super::visitor::Visitor;
@@ -68,7 +66,6 @@ impl Visitor for LuaEmitter {
                             let constructor_name = variant_identifier.accept(self);
                             self.type_constructor_map.insert(constructor_name.clone(), ident.clone());
 
-                            // Start the constructor function
                             result.push_str(&format!(
                                 "{}{}.{} = function()\n",
                                 self.indent(),
@@ -77,7 +74,6 @@ impl Visitor for LuaEmitter {
                             ));
                             self.increase_indent();
 
-                            // Create the Lua table for the constructor
                             result.push_str(&format!(
                                 "{}local self = setmetatable({{}}, {})\n",
                                 self.indent(),
@@ -85,7 +81,6 @@ impl Visitor for LuaEmitter {
                             ));
                             result.push_str(&format!("{}self.__tag = \"{}\"\n", self.indent(), constructor_name));
 
-                            // Return the constructed table
                             result.push_str(&format!("{}return self\n", self.indent()));
                             self.decrease_indent();
                             result.push_str(&format!("{}end\n", self.indent()));
@@ -118,7 +113,6 @@ impl Visitor for LuaEmitter {
                             ));
                             result.push_str(&format!("{}self.__tag = \"{}\"\n", self.indent(), constructor_name));
 
-                            // Assign fields for each parameter
                             for (i, _) in params.iter().enumerate() {
                                 result.push_str(&format!(
                                     "{}self._{} = param{}\n",
@@ -150,14 +144,6 @@ impl Visitor for LuaEmitter {
         result
     }
 
-    fn visit_type_constraint(&mut self, type_constraint: &TypeConstraint) -> String {
-        todo!()
-    }
-
-    fn visit_type_param(&mut self, type_param: &TypeParam) -> String {
-        todo!()
-    }
-
     fn visit_fn_pattern_param(&mut self, fn_pattern_param: &FnPatternParam) -> String {
         match fn_pattern_param {
             FnPatternParam::BindToLiteralParam(literal, _) => todo!(),
@@ -166,14 +152,6 @@ impl Visitor for LuaEmitter {
             FnPatternParam::BindToSetSelectorParam(identifier, identifier1, _) => todo!(),
             FnPatternParam::BindToTypeConstructorParam(identifier, fn_pattern_params, _) => todo!(),
         }
-    }
-
-    fn visit_method_def(&mut self, method_def: &MethodDef) -> String {
-        todo!()
-    }
-
-    fn visit_method_operator(&mut self, method_operator: &MethodOperator) -> String {
-        todo!()
     }
 
     fn visit_expr(&mut self, expr: &Expr) -> String {
@@ -222,14 +200,6 @@ impl Visitor for LuaEmitter {
             Expr::IfThenElseIfExpr(items, p, _) => todo!(),
             Expr::MemberExpr(member_expr, _) => todo!(),
         }
-    }
-
-    fn visit_member_expr(&mut self, member_expr: &MemberExpr) -> String {
-        todo!()
-    }
-
-    fn visit_member_expr_base(&mut self, member_expr_base: &MemberExprBase) -> String {
-        todo!()
     }
 
     fn visit_literal(&mut self, literal: &Literal) -> String {
@@ -285,24 +255,20 @@ impl Visitor for LuaEmitter {
             FnExpr::CaseFnExpr(branches, _) => {
                 let mut result = String::new();
 
-                // Get the parameter count from the first branch
                 let param_count = if let Some(FnExpr::FnExpr(params, _, _)) = branches.first() {
                     params.len()
                 } else {
                     0
                 };
 
-                // Generate the parameter list for the outer function
                 let outer_params = (1..=param_count)
                     .map(|i| format!("_{}", i))
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                // Start the outer function
                 result.push_str(&format!("function({})\n", outer_params));
                 self.increase_indent();
 
-                // Generate local functions for each branch
                 for (i, branch) in branches.iter().enumerate() {
                     if let FnExpr::FnExpr(params, body, _) = branch {
                         let branch_name = format!("_b{}", i + 1);
@@ -310,7 +276,6 @@ impl Visitor for LuaEmitter {
 
                         self.increase_indent();
 
-                        // Generate local bindings for the branch
                         for (j, param) in params.iter().enumerate() {
                             match param {
                                 FnPatternParam::BindToTypeConstructorParam(_, inner_params, _) => {
@@ -338,7 +303,6 @@ impl Visitor for LuaEmitter {
                             }
                         }
 
-                        // Generate the body of the branch
                         result.push_str(&format!(
                             "{}return {}\n",
                             self.indent(),
@@ -350,7 +314,6 @@ impl Visitor for LuaEmitter {
                     }
                 }
 
-                // Generate case logic
                 result.push_str(&format!("{}-- Case logic\n", self.indent()));
                 for (i, branch) in branches.iter().enumerate() {
                     if let FnExpr::FnExpr(params, _, _) = branch {
@@ -362,7 +325,6 @@ impl Visitor for LuaEmitter {
                             result.push_str(&format!("{}if ", self.indent()));
                         }
 
-                        // Generate pattern matching logic
                         let conditions = params
                             .iter()
                             .enumerate()
@@ -398,7 +360,6 @@ impl Visitor for LuaEmitter {
 
                         self.increase_indent();
 
-                        // Call the branch function
                         result.push_str(&format!("{}return {}(_1, _2)\n", self.indent(), branch_name));
 
                         self.decrease_indent();
@@ -407,7 +368,6 @@ impl Visitor for LuaEmitter {
 
                 result.push_str(&format!("{}end\n", self.indent()));
 
-                // Close the outer function
                 self.decrease_indent();
                 result.push_str(&format!("{}end\n", self.indent()));
 
@@ -449,22 +409,22 @@ mod tests {
     use crate::parser::ptr::P;
     use crate::parser::tokenstream::TokenStream;
 
-    fn mock_identifier(name: &str) -> Identifier {
+    fn create_ident(name: &str) -> Identifier {
         Identifier(name.to_string(), 0..name.len())
     }
 
-    fn mock_literal_integer(value: i64) -> Literal {
+    fn create_integer(value: i64) -> Literal {
         Literal::Integer(value.try_into().unwrap(), 0..value.to_string().len())
     }
 
-    fn mock_literal_string(value: &str) -> Literal {
+    fn create_string(value: &str) -> Literal {
         Literal::String(value.to_string(), 0..value.len())
     }
 
-    fn mock_fn_expr() -> FnExpr {
+    fn create_fn_expr() -> FnExpr {
         FnExpr::FnExpr(
-            vec![FnPatternParam::BindToIdentParam(mock_identifier("x"), 0..1)],
-            *Box::new(Expr::IdentExpr(mock_identifier("x"), 0..1)),
+            vec![FnPatternParam::BindToIdentParam(create_ident("x"), 0..1)],
+            *Box::new(Expr::IdentExpr(create_ident("x"), 0..1)),
             0..1,
         )
     }
@@ -472,7 +432,7 @@ mod tests {
     #[test]
     fn test_visit_identifier() {
         let mut emitter = LuaEmitter::new();
-        let identifier = mock_identifier("test");
+        let identifier = create_ident("test");
         let result = emitter.visit_identifier(&identifier);
         assert_eq!(result, "test");
     }
@@ -480,7 +440,7 @@ mod tests {
     #[test]
     fn test_visit_literal_integer() {
         let mut emitter = LuaEmitter::new();
-        let literal = mock_literal_integer(42);
+        let literal = create_integer(42);
         let result = emitter.visit_literal(&literal);
         assert_eq!(result, "42");
     }
@@ -488,7 +448,7 @@ mod tests {
     #[test]
     fn test_visit_literal_string() {
         let mut emitter = LuaEmitter::new();
-        let literal = mock_literal_string("hello");
+        let literal = create_string("hello");
         let result = emitter.visit_literal(&literal);
         assert_eq!(result, "\"hello\"");
     }
@@ -496,7 +456,7 @@ mod tests {
     #[test]
     fn test_visit_fn_expr() {
         let mut emitter = LuaEmitter::new();
-        let fn_expr = mock_fn_expr();
+        let fn_expr = create_fn_expr();
         let result = emitter.visit_fn_expr(&fn_expr);
         assert_eq!(result, "function(x)\nreturn x\nend");
     }
@@ -504,9 +464,9 @@ mod tests {
     #[test]
     fn test_visit_def_fn() {
         let mut emitter = LuaEmitter::new();
-        let fn_expr = mock_fn_expr();
+        let fn_expr = create_fn_expr();
         let def = Def::FnDef(
-            mock_identifier("test_fn"),
+            create_ident("test_fn"),
             vec![],
             TypeParam::Type(Identifier("Integer".into(), 0..1), 0..1),
             None,
@@ -521,11 +481,11 @@ mod tests {
     fn test_visit_def_type() {
         let mut emitter = LuaEmitter::new();
         let def = Def::TypeDef(
-            mock_identifier("Option"),
+            create_ident("Option"),
             vec![],
             vec![
-                TypeParam::Type(mock_identifier("Some"), 0..1),
-                TypeParam::Type(mock_identifier("None"), 0..1),
+                TypeParam::Type(create_ident("Some"), 0..1),
+                TypeParam::Type(create_ident("None"), 0..1),
             ],
             0..1,
         );
@@ -539,8 +499,8 @@ mod tests {
     fn test_visit_stmt_fn_call() {
         let mut emitter = LuaEmitter::new();
         let stmt = Stmt::FnCallStmt(
-            mock_identifier("print"),
-            vec![Expr::LitExpr(mock_literal_integer(42), 0..2)],
+            create_ident("print"),
+            vec![Expr::LitExpr(create_integer(42), 0..2)],
             0..1,
         );
         let result = emitter.visit_stmt(&stmt);
@@ -551,9 +511,9 @@ mod tests {
     fn test_visit_stmt_assign() {
         let mut emitter = LuaEmitter::new();
         let stmt = Stmt::AssignStmt(
-            mock_identifier("x"),
+            create_ident("x"),
             None,
-            Expr::LitExpr(mock_literal_integer(42), 0..2),
+            Expr::LitExpr(create_integer(42), 0..2),
             0..1,
         );
         let result = emitter.visit_stmt(&stmt);
@@ -563,7 +523,7 @@ mod tests {
     #[test]
     fn test_visit_stmt_proc_call() {
         let mut emitter = LuaEmitter::new();
-        let stmt = Stmt::ProcCallStmt(mock_identifier("do_something"), 0..1);
+        let stmt = Stmt::ProcCallStmt(create_ident("do_something"), 0..1);
         let result = emitter.visit_stmt(&stmt);
         assert_eq!(result, "do_something()");
     }
@@ -571,7 +531,7 @@ mod tests {
     #[test]
     fn test_visit_expr_ident() {
         let mut emitter = LuaEmitter::new();
-        let expr = Expr::IdentExpr(mock_identifier("x"), 0..1);
+        let expr = Expr::IdentExpr(create_ident("x"), 0..1);
         let result = emitter.visit_expr(&expr);
         assert_eq!(result, "x");
     }
@@ -579,7 +539,7 @@ mod tests {
     #[test]
     fn test_visit_expr_lit() {
         let mut emitter = LuaEmitter::new();
-        let expr = Expr::LitExpr(mock_literal_integer(42), 0..2);
+        let expr = Expr::LitExpr(create_integer(42), 0..2);
         let result = emitter.visit_expr(&expr);
         assert_eq!(result, "42");
     }
@@ -589,8 +549,8 @@ mod tests {
         let mut emitter = LuaEmitter::new();
         let expr = Expr::BinOpExpr(
             BinOperator::Plus,
-            P(Expr::LitExpr(mock_literal_integer(1), 0..1)),
-            P(Expr::LitExpr(mock_literal_integer(2), 0..1)),
+            P(Expr::LitExpr(create_integer(1), 0..1)),
+            P(Expr::LitExpr(create_integer(2), 0..1)),
             0..3,
         );
         let result = emitter.visit_expr(&expr);
@@ -601,10 +561,10 @@ mod tests {
     fn test_visit_expr_fn_call() {
         let mut emitter = LuaEmitter::new();
         let expr = Expr::FnCallExpr(
-            mock_identifier("sum"),
+            create_ident("sum"),
             vec![
-                Expr::LitExpr(mock_literal_integer(1), 0..1),
-                Expr::LitExpr(mock_literal_integer(2), 0..1),
+                Expr::LitExpr(create_integer(1), 0..1),
+                Expr::LitExpr(create_integer(2), 0..1),
             ],
             0..3,
         );

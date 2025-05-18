@@ -21,12 +21,6 @@ pub fn parse_def<'a>() -> impl Parser<'a, Def> {
         BoxedParser::new(parse_fn_def),
         BoxedParser::new(parse_proc_def),
         BoxedParser::new(parse_type_def),
-        // BoxedParser::new(parse_instance_def),
-        // BoxedParser::new(parse_type_def()),
-        // BoxedParser::new(parse_type_union_def()),
-        // BoxedParser::new(parse_class_def()),
-        // BoxedParser::new(parse_proc_def()),
-        // BoxedParser::new(parse_const_def()),
     ])
 }
 
