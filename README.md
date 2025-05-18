@@ -1,6 +1,5 @@
-# Information
-## Author: John Szaniszlo
-## Class: COMP 430
+Author: John Szaniszlo
+Class: COMP 430
 
 # Jace Language
 
