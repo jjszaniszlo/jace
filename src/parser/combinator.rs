@@ -77,9 +77,6 @@ where
     pair(p1, p2).map(|(_, r), s| r)
 }
 
-// cuts result in that branch erroring immediately.  
-// This is for when we know in a parser that the input should parse,
-// but there is a user error.
 pub fn or<'a, P1, P2, R>(p1: P1, p2: P2) -> impl Parser<'a, R>
 where
     P1: Parser<'a, R>,
@@ -225,7 +222,6 @@ where
     }
 }
 
-// transforms recoverable errors into unrecoverable errors.
 pub fn cut<'a, P, A>(p: P) -> impl Parser<'a, A>
 where
     P: Parser<'a, A> + 'a,

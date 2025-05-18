@@ -19,3 +19,5 @@ _build
 _coverage
 .DS_Store
 tags
+
+examples/*.lua

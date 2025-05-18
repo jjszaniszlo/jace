@@ -7,15 +7,24 @@ use crate::parser::ptr::*;
 use crate::parser::stmt::*;
 use crate::parser::tokenstream::{TokenResult, TokenStream};
 
+use super::def::parse_fn_body;
+use super::def::parse_fn_body_single;
+
 pub fn parse_expression(input: TokenStream) -> Output<Expr> {
     or_n(vec![
-        // BoxedParser::new(parse_fn_expr_as_expr),
+        BoxedParser::new(parse_fn_expr),
         BoxedParser::new(parse_let_in_expr),
         BoxedParser::new(parse_if_then_else),
         BoxedParser::new(parse_case_expr),
         BoxedParser::new(parse_bin_op(0)),
     ])
         .parse_next(input)
+}
+
+pub fn parse_fn_expr(input: TokenStream) -> Output<Expr> {
+    parse_fn_body_single
+    .map(|a, range| Expr::FnExpr(P(a), range))
+    .parse_next(input)
 }
 
 pub fn parse_fn_expr_case_branch(input: TokenStream) -> Output<FnExpr> {
@@ -73,7 +82,7 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, Expr> {
         let (mut input, mut lhs, mut span) = parse_primary().parse_next(input)?;
 
         loop {
-            let (mut rest, op, op_span) = match parse_operator().parse_next(input) {
+            let (rest, op, op_span) = match parse_operator().parse_next(input) {
                 Ok((i, o, sp)) => (i, o, sp),
                 Err(_) => break,
             };

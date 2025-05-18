@@ -1,0 +1,12 @@
+-- a procedure is a function with no parameters or return value.
+-- it contains any amount of statements.
+def print_1_plus_1 :: ()
+    result : Integer = 1 + 1
+    print "1 + 1 = " result
+
+def main :: ()
+    -- calling a proc requires the use of a '!'
+    print_1_plus_1!
+    
+    -- calling a function requires no parenthesis or '!'
+    print "Hello World!"

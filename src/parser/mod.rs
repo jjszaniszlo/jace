@@ -1,13 +1,13 @@
-mod ast;
+pub(crate) mod ast;
 mod parser;
 mod combinator;
 mod error;
-mod ptr;
+pub(crate) mod ptr;
 mod tests;
 mod expr;
 mod def;
 mod stmt;
-mod tokenstream;
+pub(crate) mod tokenstream;
 mod typeparam;
 
 pub mod prelude {

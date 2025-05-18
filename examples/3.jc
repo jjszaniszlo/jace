@@ -1,0 +1,27 @@
+
+-- types are algebraic, so this can be interpretted as:
+-- "a Vector is constructed as a Vec2 with 2 Floats or a Vec3 with 3 Floats"
+
+type Vector :: Vec2 Float Float | Vec3 Float Float Float
+
+-- a type can alternatively be declared with type parameters
+type Vector a :: Vec2 a a | Vec3 a a a
+
+-- using the type in a function is made simple with pattern matching
+def vector_dot :: Vector a, Vector a => a
+case
+| Vec2 a b, Vec2 c d => a*c + b*d
+| Vec3 a b c, Vec3 d e f => a*d + b*e + c*f
+
+def main :: ()
+    -- it is technically optional to wrap functions in parenthesis, but in certain cases its necessary.
+    -- so as a precaution, I would wrap all function calls in parenthesis to make certain things are as you intend.
+    foo_vec := (Vec2 3 4)
+    foo_vec2 := (Vec2 5 6)
+
+    bar_vec := (Vec3 1 2 3)
+    bar_vec2 := (Vec3 4 5 6)
+
+    (print "Dot product of foo_vec and foo_vec2 is:" (vector_dot foo_vec foo_vec2))
+    -- these must be wrapped in parenthesis because of a parsing bug.
+    (print "Dot product of bar_vec and bar_vec2 is:" (vector_dot bar_vec bar_vec2))

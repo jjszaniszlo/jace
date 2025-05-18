@@ -18,17 +18,17 @@ pub enum Def {
     // type_name, parametric types, sum of types.
     TypeDef(Identifier, Vec<Identifier>, Vec<TypeParam>, Range<usize>),
 
-    // class_name, Vec of generic_type_param
-    ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>, Range<usize>),
-    // class_name, type_name
-    InstanceDef(Identifier, Identifier, Vec<MethodImpl>, Range<usize>),
+    // // class_name, Vec of generic_type_param
+    // ClassDef(Identifier, Vec<Identifier>, Vec<MethodDef>, Range<usize>),
+    // // class_name, type_name
+    // InstanceDef(Identifier, Identifier, Vec<MethodImpl>, Range<usize>),
     // proc_name, statements
     ProcDef(Identifier, Vec<Stmt>, Range<usize>),
     // module_name
-    ModuleDef(String, Range<usize>),
+    // ModuleDef(String, Range<usize>),
 
-    // const_name, literal
-    ConstDef(Identifier, Literal, Range<usize>),
+    // // const_name, literal
+    // ConstDef(Identifier, Literal, Range<usize>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -100,13 +100,13 @@ pub enum MethodOperator {
     NotEquals,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum MethodImpl {
-    // <wrappedop> "::" <fnexpr>
-    Operator(MethodOperator, FnExpr, Range<usize>),
-    // <ident> "::" <fnexpr>
-    Named(Identifier, FnExpr, Range<usize>),
-}
+// #[derive(Clone, Debug, PartialEq)]
+// pub enum MethodImpl {
+//     // <wrappedop> "::" <fnexpr>
+//     Operator(MethodOperator, FnExpr, Range<usize>),
+//     // <ident> "::" <fnexpr>
+//     Named(Identifier, FnExpr, Range<usize>),
+// }
 
 //***************Expressions*****************
 #[derive(Clone, Debug, PartialEq)]
@@ -135,7 +135,7 @@ pub enum Expr {
     // "let" <stmt>* "in" <expr>
     LetInExpr(Vec<Stmt>, P<Expr>, Range<usize>),
 
-    // <ident> ("," <ident>)+ "=>" <expr>
+    // // <ident> ("," <ident>)+ "=>" <expr>
     FnExpr(P<FnExpr>, Range<usize>),
 
     // <ident> <expr>+
@@ -151,7 +151,7 @@ pub enum Expr {
     MemberExpr(MemberExpr, Range<usize>),
 
     // <ident> <expr>+
-    TypeConstructor(Identifier, Vec<Expr>, Range<usize>),               // the type checker
+    // TypeConstructor(Identifier, Vec<Expr>, Range<usize>),               // the type checker
     // converts FnCallExpr to
     // this type
 }

@@ -1,0 +1,9 @@
+
+def area_circle :: Float => Float
+do
+    radius =>
+        let pi := 3.14159 in
+            pi*radius^2
+
+def main :: ()
+    (print "area of circle with radius 2:" (area_circle 2))

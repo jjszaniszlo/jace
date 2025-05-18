@@ -21,12 +21,6 @@ pub fn parse_def<'a>() -> impl Parser<'a, Def> {
         BoxedParser::new(parse_fn_def),
         BoxedParser::new(parse_proc_def),
         BoxedParser::new(parse_type_def),
-        // BoxedParser::new(parse_instance_def),
-        // BoxedParser::new(parse_type_def()),
-        // BoxedParser::new(parse_type_union_def()),
-        // BoxedParser::new(parse_class_def()),
-        // BoxedParser::new(parse_proc_def()),
-        // BoxedParser::new(parse_const_def()),
     ])
 }
 
@@ -220,8 +214,7 @@ pub fn parse_proc_def(input: TokenStream) -> Output<Def> {
             pair(
                 match_token(TokenKind::LeftParen),
                 match_token(TokenKind::RightParen))),
-        zero_or_more(
-            parse_statement))
+        zero_or_more(parse_statement))
         .map(|(i, stmts), s| Def::ProcDef(i, stmts, s))
         .parse_next(input)
 }
