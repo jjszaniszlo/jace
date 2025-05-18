@@ -1,6 +1,7 @@
 
 -- types are algebraic, so this can be interpretted as:
 -- "a Vector is constructed as a Vec2 with 2 Floats or a Vec3 with 3 Floats"
+
 type Vector :: Vec2 Float Float | Vec3 Float Float Float
 
 -- a type can alternatively be declared with type parameters

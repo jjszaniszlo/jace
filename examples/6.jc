@@ -1,0 +1,20 @@
+type Option a :: Some a | None
+type Result v e :: Ok v | Err e
+
+def divide :: Float, Float => Result Float
+case
+|   _, 0 => Err "Cannot divide by 0"
+|   a, b => a / b
+
+def area_circle :: Float => Float
+do
+    r => let pi := 3.14159 in pi*r^2
+
+def add_opt :: Option Number, Option Number => Option Number
+case
+|   Some a, Some b => Some (a + b)
+|   _, _           => None
+
+def main :: ()
+    
+    

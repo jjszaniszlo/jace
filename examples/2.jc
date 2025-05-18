@@ -5,7 +5,6 @@ do
     a, b => a + b
 
 -- if-then-elseif-else expressions
-
 def foo :: Integer => Integer
 do
     a => if a < -1           then 0

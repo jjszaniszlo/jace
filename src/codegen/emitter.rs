@@ -213,7 +213,7 @@ impl Visitor for LuaEmitter {
                 result.push_str(&format!("{}end)()", self.indent()));
                 result
             },
-            Expr::FnExpr(p, _) => todo!(),
+            Expr::FnExpr(fnexpr, _) => fnexpr.accept(self),
             Expr::FnCallExpr(identifier, exprs, _) => {
                 let ident = identifier.accept(self);
                 let path = match self.type_constructor_map.get(&identifier.0) {

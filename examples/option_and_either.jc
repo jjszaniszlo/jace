@@ -2,6 +2,7 @@ type Option a :: Some a | None
 type Either a b :: Left a | Right b
 
 -- add the two eithers and return Some of the result or return None
+
 def add :: Either a b, Either a b => Option (Either a b)
 case
 | Left a, Left b => Some (Left (a + b))

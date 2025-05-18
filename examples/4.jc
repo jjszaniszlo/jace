@@ -1,4 +1,3 @@
-
 type Result V E :: Ok V | Err E
 
 def divide :: Float, Float => Result Float String
