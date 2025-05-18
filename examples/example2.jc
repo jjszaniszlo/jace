@@ -1,0 +1,38 @@
+type Option a :: Some a | None
+type Either a b :: Left a | Right b
+
+-- add the two eithers and return Some of the result or return None
+def add :: Either a b, Either a b => Option (Either a b)
+case
+| Left a, Left b => Some (Left (a + b))
+| Right a, Right b => Some (Right (a + b))
+| _, _ => None
+
+-- printing functions.
+
+def print_either :: Either a b => ()
+case
+| Left a => print "left:" a
+| Right a => print "right:" a
+
+def print_option_either :: Option (Either a b) => ()
+case
+| Some a => print_either a
+| _ => print "none"
+
+def main :: ()
+    foo_left := (Left 1)
+    foo_right := (Right 2)
+    foo_left2 := (Left 3)
+    foo_right2 := (Right 4)
+
+    left_added := (add foo_left foo_left2)
+    right_added := (add foo_right foo_right2)
+
+    left_add_right := (add foo_left foo_right)
+    right_add_left := (add foo_right foo_left)
+
+    (print_option_either left_added)
+    (print_option_either right_added)
+    (print_option_either left_add_right)
+    (print_option_either right_add_left)

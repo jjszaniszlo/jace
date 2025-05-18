@@ -1,0 +1,45 @@
+
+type Option a :: Some a | None
+type Tuple a b :: Tuple a b
+
+def sum :: Int, Int => Int
+do 
+    a, b => a + b
+
+def add :: Option a, Option a => Option a
+case
+| Some 0, Some 1 => Some 1
+| Some a, Some b => Some (sum a b)
+| _, _ => None
+
+def add2 :: Tuple a b, Tuple a b => Tuple a b
+case
+| Tuple 0 1, Tuple 1 0 => Tuple 0 0
+| Tuple a b, Tuple c d => Tuple (a + c) (b + d)
+
+def print_option :: Option a => ()
+case
+| Some a => print "some:" a
+| None => print "none"
+
+def print_tuple :: Tuple a b => ()
+case
+| Tuple a b => print "tuple:" a b
+| _ => print "You shouldn't have done this."
+
+
+def main :: ()
+    (print "Hello, World!")
+    opt := (Some 42)
+    opt2 := (Some 43)
+    opt3 := (add opt opt2)
+
+    (print_option opt3)
+    
+    none_opt := (None)
+    (print_option none_opt)
+
+    tuple1 := Tuple 1 2
+    tuple2 := Tuple 3 4
+    tuple3 := (add2 tuple1 tuple2)
+    (print_tuple tuple3)

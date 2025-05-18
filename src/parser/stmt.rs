@@ -15,14 +15,21 @@ pub fn parse_statement(input: TokenStream) -> Output<Stmt> {
         BoxedParser::new(parse_proc_call),
         BoxedParser::new(parse_case_statement),
         parse_fn_call_stmt(),
+        pair(match_token(TokenKind::LeftParen), match_token(TokenKind::RightParen))
+            .map(|(_, _), span| Stmt::Empty(span)),
     ])
         .parse_next(input)
 }
 
 pub fn parse_fn_call_stmt<'a>() -> BoxedParser<'a, Stmt> {
-    parse_fn_call_expr
-        .map(|expr, _| match expr {
-            Expr::FnCallExpr(ident, args, span) => Stmt::FnCallStmt(ident, args, span),
+    or(
+        parse_fn_call_expr,
+        surrounded(
+            match_token(TokenKind::LeftParen),
+            parse_fn_call_expr,
+            match_token(TokenKind::RightParen)))
+        .map(|expr, span| match expr {
+            Expr::FnCallExpr(ident, args, _) => Stmt::FnCallStmt(ident, args, span),
             _ => unreachable!(),
         })
 }
@@ -124,32 +131,23 @@ pub fn parse_set_deconstruct_assignment(input: TokenStream) -> Output<Stmt> {
 }
 
 pub fn parse_case_statement(input: TokenStream) -> Output<Stmt> {
-    right(
-        match_token(TokenKind::CaseKeyword),
-        pair(
-            left(
-                parse_expression,
-                match_token(TokenKind::InKeyword)),
-            one_or_more(parse_case_stmt_branch)))
+    pair(
+        surrounded(
+            match_token(TokenKind::CaseKeyword),
+            parse_expression,
+            match_token(TokenKind::InKeyword)),
+        one_or_more(parse_case_stmt_branch))
         .map(|(expr, branches), span| Stmt::CaseStmt(expr, branches, span))
         .parse_next(input)
 }
 
 pub fn parse_case_stmt_branch(input: TokenStream) -> Output<(Vec<FnPatternParam>, Stmt)> {
     pair(
-        left(
+        surrounded(
+            match_token(TokenKind::Union),
             parse_fn_expr_case_params(),
             match_token(TokenKind::FatArrow)),
-        left(
-            or_n(vec![
-                pair(
-                    match_token(TokenKind::LeftParen),
-                    match_token(TokenKind::RightParen))
-                    .map(|(_, _), span| Stmt::Empty(span)),
-                parse_fn_call_stmt(),
-                BoxedParser::new(parse_proc_call),
-            ]),
-            match_token(TokenKind::SemiColon)))
+        parse_statement)
         .parse_next(input)
 }
 
@@ -310,11 +308,11 @@ mod tests {
             create_token(TokenKind::CaseKeyword, 0, 4),
             create_token(TokenKind::Identifier("x".into()), 4, 1),
             create_token(TokenKind::InKeyword, 5, 2),
+            create_token(TokenKind::Union, 6, 1),
             create_token(TokenKind::Integer(0), 7, 1),
             create_token(TokenKind::FatArrow, 8, 2),
             create_token(TokenKind::Identifier("y".into()), 10, 1),
             create_token(TokenKind::Bang, 11, 1),
-            create_token(TokenKind::SemiColon, 12, 1),
         ];
         let input = mock_token_stream(&tokens);
         let result = parse_case_statement(input);
@@ -324,11 +322,11 @@ mod tests {
     #[test]
     fn test_parse_case_stmt_branch() {
         let tokens = vec![
-            create_token(TokenKind::Identifier("x".into()), 0, 1),
-            create_token(TokenKind::FatArrow, 1, 2),
-            create_token(TokenKind::LeftParen, 3, 1),
-            create_token(TokenKind::RightParen, 4, 1),
-            create_token(TokenKind::SemiColon, 5, 1),
+            create_token(TokenKind::Union, 0, 1),
+            create_token(TokenKind::Identifier("x".into()), 1, 1),
+            create_token(TokenKind::FatArrow, 2, 2),
+            create_token(TokenKind::LeftParen, 4, 1),
+            create_token(TokenKind::RightParen, 5, 1),
         ];
         let input = mock_token_stream(&tokens);
         let result = parse_case_stmt_branch(input);
