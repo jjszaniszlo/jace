@@ -1,3 +1,7 @@
+# Information
+## Author: John Szaniszlo
+## Class: COMP 430
+
 # Jace Language
 
 A Haskell inspired compiler that targets Lua.
