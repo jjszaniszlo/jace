@@ -23,12 +23,12 @@ fn main() {
     let args = Cli::parse();
     
     match args.command {
-       Command::Run { path } => compiler_pipeline(path),
-       Command::Build { path } => println!("Building: {path:?}"),
+       Command::Run { path } => compiler_pipeline_run(path),
+       Command::Build { path } => compiler_pipeline_build(path),
     }
 }
 
-fn compiler_pipeline(path: PathBuf) {
+fn compiler_pipeline_build(path: PathBuf) {
     if path.is_file() {
         let mut f = err::error_maybe(
             File::open(path.clone()),
@@ -48,7 +48,6 @@ fn compiler_pipeline(path: PathBuf) {
 
         match parser::parse(&toks, jcf) {
             Ok(m) => {
-                print!("Parsed: {m:#?}");
                 let mut emitter = LuaEmitter::new();
                 let lua_code = m.accept(&mut emitter);
 
@@ -61,6 +60,45 @@ fn compiler_pipeline(path: PathBuf) {
                 let _write = err::error_maybe(
                     f.write_all(lua_code.as_bytes()),
                     "Write Error".to_string());
+            },
+            Err(e) => todo!(),
+        }
+
+
+    } else if path.is_dir() {
+        println!("Opening dir {path:?}");
+    } 
+}
+
+
+fn compiler_pipeline_run(path: PathBuf) {
+    if path.is_file() {
+        let mut f = err::error_maybe(
+            File::open(path.clone()),
+            format!("File Error '{:?}'", path));
+
+        let mut buf = String::new();
+
+        let _read = err::error_maybe(
+            f.read_to_string(&mut buf),
+            "Read Error".to_string());
+
+        let jcf = JaceFile::new("foo", &buf);
+        let mut lexer = Lexer::new(jcf).into_iter();
+        let toks = lexer
+            .filter_map(|t| t.ok())
+            .collect::<Vec<Token>>();
+
+        match parser::parse(&toks, jcf) {
+            Ok(m) => {
+                let mut emitter = LuaEmitter::new();
+                let lua_code = m.accept(&mut emitter);
+
+                // use mlua to run lua_code
+                let lua = mlua::Lua::new();
+                let _res = err::error_maybe(
+                    lua.load(&lua_code).exec(),
+                    "Lua Error".to_string());
             },
             Err(e) => todo!(),
         }
