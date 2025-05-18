@@ -2,6 +2,9 @@
 
 A Haskell inspired compiler that targets Lua.
 
+- Author: John Szaniszlo
+- Class: COMP 430
+
 # Why this language design
 
 I've programmed a bit here and there in Haskell and OCaml and found them interesting enough to want to learn how they work.  A good way for me to learn is by doing and so attempting to build a language similar to them is a good way for me to learn.
