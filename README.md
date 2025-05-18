@@ -86,3 +86,4 @@ def main :: ()
 ```
 
 Please look to the examples in the `examples/` directory for language features and examples.
+Within this directory there is also a set of "guides" for various language features, these are the numbered files 1-4.jc.

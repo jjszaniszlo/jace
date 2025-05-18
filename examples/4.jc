@@ -1,0 +1,19 @@
+
+type Result V E :: Ok V | Err E
+
+def divide :: Float, Float => Result Float String
+case
+| _, 0 => Err "Cannot divide by zero"
+| a, b => Ok (a / b)
+
+def check_divide :: Result Float String => ()
+case
+| Ok a => print "ok: " a
+| Err e => print "err: " e
+
+def main :: ()
+    ok_test := (divide 4 2)
+    err_test := (divide 4 0)
+
+    (check_divide ok_test)
+    (check_divide err_test)

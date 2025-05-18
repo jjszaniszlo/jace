@@ -48,6 +48,7 @@ fn compiler_pipeline_build(path: PathBuf) {
 
         match parser::parse(&toks, jcf) {
             Ok(m) => {
+                print!("Parsed module: {m:#?}");
                 let mut emitter = LuaEmitter::new();
                 let lua_code = m.accept(&mut emitter);
 

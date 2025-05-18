@@ -1,0 +1,21 @@
+
+-- a function follows this syntax.
+def sum :: Integer, Integer => Integer
+do
+    a, b => a + b
+
+-- if-then-elseif-else expressions
+
+def foo :: Integer => Integer
+do
+    a => if a < -1           then 0
+    elseif  a > -1 && a < 1  then 1
+                             else 2
+
+def main :: ()
+    (print "my sum:" (sum 1 2))
+    -- unary expressions broke last minute.  Decided to leave this quirk in :)
+    (print "foo(-10):" (foo (0 - 10)))
+    (print "foo(0): " (foo 0))
+    (print "foo(10):" (foo 10))
+    

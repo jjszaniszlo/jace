@@ -167,8 +167,26 @@ impl Visitor for LuaEmitter {
                 path
             },
             Expr::LitExpr(literal, _) => literal.accept(self),
-            Expr::SetExpr(items, range) => todo!(),
-            Expr::ArrayExpr(exprs, _) => todo!(),
+            Expr::SetExpr(items, range) => {
+                let items = items
+                    .iter()
+                    .map(|(i, e)| {
+                        let ident = i.accept(self);
+                        let expr = e.accept(self);
+                        format!("{} = {}", ident, expr)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{{{}}}", items)
+            },
+            Expr::ArrayExpr(exprs, _) => {
+                let items = exprs
+                    .iter()
+                    .map(|e| e.accept(self))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{{{}}}", items) 
+            },
             Expr::TupleExpr(exprs, _) => todo!(),
             Expr::UnaryOp(unary_operator, p, _) => {
                 let inner = p.accept(self);
@@ -179,7 +197,22 @@ impl Visitor for LuaEmitter {
                 let right = p1.accept(self);
                 format!("{} {} {}", left, bin_operator.accept(self), right)
             },
-            Expr::LetInExpr(stmts, p, _) => todo!(),
+            Expr::LetInExpr(stmts, expr, _) => {
+                let stmts = stmts
+                    .iter()
+                    .map(|s| s.accept(self))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let mut result = String::new();
+                // wrap the statements in a function and call it
+                result.push_str(&format!("{}(function()\n", self.indent()));
+                self.increase_indent();
+                result.push_str(&format!("{}\n", stmts));
+                result.push_str(&format!("{}return {}\n", self.indent(), expr.accept(self)));
+                self.decrease_indent();
+                result.push_str(&format!("{}end)()", self.indent()));
+                result
+            },
             Expr::FnExpr(p, _) => todo!(),
             Expr::FnCallExpr(identifier, exprs, _) => {
                 let ident = identifier.accept(self);
@@ -197,7 +230,32 @@ impl Visitor for LuaEmitter {
                 format!("{}({})", path, args)
             },
             Expr::CaseExpr(identifier, items, _) => todo!(),
-            Expr::IfThenElseIfExpr(items, p, _) => todo!(),
+            Expr::IfThenElseIfExpr(items, p, _) => {
+                // wrap if then elseif else in a function and call it.
+                let mut result = String::new();
+                result.push_str(&format!("(function()\n"));
+                self.increase_indent();
+                for (i, item) in items.iter().enumerate() {
+                    if i == 0 {
+                        result.push_str(&format!("{}if ", self.indent()));
+                    } else {
+                        result.push_str(&format!("{}elseif ", self.indent()));
+                    }
+                    result.push_str(&item.0.accept(self));
+                    result.push_str(" then\n");
+                    self.increase_indent();
+                    result.push_str(&format!("{}return {}\n", self.indent(), item.1.accept(self)));
+                    self.decrease_indent();
+                }
+                result.push_str(&format!("{}else\n", self.indent()));
+                self.increase_indent();
+                result.push_str(&format!("{}return {}\n", self.indent(), p.accept(self)));
+                self.decrease_indent();
+                result.push_str(&format!("{}end\n", self.indent()));
+                self.decrease_indent();
+                result.push_str(&format!("{}end)()", self.indent()));
+                result
+            },
             Expr::MemberExpr(member_expr, _) => todo!(),
         }
     }

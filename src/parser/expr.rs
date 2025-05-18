@@ -73,7 +73,7 @@ pub fn parse_bin_op<'a>(min_bp: u8) -> impl Parser<'a, Expr> {
         let (mut input, mut lhs, mut span) = parse_primary().parse_next(input)?;
 
         loop {
-            let (mut rest, op, op_span) = match parse_operator().parse_next(input) {
+            let (rest, op, op_span) = match parse_operator().parse_next(input) {
                 Ok((i, o, sp)) => (i, o, sp),
                 Err(_) => break,
             };
