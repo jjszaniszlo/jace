@@ -3,8 +3,27 @@ name = "jace"
 version = "0.1.0"
 edition = "2021"
 
+# Performance optimizations
+[profile.release]
+# Maximum optimizations
+opt-level = 3
+# Enable link-time optimization for better performance and smaller binaries
+lto = "fat"
+# Reduce the number of code generation units for better optimization
+codegen-units = 1
+# Enable panic unwinding optimizations
+panic = "abort"
+# Strip debug symbols in release builds
+strip = true
+
+# Optimize for size in some dependencies
+[profile.release.package.mlua]
+opt-level = "s"
+
 [dependencies]
 thiserror = "2"
-mlua = { version = "0.10", features = ["luajit", "vendored"] }
-clap = { version = "4.5.28", features = ["derive"] }
-miette = { version = "7.5.0", features = ["fancy"] }
+# Optimize mlua features - remove unnecessary ones for smaller binary
+mlua = { version = "0.10", features = ["luajit", "vendored"], default-features = false }
+clap = { version = "4.5.28", features = ["derive", "std"] }
+# Reduce miette features for smaller binary but keep derive
+miette = { version = "7.5.0", features = ["fancy", "derive"] }

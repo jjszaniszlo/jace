@@ -39,17 +39,24 @@ impl Visitor for LuaEmitter {
     }
 
     fn visit_module(&mut self, module: &Module) -> String {
-        let mut result = module.0.iter()
-            .map(|def| def.accept(self))
-            .collect::<Vec<_>>()
-            .join("\n");
+        // Pre-allocate capacity for the result string to reduce reallocations
+        let mut result = String::with_capacity(module.0.len() * 100);
+        
+        for (i, def) in module.0.iter().enumerate() {
+            if i > 0 {
+                result.push('\n');
+            }
+            result.push_str(&def.accept(self));
+        }
+        
         // TODO: Differentiate between main module and other modules
         result.push_str("\nmain()");
         result
     }
 
     fn visit_def(&mut self, def: &Def) -> String {
-        let mut result = String::new();
+        // Pre-allocate capacity for definition output
+        let mut result = String::with_capacity(512);
         match def {
             Def::FnDef(identifier, _, _, _, fn_expr, _) => {
                 result.push_str(&format!("{}{} = ", self.indent(), identifier.accept(self)));
@@ -90,12 +97,14 @@ impl Visitor for LuaEmitter {
                             let constructor_name = variant_identifier.accept(self);
                             self.type_constructor_map.insert(constructor_name.clone(), ident.clone());
 
-                            let param_names = params
-                                .iter()
-                                .enumerate()
-                                .map(|(i, _)| format!("param{}", i + 1))
-                                .collect::<Vec<_>>()
-                                .join(", ");
+                            // Optimize parameter name generation
+                            let mut param_names = String::with_capacity(params.len() * 8);
+                            for (i, _) in params.iter().enumerate() {
+                                if i > 0 {
+                                    param_names.push_str(", ");
+                                }
+                                param_names.push_str(&format!("param{}", i + 1));
+                            }
 
                             result.push_str(&format!(
                                 "{}{}.{} = function({})\n",
@@ -167,25 +176,33 @@ impl Visitor for LuaEmitter {
                 path
             },
             Expr::LitExpr(literal, _) => literal.accept(self),
-            Expr::SetExpr(items, range) => {
-                let items = items
-                    .iter()
-                    .map(|(i, e)| {
-                        let ident = i.accept(self);
-                        let expr = e.accept(self);
-                        format!("{} = {}", ident, expr)
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("{{{}}}", items)
+            Expr::SetExpr(items, _range) => {
+                // Optimize set expression generation
+                let mut result = String::with_capacity(items.len() * 20);
+                result.push('{');
+                for (i, (ident, expr)) in items.iter().enumerate() {
+                    if i > 0 {
+                        result.push_str(", ");
+                    }
+                    result.push_str(&ident.accept(self));
+                    result.push_str(" = ");
+                    result.push_str(&expr.accept(self));
+                }
+                result.push('}');
+                result
             },
             Expr::ArrayExpr(exprs, _) => {
-                let items = exprs
-                    .iter()
-                    .map(|e| e.accept(self))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("{{{}}}", items) 
+                // Optimize array expression generation
+                let mut result = String::with_capacity(exprs.len() * 15);
+                result.push('{');
+                for (i, expr) in exprs.iter().enumerate() {
+                    if i > 0 {
+                        result.push_str(", ");
+                    }
+                    result.push_str(&expr.accept(self));
+                }
+                result.push('}');
+                result
             },
             Expr::TupleExpr(exprs, _) => todo!(),
             Expr::UnaryOp(unary_operator, p, _) => {
@@ -222,17 +239,20 @@ impl Visitor for LuaEmitter {
                     },
                     None => ident.clone(),
                 };
-                let args = exprs
-                    .iter()
-                    .map(|e| e.accept(self))
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                // Optimize function call argument generation
+                let mut args = String::with_capacity(exprs.len() * 10);
+                for (i, expr) in exprs.iter().enumerate() {
+                    if i > 0 {
+                        args.push_str(", ");
+                    }
+                    args.push_str(&expr.accept(self));
+                }
                 format!("{}({})", path, args)
             },
             Expr::CaseExpr(identifier, items, _) => todo!(),
             Expr::IfThenElseIfExpr(items, p, _) => {
                 // wrap if then elseif else in a function and call it.
-                let mut result = String::new();
+                let mut result = String::with_capacity(items.len() * 50);
                 result.push_str(&format!("(function()\n"));
                 self.increase_indent();
                 for (i, item) in items.iter().enumerate() {
@@ -298,11 +318,14 @@ impl Visitor for LuaEmitter {
     fn visit_fn_expr(&mut self, fn_expr: &FnExpr) -> String {
         match fn_expr {
             FnExpr::FnExpr(fn_pattern_params, expr, _) => {
-                let params = fn_pattern_params
-                    .iter()
-                    .map(|p| p.accept(self))
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                // Optimize parameter generation
+                let mut params = String::with_capacity(fn_pattern_params.len() * 8);
+                for (i, param) in fn_pattern_params.iter().enumerate() {
+                    if i > 0 {
+                        params.push_str(", ");
+                    }
+                    params.push_str(&param.accept(self));
+                }
                 format!(
                     "function({})\n{}return {}\nend",
                     params,
@@ -311,7 +334,8 @@ impl Visitor for LuaEmitter {
                 )
             }
             FnExpr::CaseFnExpr(branches, _) => {
-                let mut result = String::new();
+                // Pre-allocate capacity for case function generation
+                let mut result = String::with_capacity(branches.len() * 200);
 
                 let param_count = if let Some(FnExpr::FnExpr(params, _, _)) = branches.first() {
                     params.len()
@@ -436,11 +460,14 @@ impl Visitor for LuaEmitter {
     fn visit_stmt(&mut self, stmt: &Stmt) -> String {
         match stmt {
             Stmt::FnCallStmt(identifier, exprs, _) => {
-                        let args = exprs
-                            .iter()
-                            .map(|e| e.accept(self))
-                            .collect::<Vec<_>>()
-                            .join(", ");
+                        // Optimize function call statement generation
+                        let mut args = String::with_capacity(exprs.len() * 10);
+                        for (i, expr) in exprs.iter().enumerate() {
+                            if i > 0 {
+                                args.push_str(", ");
+                            }
+                            args.push_str(&expr.accept(self));
+                        }
                         format!("{}{}({})", self.indent(), identifier.accept(self), args)
                     }
             Stmt::Empty(range) => todo!(),

@@ -86,7 +86,9 @@ impl<'a> LexerIterator<'a> {
     }
 
     pub fn eat_identifier(&mut self, first_char: char, start_pos: usize) -> Token {
-        let mut identifier = String::from(first_char);
+        // Pre-allocate with reasonable capacity to reduce reallocations
+        let mut identifier = String::with_capacity(16);
+        identifier.push(first_char);
 
         while let Some(ch) = self.peek_char() {
             match ch {
@@ -120,7 +122,9 @@ impl<'a> LexerIterator<'a> {
 
     // parses integers and floats.  Handles all possible error cases.
     pub fn eat_number(&mut self, first_char: char, start_pos: usize) -> miette::Result<Token> {
-        let mut number = String::from(first_char);
+        // Pre-allocate with reasonable capacity for numbers
+        let mut number = String::with_capacity(8);
+        number.push(first_char);
 
         let mut found_point = false;
 
@@ -202,7 +206,9 @@ impl<'a> LexerIterator<'a> {
     }
 
     pub fn eat_symbol(&mut self, start_char: char, start_pos: usize) -> miette::Result<Token> {
-        let mut operator = String::from(start_char);
+        // Pre-allocate small capacity for operators
+        let mut operator = String::with_capacity(4);
+        operator.push(start_char);
 
         while let Some(ch) = self.peek_char() {
             match ch {
@@ -259,7 +265,9 @@ impl<'a> LexerIterator<'a> {
     }
 
     fn eat_wrapped_operator(&mut self, first_char: char, start_pos: usize) -> miette::Result<Token> {
-        let mut operator = String::from(first_char);
+        // Pre-allocate small capacity for wrapped operators
+        let mut operator = String::with_capacity(4);
+        operator.push(first_char);
         let bytes = operator.len();
         match self.peek_char() {
             Some(c @ ('=' | '!' | '<' | '>' | '+' | '-' | '/' | '*')) => {

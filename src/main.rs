@@ -1,5 +1,6 @@
 mod cli;
 mod err;
+mod interner;
 mod jace_file;
 mod lexer;
 mod parser;
@@ -12,8 +13,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use cli::{Cli, Command};
-use codegen::emitter;
-use miette::Report;
+// Removed unused imports for better compilation performance
 use jace_file::JaceFile;
 use crate::lexer::prelude::*;
 
@@ -31,7 +31,7 @@ fn main() {
 fn compiler_pipeline_build(path: PathBuf) {
     if path.is_file() {
         let mut f = err::error_maybe(
-            File::open(path.clone()),
+            File::open(&path),
             format!("File Error '{:?}'", path));
 
         let mut buf = String::new();
@@ -41,10 +41,14 @@ fn compiler_pipeline_build(path: PathBuf) {
             "Read Error".to_string());
 
         let jcf = JaceFile::new("foo", &buf);
-        let mut lexer = Lexer::new(jcf).into_iter();
-        let toks = lexer
-            .filter_map(|t| t.ok())
-            .collect::<Vec<Token>>();
+        let lexer = Lexer::new(jcf).into_iter();
+        // Pre-allocate token vector with reasonable capacity
+        let mut toks = Vec::with_capacity(1024);
+        for token_result in lexer {
+            if let Ok(token) = token_result {
+                toks.push(token);
+            }
+        }
 
         match parser::parse(&toks, jcf) {
             Ok(m) => {
@@ -75,7 +79,7 @@ fn compiler_pipeline_build(path: PathBuf) {
 fn compiler_pipeline_run(path: PathBuf) {
     if path.is_file() {
         let mut f = err::error_maybe(
-            File::open(path.clone()),
+            File::open(&path),
             format!("File Error '{:?}'", path));
 
         let mut buf = String::new();
@@ -85,10 +89,14 @@ fn compiler_pipeline_run(path: PathBuf) {
             "Read Error".to_string());
 
         let jcf = JaceFile::new("foo", &buf);
-        let mut lexer = Lexer::new(jcf).into_iter();
-        let toks = lexer
-            .filter_map(|t| t.ok())
-            .collect::<Vec<Token>>();
+        let lexer = Lexer::new(jcf).into_iter();
+        // Pre-allocate token vector with reasonable capacity
+        let mut toks = Vec::with_capacity(1024);
+        for token_result in lexer {
+            if let Ok(token) = token_result {
+                toks.push(token);
+            }
+        }
 
         match parser::parse(&toks, jcf) {
             Ok(m) => {
