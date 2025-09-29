@@ -7,7 +7,6 @@ use crate::parser::ptr::*;
 use crate::parser::stmt::*;
 use crate::parser::tokenstream::{TokenResult, TokenStream};
 
-use super::def::parse_fn_body;
 use super::def::parse_fn_body_single;
 
 pub fn parse_expression(input: TokenStream) -> Output<Expr> {
@@ -223,7 +222,7 @@ pub fn parse_fn_arg(input: TokenStream) -> Output<Expr> {
 
 pub fn parse_fn_arg_identifier<'a>() -> impl Parser<'a, Expr> {
     left(
-        parse_identifier().map(|(i), span| Expr::IdentExpr(i, span)),
+        parse_identifier().map(|i, span| Expr::IdentExpr(i, span)),
         not(
             or_n(vec![
                 BoxedParser::new(match_token(TokenKind::Comma)),

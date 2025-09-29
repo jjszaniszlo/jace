@@ -8,7 +8,7 @@ use crate::parser::prelude::match_token;
 use crate::parser::ptr::P;
 use crate::parser::tokenstream::TokenStream;
 
-use super::combinator::{left, not, zero_or_more};
+use super::combinator::zero_or_more;
 
 pub fn parse_type_param(input: TokenStream) -> Output<TypeParam> {
     or_n(vec![

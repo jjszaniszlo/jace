@@ -13,7 +13,7 @@ use crate::parser::typeparam::parse_type_param;
 
 pub fn parse_module<'a>() -> impl Parser<'a, Module> {
     zero_or_more(parse_def())
-        .map(|(defs), span| Module(defs, span))
+        .map(|defs, span| Module(defs, span))
 }
 
 pub fn parse_def<'a>() -> impl Parser<'a, Def> {
